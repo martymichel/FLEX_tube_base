@@ -128,6 +128,9 @@ class SettingsDialog(QDialog):
         # Schlecht-Teil Konfiguration
         self._create_bad_parts_section(form_layout)
         
+        # Gut-Teil Konfiguration
+        self._create_good_parts_section(form_layout)
+        
         # Helligkeitsüberwachung
         self._create_brightness_section(form_layout)
         
@@ -163,6 +166,14 @@ class SettingsDialog(QDialog):
         self.motion_threshold_spin = QSpinBox()
         self.motion_threshold_spin.setRange(1, 255)
         form_layout.addRow("Motion Threshold (1-255):", self.motion_threshold_spin)
+        
+        self.red_threshold_spin = QSpinBox()
+        self.red_threshold_spin.setRange(1, 20)
+        form_layout.addRow("Roter Rahmen Schwellwert:", self.red_threshold_spin)
+        
+        self.green_threshold_spin = QSpinBox()
+        self.green_threshold_spin.setRange(1, 20)
+        form_layout.addRow("Grüner Rahmen Schwellwert:", self.green_threshold_spin)
         
         self.settling_time_spin = QDoubleSpinBox()
         self.settling_time_spin.setRange(0.1, 10.0)
@@ -210,6 +221,32 @@ class SettingsDialog(QDialog):
         self.bad_part_confidence_spin.setSingleStep(0.1)
         self.bad_part_confidence_spin.setDecimals(2)
         form_layout.addRow("Mindest-Konfidenz für Schlecht-Teile:", self.bad_part_confidence_spin)
+    
+    def _create_good_parts_section(self, form_layout):
+        """Gut-Teil-Konfiguration erstellen."""
+        good_parts_label = QLabel("Gut-Teil Konfiguration")
+        good_parts_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(good_parts_label)
+        
+        self.good_part_classes_list = QListWidget()
+        self.good_part_classes_list.setMaximumHeight(100)
+        form_layout.addRow("Gut-Teil Klassen (IDs):", self.good_part_classes_list)
+        
+        # Input für neue Klassen-ID
+        good_class_input_layout = QHBoxLayout()
+        self.good_class_input = QSpinBox()
+        self.good_class_input.setRange(0, 999)
+        good_class_input_layout.addWidget(self.good_class_input)
+        
+        add_good_class_btn = QPushButton("Hinzufügen")
+        add_good_class_btn.clicked.connect(self.add_good_class)
+        good_class_input_layout.addWidget(add_good_class_btn)
+        
+        remove_good_class_btn = QPushButton("Entfernen")
+        remove_good_class_btn.clicked.connect(self.remove_good_class)
+        good_class_input_layout.addWidget(remove_good_class_btn)
+        
+        form_layout.addRow("Klassen-ID hinzufügen:", good_class_input_layout)
     
     def _create_brightness_section(self, form_layout):
         """Helligkeitsüberwachung erstellen."""
@@ -308,10 +345,28 @@ class SettingsDialog(QDialog):
         if current_row >= 0:
             self.bad_part_classes_list.takeItem(current_row)
     
+    def add_good_class(self):
+        """Gut-Teil Klasse hinzufügen."""
+        class_id = self.good_class_input.value()
+        # Prüfe ob bereits vorhanden
+        for i in range(self.good_part_classes_list.count()):
+            if self.good_part_classes_list.item(i).text() == str(class_id):
+                return  # Bereits vorhanden
+        
+        self.good_part_classes_list.addItem(str(class_id))
+    
+    def remove_good_class(self):
+        """Ausgewählte Gut-Teil Klasse entfernen."""
+        current_row = self.good_part_classes_list.currentRow()
+        if current_row >= 0:
+            self.good_part_classes_list.takeItem(current_row)
+    
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
         self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
+        self.red_threshold_spin.setValue(self.settings.get('red_threshold', 1))
+        self.green_threshold_spin.setValue(self.settings.get('green_threshold', 4))
         self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
         self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
@@ -321,6 +376,12 @@ class SettingsDialog(QDialog):
         self.bad_part_classes_list.clear()
         for class_id in bad_classes:
             self.bad_part_classes_list.addItem(str(class_id))
+        
+        # Gut-Teil Klassen laden
+        good_classes = self.settings.get('good_part_classes', [0])
+        self.good_part_classes_list.clear()
+        for class_id in good_classes:
+            self.good_part_classes_list.addItem(str(class_id))
         
         self.bad_part_confidence_spin.setValue(self.settings.get('bad_part_min_confidence', 0.5))
         self.brightness_low_spin.setValue(self.settings.get('brightness_low_threshold', 30))
@@ -335,6 +396,8 @@ class SettingsDialog(QDialog):
         """Einstellungen speichern."""
         self.settings.set('confidence_threshold', self.confidence_spin.value())
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
+        self.settings.set('red_threshold', self.red_threshold_spin.value())
+        self.settings.set('green_threshold', self.green_threshold_spin.value())
         self.settings.set('settling_time', self.settling_time_spin.value())
         self.settings.set('capture_time', self.capture_time_spin.value())
         self.settings.set('blow_off_time', self.blow_off_time_spin.value())
@@ -344,6 +407,12 @@ class SettingsDialog(QDialog):
         for i in range(self.bad_part_classes_list.count()):
             bad_classes.append(int(self.bad_part_classes_list.item(i).text()))
         self.settings.set('bad_part_classes', bad_classes)
+        
+        # Gut-Teil Klassen sammeln
+        good_classes = []
+        for i in range(self.good_part_classes_list.count()):
+            good_classes.append(int(self.good_part_classes_list.item(i).text()))
+        self.settings.set('good_part_classes', good_classes)
         
         self.settings.set('bad_part_min_confidence', self.bad_part_confidence_spin.value())
         self.settings.set('brightness_low_threshold', self.brightness_low_spin.value())

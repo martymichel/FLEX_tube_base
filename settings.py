@@ -1,6 +1,6 @@
 """
 Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen für industriellen Workflow mit Auto-Loading
+Verwaltet alle Anwendungseinstellungen für industriellen Workflow mit Auto-Loading und Modbus
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung für industriellen Workflow mit Auto-Loading."""
+    """Einfache Einstellungsverwaltung für industriellen Workflow mit Auto-Loading und Modbus."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -61,7 +61,7 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
     
     def get_defaults(self):
-        """Standardeinstellungen für industriellen Workflow mit Auto-Loading.
+        """Standardeinstellungen für industriellen Workflow mit Auto-Loading und Modbus.
         
         Returns:
             dict: Standardeinstellungen
@@ -87,10 +87,27 @@ class Settings:
             'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
             'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile
             
+            # Gut-Teil Erkennung
+            'good_part_classes': [0],     # Klassen-IDs die als "gut" gelten
+            
+            # Rahmen-Schwellenwerte
+            'red_threshold': 1,           # Mindestanzahl für roten Rahmen (schlechte Teile)
+            'green_threshold': 4,         # Mindestanzahl für grünen Rahmen (gute Teile)
+            
             # Helligkeitsüberwachung
             'brightness_low_threshold': 30,      # Untere Helligkeitsschwelle
             'brightness_high_threshold': 220,    # Obere Helligkeitsschwelle
             'brightness_duration_threshold': 3.0, # Warndauer in Sekunden
+            
+            # MODBUS-Einstellungen (WAGO)
+            'modbus_enabled': True,                        # Modbus aktiviert
+            'modbus_ip': '192.168.1.100',                 # WAGO IP-Adresse
+            'modbus_port': 502,                           # Modbus-TCP Port
+            'watchdog_timeout_seconds': 5,                # Watchdog-Timeout in Sekunden
+            'watchdog_interval_seconds': 2,               # Watchdog-Trigger-Intervall
+            'reject_coil_address': 0,                     # Coil-Adresse für Ausschuss-Signal
+            'detection_active_coil_address': 1,           # Coil-Adresse für Detection-Active
+            'reject_coil_duration_seconds': 1.0,          # Dauer des Ausschuss-Signals
             
             # UI-Einstellungen
             'sidebar_width': 350,

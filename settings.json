@@ -13,13 +13,18 @@
   "settling_time": 0.3,
   "capture_time": 1.5,
   "clearing_time": 1.0,
-  "brightness_low_threshold": 131,
-  "brightness_high_threshold": 133,
+  "brightness_low_threshold": 120,
+  "brightness_high_threshold": 140,
   "brightness_duration_threshold": 1.0,
   "blow_off_time": 1.0,
   "bad_part_classes": [
     1
   ],
   "bad_part_min_confidence": 0.6,
-  "last_mode_was_video": true
+  "last_mode_was_video": true,
+  "red_threshold": 1,
+  "green_threshold": 4,
+  "good_part_classes": [
+    0
+  ]
 }

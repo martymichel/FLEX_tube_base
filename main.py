@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
-Mit Counter, Motion-Anzeige und optimiertem Layout
+Mit Counter, Motion-Anzeige, WAGO Modbus-Schnittstelle und optimiertem Layout
 """
 
 import sys
@@ -12,14 +12,15 @@ import cv2
 import numpy as np
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 
 # Eigene Module
 from detection_engine import DetectionEngine
 from camera_manager import CameraManager  
 from settings import Settings
-from ui import MainUI  # Jetzt aus dem ui-Package
+from ui.main_ui import MainUI  # Direkter Import aus main_ui
 from user_manager import UserManager
+from modbus_manager import ModbusManager
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -32,11 +33,11 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung für industrielle KI-Objekterkennung mit Counter und Motion-Anzeige."""
+    """Hauptanwendung für industrielle KI-Objekterkennung mit Counter, Motion-Anzeige und WAGO Modbus."""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("KI-Objekterkennung - Industriell")
+        self.setWindowTitle("KI-Objekterkennung - Industriell mit WAGO Modbus")
         self.setWindowState(Qt.WindowState.WindowFullScreen)
         
         # Komponenten initialisieren
@@ -45,12 +46,18 @@ class DetectionApp(QMainWindow):
         self.camera_manager = CameraManager()
         self.detection_engine = DetectionEngine()
         
+        # MODBUS-Manager initialisieren
+        self.modbus_manager = ModbusManager(self.settings)
+        
         # UI aufbauen
         self.ui = MainUI(self)
         self.setCentralWidget(self.ui)
         
         # Verbindungen herstellen
         self.setup_connections()
+        
+        # ESC-Taste für schnelles Beenden
+        self.setup_exit_shortcuts()
         
         # Status
         self.running = False
@@ -95,10 +102,102 @@ class DetectionApp(QMainWindow):
         self.settings_timer.timeout.connect(self.check_settings_changes)
         self.settings_timer.start(2000)  # Alle 2 Sekunden prüfen
         
+        # MODBUS initialisieren
+        self.initialize_modbus()
+        
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
-        logging.info("DetectionApp gestartet - Industrieller Workflow mit Counter und Motion-Anzeige")
+        logging.info("DetectionApp gestartet - Industrieller Workflow mit WAGO Modbus")
+    
+    def initialize_modbus(self):
+        """WAGO Modbus initialisieren."""
+        if not self.settings.get('modbus_enabled', True):
+            logging.info("Modbus deaktiviert in den Einstellungen")
+            return
+        
+        try:
+            logging.info("Initialisiere WAGO Modbus-Verbindung...")
+            
+            # Verbindung herstellen
+            if self.modbus_manager.connect():
+                # Watchdog starten
+                if self.modbus_manager.start_watchdog():
+                    logging.info("WAGO Watchdog erfolgreich gestartet")
+                else:
+                    logging.warning("WAGO Watchdog konnte nicht gestartet werden")
+                
+                # Coil-Refresh starten
+                if self.modbus_manager.start_coil_refresh():
+                    logging.info("WAGO Coil-Refresh erfolgreich gestartet")
+                else:
+                    logging.warning("WAGO Coil-Refresh konnte nicht gestartet werden")
+                
+                # UI Status aktualisieren
+                self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
+                
+            else:
+                logging.error("WAGO Modbus-Verbindung fehlgeschlagen")
+                self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+                
+        except Exception as e:
+            logging.error(f"Fehler bei WAGO Modbus-Initialisierung: {e}")
+            self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+    
+    def setup_exit_shortcuts(self):
+        """ESC-Taste und andere Exit-Shortcuts einrichten."""
+        # ESC-Taste für schnelles Beenden
+        self.esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self.esc_shortcut.activated.connect(self.quit_application)
+        
+        # Ctrl+Q als alternative (Standard unter Linux/Windows)
+        self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
+        self.quit_shortcut.activated.connect(self.quit_application)
+        
+        logging.info("Exit shortcuts eingerichtet: ESC und Ctrl+Q")
+    
+    def quit_application(self):
+        """Anwendung schnell und sauber beenden."""
+        logging.info("Schnelles Beenden der Anwendung eingeleitet...")
+        
+        try:
+            # 1. Sofort alle Timer stoppen
+            if hasattr(self, 'update_timer'):
+                self.update_timer.stop()
+            if hasattr(self, 'settings_timer'):
+                self.settings_timer.stop()
+            
+            # 2. Detection sofort stoppen (wichtig für Thread-Safety)
+            if self.running:
+                self.stop_detection()
+            
+            # 3. MODBUS sauber trennen
+            try:
+                self.modbus_manager.disconnect()
+                logging.info("WAGO Modbus-Verbindung getrennt")
+            except Exception as e:
+                logging.warning(f"Fehler beim Trennen der Modbus-Verbindung: {e}")
+            
+            # 4. UI Status aktualisieren
+            if hasattr(self, 'ui'):
+                self.ui.show_status("Beende Anwendung...", "warning")
+                QApplication.processEvents()  # UI aktualisieren
+            
+            # 5. Einstellungen speichern (schnell)
+            try:
+                self.settings.save()
+                logging.info("Einstellungen gespeichert")
+            except Exception as e:
+                logging.warning(f"Einstellungen konnten nicht gespeichert werden: {e}")
+            
+            # 6. Anwendung beenden
+            logging.info("Anwendung wird beendet")
+            QApplication.quit()
+            
+        except Exception as e:
+            logging.error(f"Fehler beim Beenden der Anwendung: {e}")
+            # Notfall-Exit
+            sys.exit(0)
     
     def auto_load_on_startup(self):
         """Automatisches Laden von Modell und Kamera beim Start."""
@@ -158,6 +257,9 @@ class DetectionApp(QMainWindow):
         self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
         self.ui.login_btn.clicked.connect(self.toggle_login)
         self.ui.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
+        
+        # BEENDEN Button verbinden
+        self.ui.quit_btn.clicked.connect(self.quit_application)
     
     def toggle_login(self):
         """Login/Logout umschalten."""
@@ -189,7 +291,15 @@ class DetectionApp(QMainWindow):
                     self.ui.show_status("Einstellungen geändert - Bitte Erkennung neu starten", "warning")
                 else:
                     # Einstellungen neu laden
+                    old_settings = self.settings.data.copy()
                     self.settings.load()
+                    
+                    # Prüfe ob Modbus-Einstellungen geändert wurden
+                    modbus_changed = self.modbus_manager.update_settings(self.settings.data)
+                    if modbus_changed:
+                        logging.info("Modbus-Einstellungen geändert - Neuverbindung...")
+                        self.initialize_modbus()
+                    
                     self.ui.show_status("Einstellungen aktualisiert", "info")
         except:
             pass  # Datei existiert möglicherweise nicht
@@ -227,6 +337,10 @@ class DetectionApp(QMainWindow):
                 # Robuste Bewegungserkennung initialisieren
                 self.init_robust_motion_detection()
                 
+                # MODBUS: Detection-Active-Signal setzen
+                if self.modbus_manager.connected:
+                    self.modbus_manager.set_detection_active_coil(True)
+                
                 self.update_timer.start(30)  # ~30 FPS
                 self.ui.start_btn.setText("Stoppen")
                 self.ui.show_status("Bereit - Warte auf Förderband-Bewegung", "success")
@@ -261,15 +375,32 @@ class DetectionApp(QMainWindow):
         logging.info("Robuste Motion-Detection initialisiert - Threshold bleibt einstellbar")
     
     def stop_detection(self):
-        """Erkennung stoppen."""
+        """Erkennung stoppen - SCHNELL und thread-safe."""
+        logging.info("Stoppe Detection schnell und sauber...")
+        
+        # 1. Sofort Running-Flag setzen
         self.running = False
-        self.update_timer.stop()
-        self.camera_manager.stop()
+        
+        # 2. Timer sofort stoppen
+        if hasattr(self, 'update_timer'):
+            self.update_timer.stop()
+        
+        # 3. MODBUS: Detection-Active-Signal ausschalten
+        if self.modbus_manager.connected:
+            self.modbus_manager.set_detection_active_coil(False)
+        
+        # 4. Kamera stoppen (kann etwas dauern)
+        try:
+            self.camera_manager.stop()
+        except Exception as e:
+            logging.warning(f"Fehler beim Stoppen der Kamera: {e}")
+        
+        # 5. UI sofort aktualisieren
         self.ui.start_btn.setText("Starten")
         self.ui.show_status("Bereit", "ready")
         self.ui.update_workflow_status("READY")
         
-        # Workflow-Status zurücksetzen
+        # 6. Workflow-Status zurücksetzen
         self.reset_workflow()
         self.bg_subtractor = None
         
@@ -278,6 +409,10 @@ class DetectionApp(QMainWindow):
     def process_frame(self):
         """Aktuelles Frame verarbeiten."""
         try:
+            # Schneller Exit-Check
+            if not self.running:
+                return
+                
             frame = self.camera_manager.get_frame()
             if frame is None:
                 return
@@ -293,7 +428,7 @@ class DetectionApp(QMainWindow):
             
             # KI-Erkennung nur während Aufnahme-Phase
             detections = []
-            if self.detection_running:
+            if self.detection_running and self.running:  # Doppel-Check für schnelles Beenden
                 detections = self.detection_engine.detect(frame)
                 self.current_frame_detections = detections
                 
@@ -303,9 +438,10 @@ class DetectionApp(QMainWindow):
             # Frame mit Erkennungen zeichnen
             annotated_frame = self.detection_engine.draw_detections(frame, detections)
             
-            # UI aktualisieren
-            self.ui.update_video(annotated_frame)
-            self.ui.update_last_cycle_stats(self.last_cycle_detections, self.current_frame_detections)
+            # UI aktualisieren (nur wenn noch running)
+            if self.running:
+                self.ui.update_video(annotated_frame)
+                self.ui.update_last_cycle_stats(self.last_cycle_detections, self.current_frame_detections)
                 
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
@@ -348,7 +484,7 @@ class DetectionApp(QMainWindow):
         self.ui.update_motion(self.current_motion_value)
     
     def process_industrial_workflow(self, frame):
-        """Industrieller Workflow mit robuster Motion-Detection."""
+        """Industrieller Workflow mit robuster Motion-Detection und MODBUS-Integration."""
         current_time = time.time()
         
         # Einstellungen (Threshold weiterhin einstellbar!)
@@ -416,6 +552,11 @@ class DetectionApp(QMainWindow):
                     # Schlechte Teile erkannt - Abblasen erforderlich
                     self.blow_off_active = True
                     self.blow_off_start_time = current_time
+                    
+                    # MODBUS: Ausschuss-Signal aktivieren
+                    if self.modbus_manager.connected:
+                        self.modbus_manager.set_reject_coil()
+                    
                     self.ui.show_status("Schlechte Teile erkannt - Abblasen aktiv", "error")
                     self.ui.update_workflow_status("BLOWING")
                     logging.info(f"Schlechte Teile erkannt - Abblas-Wartezeit: {blow_off_time}s")
@@ -520,20 +661,40 @@ class DetectionApp(QMainWindow):
             self.last_cycle_detections[class_name]['avg_confidence'] = sum(confidences) / len(confidences)
     
     def evaluate_detection_results(self):
-        """Erkennungsergebnisse auswerten."""
-        # Hole Bad Part Klassen aus Einstellungen
+        """Erkennungsergebnisse auswerten mit Priorisierung: Schlecht > Gut > Standard."""
+        # Hole alle relevanten Einstellungen
         bad_part_classes = self.settings.get('bad_part_classes', [])
+        good_part_classes = self.settings.get('good_part_classes', [])
+        red_threshold = self.settings.get('red_threshold', 1)
+        green_threshold = self.settings.get('green_threshold', 4)
         min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
         
-        # Prüfe auf schlechte Teile
+        # 1. PRIORITÄT: Prüfe auf schlechte Teile (Rote Rahmen)
         for class_name, stats in self.last_cycle_detections.items():
             class_id = stats.get('class_id', 0)
             max_conf = stats.get('max_confidence', 0.0)
+            count = stats.get('count', 0)
             
-            if class_id in bad_part_classes and max_conf >= min_confidence:
-                logging.info(f"Schlechtes Teil erkannt: {class_name} (Konfidenz: {max_conf:.2f})")
+            # Prüfe: Klasse in bad_part_classes UND Anzahl >= red_threshold UND Konfidenz >= min_confidence
+            if (class_id in bad_part_classes and 
+                count >= red_threshold and 
+                max_conf >= min_confidence):
+                logging.info(f"Schlechtes Teil erkannt: {class_name} (Anzahl: {count}, Konfidenz: {max_conf:.2f})")
                 return True
         
+        # 2. PRIORITÄT: Prüfe auf gute Teile (Grüne Rahmen) - nur wenn keine schlechten Teile
+        for class_name, stats in self.last_cycle_detections.items():
+            class_id = stats.get('class_id', 0)
+            count = stats.get('count', 0)
+            
+            # Prüfe: Klasse in good_part_classes UND Anzahl >= green_threshold
+            if (class_id in good_part_classes and 
+                count >= green_threshold):
+                logging.info(f"Gutes Teil erkannt: {class_name} (Anzahl: {count})")
+                return False  # Kein Abblasen erforderlich
+        
+        # 3. STANDARD: Weder schlechte noch gute Teile erfüllen Kriterien
+        logging.info("Keine eindeutige Klassifizierung - Standard: Kein Abblasen")
         return False
     
     def check_brightness(self, frame):
@@ -622,15 +783,20 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Fehler beim Speichern", "error")
     
     def closeEvent(self, event):
-        """Anwendung schließen."""
-        self.stop_detection()
-        self.settings.save()
-        event.accept()
+        """Sauberes Herunterfahren der Anwendung."""
+        logging.info("Application closing - performing cleanup")
+        try:
+            # Verwende die robuste quit_application Methode
+            self.quit_application()
+        except Exception as e:
+            logging.error(f"Error during application shutdown: {e}")
+        finally:
+            event.accept()
 
 def main():
     """Hauptfunktion."""
     app = QApplication(sys.argv)
-    app.setApplicationName("KI-Objekterkennung")
+    app.setApplicationName("KI-Objekterkennung mit WAGO Modbus")
     
     # Moderne Schriftart
     app.setFont(QFont("Segoe UI", 10))

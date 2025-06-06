@@ -1,0 +1,12 @@
+{
+  "confidence_threshold": 1.0,
+  "last_model": "P:/PY/FLEX_tube/template_ai_modell.pt",
+  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
+  "video_width": 320,
+  "video_height": 240,
+  "sidebar_width": 350,
+  "show_confidence": false,
+  "show_class_names": true,
+  "auto_save_snapshots": false,
+  "log_level": "INFO"
+}

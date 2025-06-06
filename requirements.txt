@@ -1,0 +1,13 @@
+# Grundlegende Pakete
+PyQt6>=6.4.0
+opencv-python>=4.7.0
+numpy<=2.0.0
+
+# KI/Machine Learning
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+
+# Optionale Pakete (je nach Verwendung)
+# ids-peak  # Für IDS Kameras (falls verfügbar)
+# pillow>=9.0.0  # Für erweiterte Bildverarbeitung

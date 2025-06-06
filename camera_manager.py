@@ -1,6 +1,6 @@
 """
 Kamera-Manager - einfach und zuverlässig
-Verwaltet Kamera-/Video-Eingabe
+Verwaltet Kamera-/Video-Eingabe mit Zeitstempel-Support
 """
 
 import cv2
@@ -18,7 +18,7 @@ except ImportError:
     logging.warning("IDS Peak nicht verfügbar - nur Standard-Kameras")
 
 class CameraManager:
-    """Einfacher Kamera-Manager."""
+    """Einfacher Kamera-Manager mit Zeitstempel-Support."""
     
     def __init__(self):
         self.camera = None
@@ -26,11 +26,12 @@ class CameraManager:
         self.source_type = None  # 'webcam', 'ids', 'video'
         self.source_info = None
         self.current_frame = None
+        self.start_time = None
         
         # IDS Kamera Setup
         self.ids_device = None
         self.ids_datastream = None
-        
+    
     def set_source(self, source):
         """Kamera/Video-Quelle setzen.
         
@@ -92,6 +93,8 @@ class CameraManager:
                 logging.error("Keine Quelle gesetzt")
                 return False
             
+            self.start_time = time.time()
+            
             if self.source_type == 'webcam':
                 return self._start_webcam()
             elif self.source_type == 'video':
@@ -104,6 +107,16 @@ class CameraManager:
         except Exception as e:
             logging.error(f"Fehler beim Starten: {e}")
             return False
+    
+    def get_current_time(self):
+        """Aktuelle Zeit seit Start.
+        
+        Returns:
+            float: Sekunden seit Start
+        """
+        if self.start_time is None:
+            return 0.0
+        return time.time() - self.start_time
     
     def _start_webcam(self):
         """Standard-Webcam starten."""
@@ -249,6 +262,7 @@ class CameraManager:
                 if self.ids_datastream:
                     self.ids_datastream = None
             
+            self.start_time = None
             logging.info("Kamera gestoppt")
             
         except Exception as e:

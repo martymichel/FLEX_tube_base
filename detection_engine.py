@@ -1,6 +1,6 @@
 """
 KI-Erkennungsmodul - einfach und robust
-Verwaltet das YOLO-Modell und die Objekterkennung
+Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Funktionen
 """
 
 import cv2
@@ -17,7 +17,7 @@ except ImportError:
     logging.warning("ultralytics nicht verfügbar - KI-Erkennung deaktiviert")
 
 class DetectionEngine:
-    """Einfache KI-Erkennungsengine."""
+    """Einfache KI-Erkennungsengine mit erweiterten Funktionen."""
     
     def __init__(self):
         self.model = None
@@ -31,6 +31,8 @@ class DetectionEngine:
             (255, 255, 0),  # Cyan
             (255, 0, 255),  # Magenta
             (0, 255, 255),  # Gelb
+            (128, 0, 128),  # Lila
+            (255, 165, 0),  # Orange
         ]
     
     def load_model(self, model_path):
@@ -173,3 +175,38 @@ class DetectionEngine:
         """
         self.confidence_threshold = max(0.0, min(1.0, threshold))
         logging.info(f"Konfidenz-Schwellwert auf {self.confidence_threshold} gesetzt")
+    
+    def get_detection_summary(self, detections):
+        """Zusammenfassung der Erkennungen erstellen.
+        
+        Args:
+            detections: Liste der Erkennungen
+            
+        Returns:
+            dict: Zusammenfassung mit Klassenanzahl
+        """
+        summary = {}
+        for detection in detections:
+            _, _, _, _, confidence, class_id = detection
+            class_name = self.class_names.get(class_id, f"Class {class_id}")
+            
+            if class_name not in summary:
+                summary[class_name] = {
+                    'count': 0,
+                    'max_confidence': 0.0,
+                    'avg_confidence': 0.0,
+                    'confidences': []
+                }
+            
+            summary[class_name]['count'] += 1
+            summary[class_name]['confidences'].append(confidence)
+            summary[class_name]['max_confidence'] = max(
+                summary[class_name]['max_confidence'], confidence
+            )
+        
+        # Durchschnittliche Konfidenz berechnen
+        for class_name in summary:
+            confidences = summary[class_name]['confidences']
+            summary[class_name]['avg_confidence'] = sum(confidences) / len(confidences)
+        
+        return summary

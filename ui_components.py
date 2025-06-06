@@ -1,6 +1,6 @@
 """
 UI-Komponenten - einfach und benutzerfreundlich
-Moderne, touch-freundliche Benutzeroberfläche
+Moderne, touch-freundliche Benutzeroberfläche mit erweiterten Funktionen
 """
 
 import os
@@ -8,19 +8,21 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QSplitter, QFrame, QFileDialog, QDialog, QSpinBox,
     QDoubleSpinBox, QCheckBox, QFormLayout, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView, QToolButton
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QPixmap, QFont, QColor
 import cv2
 import numpy as np
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche."""
+    """Hauptbenutzeroberfläche mit erweiterten Funktionen."""
     
     def __init__(self, parent_app):
         super().__init__()
         self.app = parent_app
+        self.sidebar_visible = True
+        self.brightness_warning_visible = False
         self.setup_ui()
         
         # Statistiken
@@ -33,8 +35,8 @@ class MainUI(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Splitter für Sidebar und Hauptbereich
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        layout.addWidget(splitter)
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        layout.addWidget(self.splitter)
         
         # Sidebar erstellen
         sidebar = self.create_sidebar()
@@ -43,16 +45,16 @@ class MainUI(QWidget):
         main_area = self.create_main_area()
         
         # Zu Splitter hinzufügen
-        splitter.addWidget(sidebar)
-        splitter.addWidget(main_area)
+        self.splitter.addWidget(sidebar)
+        self.splitter.addWidget(main_area)
         
         # Größenverhältnis setzen
-        splitter.setSizes([350, 1000])
+        self.splitter.setSizes([350, 1000])
     
     def create_sidebar(self):
         """Sidebar mit Steuerelementen erstellen."""
-        sidebar = QFrame()
-        sidebar.setStyleSheet("""
+        self.sidebar = QFrame()
+        self.sidebar.setStyleSheet("""
             QFrame {
                 background-color: #2c3e50;
                 color: white;
@@ -74,23 +76,39 @@ class MainUI(QWidget):
             QPushButton:pressed {
                 background-color: #2980b9;
             }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+            }
             QLabel {
                 color: white;
                 font-size: 14px;
             }
         """)
-        sidebar.setMinimumWidth(320)
-        sidebar.setMaximumWidth(400)
+        self.sidebar.setMinimumWidth(320)
+        self.sidebar.setMaximumWidth(400)
         
-        layout = QVBoxLayout(sidebar)
+        layout = QVBoxLayout(self.sidebar)
         layout.setSpacing(15)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Titel
+        # Titel und Benutzerstatus
         title = QLabel("KI-Objekterkennung")
         title.setFont(QFont("", 18, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
+        
+        # Benutzerstatus
+        user_layout = QHBoxLayout()
+        self.user_label = QLabel("Benutzer: Gast")
+        self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 5px; border-radius: 4px;")
+        user_layout.addWidget(self.user_label)
+        
+        self.login_btn = QPushButton("🔑 Login")
+        self.login_btn.setMaximumWidth(80)
+        user_layout.addWidget(self.login_btn)
+        
+        layout.addLayout(user_layout)
         
         # Modell-Sektion
         model_section = QFrame()
@@ -127,6 +145,39 @@ class MainUI(QWidget):
         camera_layout.addWidget(self.camera_btn)
         
         layout.addWidget(camera_section)
+        
+        # Helligkeitsanzeige
+        brightness_section = QFrame()
+        brightness_layout = QVBoxLayout(brightness_section)
+        
+        brightness_label = QLabel("💡 Helligkeit:")
+        brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        brightness_layout.addWidget(brightness_label)
+        
+        self.brightness_info = QLabel("--")
+        self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.brightness_info.setStyleSheet("""
+            background-color: #34495e;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+        """)
+        brightness_layout.addWidget(self.brightness_info)
+        
+        self.brightness_warning = QLabel("⚠️ Beleuchtung prüfen!")
+        self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.brightness_warning.setStyleSheet("""
+            background-color: #e74c3c;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        """)
+        self.brightness_warning.setVisible(False)
+        brightness_layout.addWidget(self.brightness_warning)
+        
+        layout.addWidget(brightness_section)
         
         # Statistiken
         stats_label = QLabel("📊 Erkennungen:")
@@ -184,7 +235,7 @@ class MainUI(QWidget):
         # Stretch am Ende
         layout.addStretch()
         
-        return sidebar
+        return self.sidebar
     
     def create_main_area(self):
         """Hauptbereich mit Video und Status erstellen."""
@@ -199,7 +250,30 @@ class MainUI(QWidget):
         layout = QVBoxLayout(main_area)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Status oben
+        # Header mit Toggle-Button und Status
+        header_layout = QHBoxLayout()
+        
+        # Sidebar Toggle Button
+        self.sidebar_toggle_btn = QToolButton()
+        self.sidebar_toggle_btn.setText("≡")
+        self.sidebar_toggle_btn.setStyleSheet("""
+            QToolButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                font-size: 20px;
+                padding: 8px;
+                border-radius: 4px;
+                min-width: 40px;
+                min-height: 40px;
+            }
+            QToolButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        
+        # Status in der Mitte
         self.status_label = QLabel("Bereit")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("", 16, QFont.Weight.Bold))
@@ -209,10 +283,12 @@ class MainUI(QWidget):
                 color: white;
                 padding: 15px;
                 border-radius: 8px;
-                margin-bottom: 10px;
+                margin: 0 20px;
             }
         """)
-        layout.addWidget(self.status_label)
+        header_layout.addWidget(self.status_label, 1)
+        
+        layout.addLayout(header_layout)
         
         # Video-Bereich
         self.video_label = QLabel()
@@ -231,12 +307,44 @@ class MainUI(QWidget):
         
         return main_area
     
+    def toggle_sidebar(self):
+        """Sidebar ein-/ausblenden."""
+        if self.sidebar_visible:
+            # Sidebar ausblenden
+            self.splitter.setSizes([0, 1000])
+            self.sidebar_visible = False
+            self.sidebar_toggle_btn.setText("≡")
+        else:
+            # Sidebar einblenden
+            self.splitter.setSizes([350, 1000])
+            self.sidebar_visible = True
+            self.sidebar_toggle_btn.setText("‹")
+    
+    def update_user_interface(self):
+        """UI basierend auf Benutzerlevel aktualisieren."""
+        user_level = self.app.user_manager.get_user_level_text()
+        self.user_label.setText(f"Benutzer: {user_level}")
+        
+        # Button-Text ändern
+        if self.app.user_manager.is_admin():
+            self.login_btn.setText("🚪 Logout")
+            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #27ae60; padding: 5px; border-radius: 4px;")
+        else:
+            self.login_btn.setText("🔑 Login")
+            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 5px; border-radius: 4px;")
+        
+        # Buttons aktivieren/deaktivieren
+        can_admin = self.app.user_manager.is_admin()
+        self.model_btn.setEnabled(can_admin)
+        self.camera_btn.setEnabled(can_admin)
+        self.settings_btn.setEnabled(can_admin)
+    
     def show_status(self, message, status_type="info"):
         """Status anzeigen.
         
         Args:
             message (str): Status-Nachricht
-            status_type (str): 'info', 'success', 'error', 'ready'
+            status_type (str): 'info', 'success', 'error', 'ready', 'warning'
         """
         self.status_label.setText(message)
         
@@ -244,7 +352,8 @@ class MainUI(QWidget):
             'info': '#3498db',      # Blau
             'success': '#27ae60',   # Grün
             'error': '#e74c3c',     # Rot
-            'ready': '#95a5a6'      # Grau
+            'ready': '#95a5a6',     # Grau
+            'warning': '#f39c12'    # Orange
         }
         
         color = colors.get(status_type, '#95a5a6')
@@ -254,9 +363,39 @@ class MainUI(QWidget):
                 color: white;
                 padding: 15px;
                 border-radius: 8px;
-                margin-bottom: 10px;
+                margin: 0 20px;
             }}
         """)
+    
+    def update_brightness(self, brightness):
+        """Helligkeitsanzeige aktualisieren."""
+        self.brightness_info.setText(f"{brightness:.0f}")
+        
+        # Farbe je nach Helligkeit
+        if brightness < 50:
+            color = "#e74c3c"  # Rot (zu dunkel)
+        elif brightness > 200:
+            color = "#f39c12"  # Orange (zu hell)
+        else:
+            color = "#27ae60"  # Grün (gut)
+        
+        self.brightness_info.setStyleSheet(f"""
+            background-color: {color};
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+        """)
+    
+    def show_brightness_warning(self, message):
+        """Helligkeitswarnung anzeigen."""
+        self.brightness_warning.setText(f"⚠️ {message}")
+        self.brightness_warning.setVisible(True)
+    
+    def hide_brightness_warning(self):
+        """Helligkeitswarnung ausblenden."""
+        self.brightness_warning.setVisible(False)
     
     def update_video(self, frame):
         """Video-Frame aktualisieren.
@@ -358,7 +497,14 @@ class MainUI(QWidget):
     def open_settings_dialog(self, settings):
         """Einstellungen-Dialog öffnen."""
         dialog = SettingsDialog(settings, self)
-        dialog.exec()
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Warnung wenn Erkennung läuft
+            if self.app.running:
+                QMessageBox.information(
+                    self,
+                    "Einstellungen geändert",
+                    "Einstellungen wurden gespeichert.\n\nBitte stoppen Sie die Erkennung und starten Sie sie neu, damit die Änderungen wirksam werden."
+                )
 
 class CameraSelectionDialog(QDialog):
     """Dialog zur Kamera/Video-Auswahl."""
@@ -448,14 +594,14 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Einfacher Einstellungen-Dialog."""
+    """Erweiterte Einstellungen-Dialog."""
     
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
         self.setWindowTitle("Einstellungen")
         self.setModal(True)
-        self.resize(400, 300)
+        self.resize(600, 700)
         
         self.setup_ui()
         self.load_settings()
@@ -467,14 +613,64 @@ class SettingsDialog(QDialog):
         # Form für Einstellungen
         form_layout = QFormLayout()
         
-        # Konfidenz-Schwellwert
+        # KI-Einstellungen
+        ki_label = QLabel("KI-Einstellungen")
+        ki_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(ki_label)
+        
         self.confidence_spin = QDoubleSpinBox()
         self.confidence_spin.setRange(0.1, 1.0)
         self.confidence_spin.setSingleStep(0.1)
         self.confidence_spin.setDecimals(2)
         form_layout.addRow("Konfidenz-Schwellwert:", self.confidence_spin)
         
-        # Video-Auflösung
+        # Bewegungserkennung
+        motion_label = QLabel("Bewegungserkennung")
+        motion_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(motion_label)
+        
+        self.motion_threshold_spin = QSpinBox()
+        self.motion_threshold_spin.setRange(1, 255)
+        form_layout.addRow("Motion Threshold (1-255):", self.motion_threshold_spin)
+        
+        self.settling_time_spin = QDoubleSpinBox()
+        self.settling_time_spin.setRange(0.1, 10.0)
+        self.settling_time_spin.setSingleStep(0.1)
+        form_layout.addRow("Ausschwingzeit (Sekunden):", self.settling_time_spin)
+        
+        self.capture_time_spin = QDoubleSpinBox()
+        self.capture_time_spin.setRange(0.5, 10.0)
+        self.capture_time_spin.setSingleStep(0.1)
+        form_layout.addRow("Aufnahmezeit (Sekunden):", self.capture_time_spin)
+        
+        self.clearing_time_spin = QDoubleSpinBox()
+        self.clearing_time_spin.setRange(1.0, 30.0)
+        self.clearing_time_spin.setSingleStep(0.5)
+        form_layout.addRow("Wartezeit nach Ausschuss (Sekunden):", self.clearing_time_spin)
+        
+        # Helligkeitsüberwachung
+        brightness_label = QLabel("Helligkeitsüberwachung")
+        brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(brightness_label)
+        
+        self.brightness_low_spin = QSpinBox()
+        self.brightness_low_spin.setRange(1, 100)
+        form_layout.addRow("Untere Schwelle:", self.brightness_low_spin)
+        
+        self.brightness_high_spin = QSpinBox()
+        self.brightness_high_spin.setRange(150, 255)
+        form_layout.addRow("Obere Schwelle:", self.brightness_high_spin)
+        
+        self.brightness_duration_spin = QDoubleSpinBox()
+        self.brightness_duration_spin.setRange(1.0, 30.0)
+        self.brightness_duration_spin.setSingleStep(0.5)
+        form_layout.addRow("Warndauer (Sekunden):", self.brightness_duration_spin)
+        
+        # Video-Einstellungen
+        video_label = QLabel("Video-Einstellungen")
+        video_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(video_label)
+        
         self.width_spin = QSpinBox()
         self.width_spin.setRange(320, 1920)
         self.width_spin.setSingleStep(160)
@@ -486,6 +682,10 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Video-Höhe:", self.height_spin)
         
         # Anzeige-Optionen
+        display_label = QLabel("Anzeige-Optionen")
+        display_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(display_label)
+        
         self.show_confidence_check = QCheckBox()
         form_layout.addRow("Konfidenz anzeigen:", self.show_confidence_check)
         
@@ -514,6 +714,13 @@ class SettingsDialog(QDialog):
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
         self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
+        self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
+        self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
+        self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
+        self.clearing_time_spin.setValue(self.settings.get('clearing_time', 3.0))
+        self.brightness_low_spin.setValue(self.settings.get('brightness_low_threshold', 30))
+        self.brightness_high_spin.setValue(self.settings.get('brightness_high_threshold', 220))
+        self.brightness_duration_spin.setValue(self.settings.get('brightness_duration_threshold', 3.0))
         self.width_spin.setValue(self.settings.get('video_width', 1280))
         self.height_spin.setValue(self.settings.get('video_height', 720))
         self.show_confidence_check.setChecked(self.settings.get('show_confidence', True))
@@ -522,6 +729,13 @@ class SettingsDialog(QDialog):
     def save_settings(self):
         """Einstellungen speichern."""
         self.settings.set('confidence_threshold', self.confidence_spin.value())
+        self.settings.set('motion_threshold', self.motion_threshold_spin.value())
+        self.settings.set('settling_time', self.settling_time_spin.value())
+        self.settings.set('capture_time', self.capture_time_spin.value())
+        self.settings.set('clearing_time', self.clearing_time_spin.value())
+        self.settings.set('brightness_low_threshold', self.brightness_low_spin.value())
+        self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
+        self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
         self.settings.set('video_width', self.width_spin.value())
         self.settings.set('video_height', self.height_spin.value())
         self.settings.set('show_confidence', self.show_confidence_check.isChecked())
@@ -541,4 +755,5 @@ class SettingsDialog(QDialog):
         
         if reply == QMessageBox.StandardButton.Yes:
             self.settings.reset_to_defaults()
+            self.settings.save()
             self.load_settings()

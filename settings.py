@@ -1,6 +1,6 @@
 """
 Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen
+Verwaltet alle Anwendungseinstellungen mit erweiterten Funktionen
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung."""
+    """Einfache Einstellungsverwaltung mit erweiterten Funktionen."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -64,7 +64,7 @@ class Settings:
         """Standardeinstellungen zurückgeben.
         
         Returns:
-            dict: Standardeinstellungen
+            dict: Standardeinstellungen mit erweiterten Funktionen
         """
         return {
             # KI-Einstellungen
@@ -75,6 +75,17 @@ class Settings:
             'last_source': 0,
             'video_width': 1280,
             'video_height': 720,
+            
+            # Bewegungserkennung
+            'motion_threshold': 110,
+            'settling_time': 1.0,      # Ausschwingzeit in Sekunden
+            'capture_time': 3.0,       # Aufnahmezeit in Sekunden
+            'clearing_time': 3.0,      # Wartezeit nach Ausschuss in Sekunden
+            
+            # Helligkeitsüberwachung
+            'brightness_low_threshold': 30,      # Untere Helligkeitsschwelle
+            'brightness_high_threshold': 220,    # Obere Helligkeitsschwelle
+            'brightness_duration_threshold': 3.0, # Warndauer in Sekunden
             
             # UI-Einstellungen
             'sidebar_width': 350,

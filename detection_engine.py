@@ -1,6 +1,6 @@
 """
 KI-Erkennungsmodul - einfach und robust
-Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Funktionen
+Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Statistiken
 """
 
 import cv2
@@ -17,7 +17,7 @@ except ImportError:
     logging.warning("ultralytics nicht verfügbar - KI-Erkennung deaktiviert")
 
 class DetectionEngine:
-    """Einfache KI-Erkennungsengine mit erweiterten Funktionen."""
+    """Einfache KI-Erkennungsengine mit erweiterten Statistiken."""
     
     def __init__(self):
         self.model = None
@@ -177,13 +177,13 @@ class DetectionEngine:
         logging.info(f"Konfidenz-Schwellwert auf {self.confidence_threshold} gesetzt")
     
     def get_detection_summary(self, detections):
-        """Zusammenfassung der Erkennungen erstellen.
+        """Zusammenfassung der Erkennungen erstellen (wie komplexe App).
         
         Args:
             detections: Liste der Erkennungen
             
         Returns:
-            dict: Zusammenfassung mit Klassenanzahl
+            dict: Zusammenfassung mit Klassenanzahl und Statistiken
         """
         summary = {}
         for detection in detections:
@@ -195,7 +195,8 @@ class DetectionEngine:
                     'count': 0,
                     'max_confidence': 0.0,
                     'avg_confidence': 0.0,
-                    'confidences': []
+                    'confidences': [],
+                    'class_id': class_id
                 }
             
             summary[class_name]['count'] += 1
@@ -210,3 +211,35 @@ class DetectionEngine:
             summary[class_name]['avg_confidence'] = sum(confidences) / len(confidences)
         
         return summary
+    
+    def analyze_detection_quality(self, detections):
+        """Qualitätsanalyse der Erkennungen (erweiterte Funktion).
+        
+        Args:
+            detections: Liste der Erkennungen
+            
+        Returns:
+            dict: Qualitätsmetriken
+        """
+        if not detections:
+            return {
+                'total_detections': 0,
+                'avg_confidence': 0.0,
+                'high_confidence_count': 0,
+                'quality_score': 0.0
+            }
+        
+        confidences = [detection[4] for detection in detections]
+        total_detections = len(detections)
+        avg_confidence = sum(confidences) / total_detections
+        high_confidence_count = len([c for c in confidences if c > 0.8])
+        
+        # Qualitäts-Score basierend auf Konfidenz und Anzahl
+        quality_score = (avg_confidence * 0.7) + (high_confidence_count / total_detections * 0.3)
+        
+        return {
+            'total_detections': total_detections,
+            'avg_confidence': avg_confidence,
+            'high_confidence_count': high_confidence_count,
+            'quality_score': quality_score
+        }

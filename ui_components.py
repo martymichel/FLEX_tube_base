@@ -1,6 +1,6 @@
 """
-UI-Komponenten - einfach und benutzerfreundlich
-Moderne, touch-freundliche Benutzeroberfläche für industriellen Workflow
+UI-Komponenten - kompakt und fokussiert
+Status über Video, letzte Erkennung statt Session-Summen, keine Emojis
 """
 
 import os
@@ -8,7 +8,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QSplitter, QFrame, QFileDialog, QDialog, QSpinBox,
     QDoubleSpinBox, QCheckBox, QFormLayout, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QToolButton, QListWidget
+    QTableWidget, QTableWidgetItem, QHeaderView, QToolButton, QListWidget,
+    QGroupBox, QScrollArea, QProgressBar
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QPixmap, QFont, QColor
@@ -16,7 +17,7 @@ import cv2
 import numpy as np
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche für industriellen Workflow."""
+    """Hauptbenutzeroberfläche mit kompakter Sidebar."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -24,10 +25,6 @@ class MainUI(QWidget):
         self.sidebar_visible = True
         self.brightness_warning_visible = False
         self.setup_ui()
-        
-        # Statistiken
-        self.detection_counts = {}
-        self.total_detections = 0
     
     def setup_ui(self):
         """UI aufbauen."""
@@ -52,7 +49,7 @@ class MainUI(QWidget):
         self.splitter.setSizes([350, 1000])
     
     def create_sidebar(self):
-        """Sidebar mit Steuerelementen erstellen."""
+        """Kompakte Sidebar mit Steuerelementen erstellen."""
         self.sidebar = QFrame()
         self.sidebar.setStyleSheet("""
             QFrame {
@@ -64,11 +61,11 @@ class MainUI(QWidget):
                 background-color: #34495e;
                 color: white;
                 border: none;
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 14px;
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 13px;
                 font-weight: bold;
-                min-height: 20px;
+                min-height: 15px;
             }
             QPushButton:hover {
                 background-color: #3498db;
@@ -82,184 +79,219 @@ class MainUI(QWidget):
             }
             QLabel {
                 color: white;
-                font-size: 14px;
+                font-size: 13px;
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #34495e;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 4px;
+                background-color: #34495e;
+                border-radius: 3px;
+                font-size: 12px;
             }
         """)
-        self.sidebar.setMinimumWidth(320)
-        self.sidebar.setMaximumWidth(400)
+        self.sidebar.setMinimumWidth(300)
+        self.sidebar.setMaximumWidth(380)
         
-        layout = QVBoxLayout(self.sidebar)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        # Scrollbereich für Sidebar
+        scroll = QScrollArea()
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
-        # Titel und Benutzerstatus
+        sidebar_content = QWidget()
+        layout = QVBoxLayout(sidebar_content)
+        layout.setSpacing(10)  # Kompakter Abstand
+        layout.setContentsMargins(15, 15, 15, 15)  # Kompakte Ränder
+        
+        # Titel und Benutzerstatus (kompakt)
         title = QLabel("KI-Objekterkennung")
-        title.setFont(QFont("", 18, QFont.Weight.Bold))
+        title.setFont(QFont("", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
         
-        # Benutzerstatus
-        user_layout = QHBoxLayout()
+        # Benutzerstatus (kompakt)
+        user_group = QGroupBox("Benutzer")
+        user_layout = QVBoxLayout(user_group)
+        user_layout.setSpacing(5)
+        
+        user_info_layout = QHBoxLayout()
         self.user_label = QLabel("Benutzer: Gast")
-        self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 5px; border-radius: 4px;")
-        user_layout.addWidget(self.user_label)
+        self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 3px; border-radius: 3px; font-size: 11px;")
+        user_info_layout.addWidget(self.user_label, 1)
         
-        self.login_btn = QPushButton("🔑 Login")
-        self.login_btn.setMaximumWidth(80)
-        user_layout.addWidget(self.login_btn)
+        self.login_btn = QPushButton("Login")
+        self.login_btn.setMaximumWidth(50)
+        self.login_btn.setToolTip("Admin Login")
+        user_info_layout.addWidget(self.login_btn)
         
-        layout.addLayout(user_layout)
-        
-        # Modell-Sektion
-        model_section = QFrame()
-        model_layout = QVBoxLayout(model_section)
-        
-        model_label = QLabel("🤖 KI-Modell:")
-        model_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        model_layout.addWidget(model_label)
-        
-        self.model_info = QLabel("Kein Modell geladen")
-        self.model_info.setWordWrap(True)
-        self.model_info.setStyleSheet("color: #bdc3c7; font-style: italic;")
-        model_layout.addWidget(self.model_info)
-        
-        self.model_btn = QPushButton("📁 Modell laden")
-        model_layout.addWidget(self.model_btn)
-        
-        layout.addWidget(model_section)
-        
-        # Kamera-Sektion
-        camera_section = QFrame()
-        camera_layout = QVBoxLayout(camera_section)
-        
-        camera_label = QLabel("📹 Kamera/Video:")
-        camera_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        camera_layout.addWidget(camera_label)
-        
-        self.camera_info = QLabel("Keine Quelle ausgewählt")
-        self.camera_info.setWordWrap(True)
-        self.camera_info.setStyleSheet("color: #bdc3c7; font-style: italic;")
-        camera_layout.addWidget(self.camera_info)
-        
-        self.camera_btn = QPushButton("🎥 Quelle wählen")
-        camera_layout.addWidget(self.camera_btn)
-        
-        layout.addWidget(camera_section)
+        user_layout.addLayout(user_info_layout)
+        layout.addWidget(user_group)
         
         # Workflow-Status
-        workflow_section = QFrame()
-        workflow_layout = QVBoxLayout(workflow_section)
+        workflow_group = QGroupBox("Workflow")
+        workflow_layout = QVBoxLayout(workflow_group)
+        workflow_layout.setSpacing(5)
         
-        workflow_label = QLabel("⚙️ Workflow-Status:")
-        workflow_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        workflow_layout.addWidget(workflow_label)
-        
-        self.workflow_info = QLabel("Bereit")
+        workflow_info_layout = QHBoxLayout()
+        workflow_info_layout.addWidget(QLabel("Status:"))
+        self.workflow_info = QLabel("READY")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workflow_info.setStyleSheet("""
             background-color: #34495e;
             color: white;
-            padding: 8px;
+            padding: 5px;
             border-radius: 4px;
             font-weight: bold;
         """)
-        workflow_layout.addWidget(self.workflow_info)
+        workflow_info_layout.addWidget(self.workflow_info, 1)
+        workflow_layout.addLayout(workflow_info_layout)
         
-        layout.addWidget(workflow_section)
-        
-        # Helligkeitsanzeige
-        brightness_section = QFrame()
-        brightness_layout = QVBoxLayout(brightness_section)
-        
-        brightness_label = QLabel("💡 Helligkeit:")
-        brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        brightness_layout.addWidget(brightness_label)
-        
+        # Helligkeitsanzeige (kompakt)
+        brightness_layout = QHBoxLayout()
+        brightness_layout.addWidget(QLabel("Helligkeit:"))
         self.brightness_info = QLabel("--")
         self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.brightness_info.setStyleSheet("""
             background-color: #34495e;
-            padding: 10px;
+            padding: 5px;
             border-radius: 4px;
-            font-size: 16px;
             font-weight: bold;
+            min-width: 60px;
         """)
         brightness_layout.addWidget(self.brightness_info)
+        workflow_layout.addLayout(brightness_layout)
         
-        self.brightness_warning = QLabel("⚠️ Beleuchtung prüfen!")
+        # Helligkeitswarnung
+        self.brightness_warning = QLabel("Beleuchtung prüfen!")
         self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.brightness_warning.setStyleSheet("""
             background-color: #e74c3c;
             color: white;
-            padding: 8px;
+            padding: 5px;
             border-radius: 4px;
             font-weight: bold;
+            font-size: 11px;
         """)
         self.brightness_warning.setVisible(False)
-        brightness_layout.addWidget(self.brightness_warning)
+        workflow_layout.addWidget(self.brightness_warning)
         
-        layout.addWidget(brightness_section)
+        layout.addWidget(workflow_group)
         
-        # Statistiken
-        stats_label = QLabel("📊 Erkennungen:")
-        stats_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        layout.addWidget(stats_label)
+        # Modell-Sektion (kompakt)
+        model_group = QGroupBox("KI-Modell")
+        model_layout = QVBoxLayout(model_group)
+        model_layout.setSpacing(5)
         
-        self.stats_table = QTableWidget(0, 2)
-        self.stats_table.setHorizontalHeaderLabels(["Klasse", "Anzahl"])
-        self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.stats_table.verticalHeader().hide()
-        self.stats_table.setMaximumHeight(200)
-        self.stats_table.setStyleSheet("""
+        self.model_info = QLabel("Kein Modell geladen")
+        self.model_info.setWordWrap(True)
+        self.model_info.setStyleSheet("color: #bdc3c7; font-style: italic; font-size: 11px;")
+        model_layout.addWidget(self.model_info)
+        
+        self.model_btn = QPushButton("Modell laden")
+        model_layout.addWidget(self.model_btn)
+        
+        layout.addWidget(model_group)
+        
+        # Kamera-Sektion (kompakt)
+        camera_group = QGroupBox("Kamera/Video")
+        camera_layout = QVBoxLayout(camera_group)
+        camera_layout.setSpacing(5)
+        
+        self.camera_info = QLabel("Keine Quelle ausgewählt")
+        self.camera_info.setWordWrap(True)
+        self.camera_info.setStyleSheet("color: #bdc3c7; font-style: italic; font-size: 11px;")
+        camera_layout.addWidget(self.camera_info)
+        
+        self.camera_btn = QPushButton("Quelle wählen")
+        camera_layout.addWidget(self.camera_btn)
+        
+        layout.addWidget(camera_group)
+        
+        # Letzte Erkennung (NICHT Session-Summen)
+        stats_group = QGroupBox("Letzte Erkennung")
+        stats_layout = QVBoxLayout(stats_group)
+        stats_layout.setSpacing(5)
+        
+        # Aktuelle Frame-Erkennungen (kompakt)
+        self.current_frame_label = QLabel("Aktuell: 0")
+        self.current_frame_label.setStyleSheet("color: #f39c12; background-color: #34495e; padding: 3px; border-radius: 3px; font-size: 11px;")
+        stats_layout.addWidget(self.current_frame_label)
+        
+        # Detaillierte Tabelle für LETZTEN Zyklus (kompakter)
+        self.last_cycle_table = QTableWidget(0, 3)  # 3 Spalten
+        self.last_cycle_table.setHorizontalHeaderLabels(["Klasse", "Anz", "Max"])
+        self.last_cycle_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.last_cycle_table.verticalHeader().hide()
+        self.last_cycle_table.setMaximumHeight(150)  # Kompakter
+        self.last_cycle_table.setStyleSheet("""
             QTableWidget {
                 background-color: #34495e;
                 color: white;
                 border: none;
                 border-radius: 4px;
+                font-size: 11px;
             }
             QHeaderView::section {
                 background-color: #2c3e50;
                 color: white;
                 border: none;
-                padding: 5px;
+                padding: 3px;
+                font-size: 11px;
             }
         """)
-        layout.addWidget(self.stats_table)
+        stats_layout.addWidget(self.last_cycle_table)
         
-        # Frame-Zähler
-        self.frame_counter = QLabel("Frames: 0")
-        self.frame_counter.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 8px; border-radius: 4px;")
-        layout.addWidget(self.frame_counter)
+        layout.addWidget(stats_group)
         
-        # Aktionen
-        layout.addWidget(QLabel())  # Spacer
+        # Aktionen (kompakt)
+        actions_group = QGroupBox("Aktionen")
+        actions_layout = QVBoxLayout(actions_group)
+        actions_layout.setSpacing(5)
         
-        self.start_btn = QPushButton("▶ Starten")
+        self.start_btn = QPushButton("Starten")
         self.start_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27ae60;
-                font-size: 16px;
-                min-height: 50px;
+                font-size: 14px;
+                min-height: 35px;
             }
             QPushButton:hover {
                 background-color: #2ecc71;
             }
         """)
-        layout.addWidget(self.start_btn)
+        actions_layout.addWidget(self.start_btn)
         
-        self.snapshot_btn = QPushButton("📷 Schnappschuss")
-        layout.addWidget(self.snapshot_btn)
+        self.snapshot_btn = QPushButton("Schnappschuss")
+        actions_layout.addWidget(self.snapshot_btn)
         
-        self.settings_btn = QPushButton("⚙ Einstellungen")
-        layout.addWidget(self.settings_btn)
+        self.settings_btn = QPushButton("Einstellungen")
+        actions_layout.addWidget(self.settings_btn)
+        
+        layout.addWidget(actions_group)
         
         # Stretch am Ende
         layout.addStretch()
         
+        # Sidebar-Content zu Scroll hinzufügen
+        scroll.setWidget(sidebar_content)
+        
+        # Scroll zu Sidebar hinzufügen
+        sidebar_layout = QVBoxLayout(self.sidebar)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.addWidget(scroll)
+        
         return self.sidebar
     
     def create_main_area(self):
-        """Hauptbereich mit Video und Status erstellen."""
+        """Hauptbereich mit Video und Status ÜBER dem Video erstellen."""
         main_area = QFrame()
         main_area.setStyleSheet("""
             QFrame {
@@ -294,7 +326,16 @@ class MainUI(QWidget):
         """)
         header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # Status in der Mitte
+        # Titel in der Mitte
+        title_label = QLabel("Live Video")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_label.setFont(QFont("", 16, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #2c3e50; padding: 10px;")
+        header_layout.addWidget(title_label, 1)
+        
+        layout.addLayout(header_layout)
+        
+        # STATUS ÜBER DEM VIDEO (wie gewünscht)
         self.status_label = QLabel("Bereit")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("", 16, QFont.Weight.Bold))
@@ -304,14 +345,12 @@ class MainUI(QWidget):
                 color: white;
                 padding: 15px;
                 border-radius: 8px;
-                margin: 0 20px;
+                margin-bottom: 10px;
             }
         """)
-        header_layout.addWidget(self.status_label, 1)
+        layout.addWidget(self.status_label)
         
-        layout.addLayout(header_layout)
-        
-        # Video-Bereich
+        # Video-Bereich (ohne Status-Overlay)
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setMinimumSize(640, 480)
@@ -323,7 +362,7 @@ class MainUI(QWidget):
                 font-size: 18px;
             }
         """)
-        self.video_label.setText("🎥\n\nKein Video")
+        self.video_label.setText("Kein Video")
         layout.addWidget(self.video_label, 1)  # Stretch factor 1
         
         return main_area
@@ -348,11 +387,13 @@ class MainUI(QWidget):
         
         # Button-Text ändern
         if self.app.user_manager.is_admin():
-            self.login_btn.setText("🚪 Logout")
-            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #27ae60; padding: 5px; border-radius: 4px;")
+            self.login_btn.setText("Logout")
+            self.login_btn.setToolTip("Admin Logout")
+            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #27ae60; padding: 3px; border-radius: 3px; font-size: 11px;")
         else:
-            self.login_btn.setText("🔑 Login")
-            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 5px; border-radius: 4px;")
+            self.login_btn.setText("Login")
+            self.login_btn.setToolTip("Admin Login")
+            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 3px; border-radius: 3px; font-size: 11px;")
         
         # Buttons aktivieren/deaktivieren
         can_admin = self.app.user_manager.is_admin()
@@ -360,20 +401,31 @@ class MainUI(QWidget):
         self.camera_btn.setEnabled(can_admin)
         self.settings_btn.setEnabled(can_admin)
     
+    def update_workflow_status(self, status):
+        """Workflow-Status aktualisieren."""
+        self.workflow_info.setText(status)
+        
+        # Farbe je nach Status
+        colors = {
+            'READY': '#95a5a6',      # Grau
+            'MOTION': '#f39c12',     # Orange  
+            'SETTLING': '#e67e22',   # Dunkelorange
+            'CAPTURING': '#27ae60',  # Grün
+            'BLOWING': '#e74c3c'     # Rot
+        }
+        
+        color = colors.get(status, '#34495e')
+        self.workflow_info.setStyleSheet(f"""
+            background-color: {color};
+            color: white;
+            padding: 5px;
+            border-radius: 4px;
+            font-weight: bold;
+        """)
+    
     def show_status(self, message, status_type="info"):
-        """Status anzeigen.
-        
-        Args:
-            message (str): Status-Nachricht
-            status_type (str): 'info', 'success', 'error', 'ready', 'warning'
-        """
+        """Status ÜBER dem Video anzeigen (wie gewünscht)."""
         self.status_label.setText(message)
-        
-        # Workflow-Info auch aktualisieren
-        if hasattr(self, 'workflow_info'):
-            # Kurze Version für Workflow-Status
-            short_status = self.app.detection_state.upper() if hasattr(self.app, 'detection_state') else "IDLE"
-            self.workflow_info.setText(short_status)
         
         colors = {
             'info': '#3498db',      # Blau
@@ -390,7 +442,7 @@ class MainUI(QWidget):
                 color: white;
                 padding: 15px;
                 border-radius: 8px;
-                margin: 0 20px;
+                margin-bottom: 10px;
             }}
         """)
     
@@ -409,27 +461,46 @@ class MainUI(QWidget):
         self.brightness_info.setStyleSheet(f"""
             background-color: {color};
             color: white;
-            padding: 10px;
+            padding: 5px;
             border-radius: 4px;
-            font-size: 16px;
             font-weight: bold;
+            min-width: 60px;
         """)
     
     def show_brightness_warning(self, message):
         """Helligkeitswarnung anzeigen."""
-        self.brightness_warning.setText(f"⚠️ {message}")
+        self.brightness_warning.setText(message)
         self.brightness_warning.setVisible(True)
     
     def hide_brightness_warning(self):
         """Helligkeitswarnung ausblenden."""
         self.brightness_warning.setVisible(False)
     
-    def update_video(self, frame):
-        """Video-Frame aktualisieren.
+    def update_last_cycle_stats(self, last_cycle_stats, current_frame_detections):
+        """Letzte Erkennungen aktualisieren (NICHT Session-Summen!)."""
+        # Aktuelle Frame-Erkennungen
+        current_count = len(current_frame_detections)
+        self.current_frame_label.setText(f"Aktuell: {current_count}")
         
-        Args:
-            frame: OpenCV-Frame (numpy array)
-        """
+        # Detaillierte Tabelle für LETZTEN Zyklus aktualisieren
+        self.last_cycle_table.setRowCount(len(last_cycle_stats))
+        
+        for row, (class_name, stats) in enumerate(last_cycle_stats.items()):
+            # Klasse
+            self.last_cycle_table.setItem(row, 0, QTableWidgetItem(class_name))
+            
+            # Anzahl im letzten Zyklus
+            count_item = QTableWidgetItem(str(stats['count']))
+            count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.last_cycle_table.setItem(row, 1, count_item)
+            
+            # Max Konfidenz im letzten Zyklus
+            max_conf_item = QTableWidgetItem(f"{stats['max_confidence']:.2f}")
+            max_conf_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.last_cycle_table.setItem(row, 2, max_conf_item)
+    
+    def update_video(self, frame):
+        """Video-Frame aktualisieren."""
         try:
             # Frame zu Qt-Format konvertieren
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -453,38 +524,8 @@ class MainUI(QWidget):
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")
     
-    def update_stats(self, detections):
-        """Statistiken aktualisieren.
-        
-        Args:
-            detections: Liste der Erkennungen
-        """
-        # Erkennungen zählen
-        for detection in detections:
-            _, _, _, _, _, class_id = detection
-            class_name = self.app.detection_engine.class_names.get(class_id, f"Class {class_id}")
-            
-            if class_name not in self.detection_counts:
-                self.detection_counts[class_name] = 0
-            self.detection_counts[class_name] += 1
-            self.total_detections += 1
-        
-        # Tabelle aktualisieren
-        self.stats_table.setRowCount(len(self.detection_counts))
-        for row, (class_name, count) in enumerate(self.detection_counts.items()):
-            self.stats_table.setItem(row, 0, QTableWidgetItem(class_name))
-            self.stats_table.setItem(row, 1, QTableWidgetItem(str(count)))
-    
-    def update_frame_count(self, count):
-        """Frame-Zähler aktualisieren."""
-        self.frame_counter.setText(f"Frames: {count}")
-    
     def select_model_file(self):
-        """Modell-Datei auswählen Dialog.
-        
-        Returns:
-            str oder None: Pfad zur Modell-Datei
-        """
+        """Modell-Datei auswählen Dialog."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "KI-Modell auswählen",
@@ -493,30 +534,26 @@ class MainUI(QWidget):
         )
         
         if file_path:
-            self.model_info.setText(os.path.basename(file_path))
-            self.model_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+            self.model_info.setText(f"Modell: {os.path.basename(file_path)}")
+            self.model_info.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 11px;")
             
         return file_path
     
     def select_camera_source(self):
-        """Kamera/Video-Quelle auswählen Dialog.
-        
-        Returns:
-            Quelle oder None
-        """
+        """Kamera/Video-Quelle auswählen Dialog."""
         dialog = CameraSelectionDialog(self.app.camera_manager, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             source = dialog.get_selected_source()
             if source:
                 # Info aktualisieren
                 if isinstance(source, int):
-                    self.camera_info.setText(f"Webcam {source}")
+                    self.camera_info.setText(f"Webcam: {source}")
                 elif isinstance(source, str):
-                    self.camera_info.setText(os.path.basename(source))
+                    self.camera_info.setText(f"Video: {os.path.basename(source)}")
                 elif isinstance(source, tuple):
-                    self.camera_info.setText(f"IDS Kamera {source[1]}")
+                    self.camera_info.setText(f"IDS Kamera: {source[1]}")
                 
-                self.camera_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                self.camera_info.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 11px;")
                 return source
         
         return None
@@ -554,7 +591,7 @@ class CameraSelectionDialog(QDialog):
         webcam_section = QFrame()
         webcam_layout = QVBoxLayout(webcam_section)
         
-        webcam_label = QLabel("📹 Webcams:")
+        webcam_label = QLabel("Webcams:")
         webcam_label.setFont(QFont("", 12, QFont.Weight.Bold))
         webcam_layout.addWidget(webcam_label)
         
@@ -574,7 +611,7 @@ class CameraSelectionDialog(QDialog):
         video_section = QFrame()
         video_layout = QVBoxLayout(video_section)
         
-        video_label = QLabel("🎬 Video-Datei:")
+        video_label = QLabel("Video-Datei:")
         video_label.setFont(QFont("", 12, QFont.Weight.Bold))
         video_layout.addWidget(video_label)
         
@@ -641,7 +678,7 @@ class SettingsDialog(QDialog):
         form_layout = QFormLayout()
         
         # KI-Einstellungen
-        ki_label = QLabel("🤖 KI-Einstellungen")
+        ki_label = QLabel("KI-Einstellungen")
         ki_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(ki_label)
         
@@ -652,7 +689,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Konfidenz-Schwellwert:", self.confidence_spin)
         
         # Industrieller Workflow
-        workflow_label = QLabel("⚙️ Industrieller Workflow")
+        workflow_label = QLabel("Industrieller Workflow")
         workflow_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(workflow_label)
         
@@ -676,7 +713,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Abblas-Wartezeit (Sekunden):", self.blow_off_time_spin)
         
         # Schlecht-Teil Konfiguration
-        bad_parts_label = QLabel("🚫 Schlecht-Teil Konfiguration")
+        bad_parts_label = QLabel("Schlecht-Teil Konfiguration")
         bad_parts_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(bad_parts_label)
         
@@ -707,7 +744,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Mindest-Konfidenz für Schlecht-Teile:", self.bad_part_confidence_spin)
         
         # Helligkeitsüberwachung
-        brightness_label = QLabel("💡 Helligkeitsüberwachung")
+        brightness_label = QLabel("Helligkeitsüberwachung")
         brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(brightness_label)
         
@@ -725,7 +762,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Warndauer (Sekunden):", self.brightness_duration_spin)
         
         # Video-Einstellungen
-        video_label = QLabel("🎥 Video-Einstellungen")
+        video_label = QLabel("Video-Einstellungen")
         video_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(video_label)
         
@@ -740,7 +777,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Video-Höhe:", self.height_spin)
         
         # Anzeige-Optionen
-        display_label = QLabel("🖥️ Anzeige-Optionen")
+        display_label = QLabel("Anzeige-Optionen")
         display_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(display_label)
         

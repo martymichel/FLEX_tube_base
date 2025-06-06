@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """
 Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
-Kompletter Ablauf: Motion → Takten → Ausschwingen → Erkennung → Ausblasen → Warten
+Korrigierte Version: Motion-Threshold einstellbar, Status über Video, letzte Erkennung, keine Emojis
 """
 
 import sys
 import os
 import logging
+import time
+import cv2
+import numpy as np
 from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
@@ -29,7 +32,7 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung für industrielle KI-Objekterkennung mit Abblas-Logik."""
+    """Hauptanwendung für industrielle KI-Objekterkennung mit robuster Motion-Detection."""
     
     def __init__(self):
         super().__init__()
@@ -51,25 +54,32 @@ class DetectionApp(QMainWindow):
         
         # Status
         self.running = False
-        self.frame_count = 0
         
-        # Zustandsmaschine für industriellen Ablauf
-        self.detection_state = "idle"  # idle, settling, capturing, blow_off
-        self.state_start_time = None
-        self.current_detections = []  # Erkennungen aus der aktuellen Capture-Phase
+        # Industrieller Workflow-Status
+        self.motion_detected = False
+        self.motion_cleared = False
+        self.detection_running = False
+        self.blow_off_active = False
+        
+        # Timing-Variablen
+        self.motion_clear_time = None
+        self.detection_start_time = None
+        self.blow_off_start_time = None
+        
+        # Erkennungsstatistiken - NUR für letzten Zyklus (nicht Session-Summen)
+        self.last_cycle_detections = {}  # Erkennungen des letzten Capture-Zyklus
+        self.current_frame_detections = []  # Aktuelle Frame-Erkennungen
         
         # Timer für Frame-Updates
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.process_frame)
         
-        # Timer für Zustandsübergänge
-        self.state_timer = QTimer()
-        self.state_timer.timeout.connect(self.check_state_transitions)
-        self.state_timer.start(100)  # Alle 100ms prüfen
-        
-        # Bewegungserkennung
+        # Robuste Bewegungserkennung (wie komplexe App, aber Threshold einstellbar)
         self.bg_subtractor = None
         self.last_frame = None
+        self.motion_history = []  # Rolling window für stabilere Erkennung
+        self.motion_stable_count = 0  # Zähler für stabile Motion-States
+        self.no_motion_stable_count = 0  # Zähler für stabile No-Motion-States
         
         # Helligkeitsüberwachung
         self.brightness_values = []
@@ -81,7 +91,59 @@ class DetectionApp(QMainWindow):
         self.settings_timer.timeout.connect(self.check_settings_changes)
         self.settings_timer.start(2000)  # Alle 2 Sekunden prüfen
         
-        logging.info("DetectionApp gestartet - Industrieller Workflow")
+        # Auto-Loading beim Start
+        self.auto_load_on_startup()
+        
+        logging.info("DetectionApp gestartet - Industrieller Workflow mit einstellbarem Motion-Threshold")
+    
+    def auto_load_on_startup(self):
+        """Automatisches Laden von Modell und Kamera beim Start."""
+        try:
+            # Letztes Modell laden
+            last_model = self.settings.get('last_model', '')
+            if last_model and os.path.exists(last_model):
+                if self.detection_engine.load_model(last_model):
+                    self.ui.model_info.setText(f"Modell: {os.path.basename(last_model)}")
+                    self.ui.model_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                    logging.info(f"Auto-loaded model: {last_model}")
+                else:
+                    logging.warning(f"Failed to auto-load model: {last_model}")
+            
+            # Letzte Kamera/Video-Quelle laden
+            last_source = self.settings.get('last_source')
+            last_mode_was_video = self.settings.get('last_mode_was_video', False)
+            
+            if last_source is not None:
+                if last_mode_was_video and isinstance(last_source, str):
+                    # Video-Datei
+                    if os.path.exists(last_source):
+                        if self.camera_manager.set_source(last_source):
+                            self.ui.camera_info.setText(f"Video: {os.path.basename(last_source)}")
+                            self.ui.camera_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                            logging.info(f"Auto-loaded video: {last_source}")
+                        else:
+                            logging.warning(f"Failed to auto-load video: {last_source}")
+                elif not last_mode_was_video and isinstance(last_source, int):
+                    # Webcam
+                    if self.camera_manager.set_source(last_source):
+                        self.ui.camera_info.setText(f"Webcam: {last_source}")
+                        self.ui.camera_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                        logging.info(f"Auto-loaded webcam: {last_source}")
+                    else:
+                        logging.warning(f"Failed to auto-load webcam: {last_source}")
+            
+            # Status aktualisieren
+            if self.detection_engine.model_loaded and self.camera_manager.camera_ready:
+                self.ui.show_status("Bereit - Alle Komponenten geladen", "ready")
+            elif self.detection_engine.model_loaded:
+                self.ui.show_status("Modell geladen - Kamera/Video auswählen", "warning")
+            elif self.camera_manager.camera_ready:
+                self.ui.show_status("Kamera bereit - Modell laden", "warning")
+            else:
+                self.ui.show_status("Modell und Kamera/Video auswählen", "warning")
+                
+        except Exception as e:
+            logging.error(f"Fehler beim Auto-Loading: {e}")
     
     def setup_connections(self):
         """Signale und Slots verbinden."""
@@ -150,20 +212,21 @@ class DetectionApp(QMainWindow):
             # Kamera starten
             if self.camera_manager.start():
                 self.running = True
-                self.detection_state = "idle"
-                self.state_start_time = None
-                self.current_detections = []
                 
-                # Bewegungserkennung initialisieren
-                import cv2
-                self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-                    detectShadows=False,
-                    varThreshold=self.settings.get('motion_threshold', 110)
-                )
+                # Workflow-Status zurücksetzen
+                self.reset_workflow()
+                
+                # Erkennungsstatistiken zurücksetzen (nur letzter Zyklus)
+                self.last_cycle_detections = {}
+                self.current_frame_detections = []
+                
+                # Robuste Bewegungserkennung initialisieren
+                self.init_robust_motion_detection()
                 
                 self.update_timer.start(30)  # ~30 FPS
-                self.ui.start_btn.setText("⏹ Stoppen")
-                self.ui.show_status("Bereit - Warte auf Bewegung (Förderband)", "success")
+                self.ui.start_btn.setText("Stoppen")
+                self.ui.show_status("Bereit - Warte auf Förderband-Bewegung", "success")
+                self.ui.update_workflow_status("READY")
                 logging.info("Erkennung gestartet - Warte auf Bewegung")
             else:
                 self.ui.show_status("Fehler beim Starten der Kamera", "error")
@@ -172,15 +235,36 @@ class DetectionApp(QMainWindow):
             logging.error(f"Fehler beim Starten: {e}")
             self.ui.show_status(f"Fehler: {e}", "error")
     
+    def init_robust_motion_detection(self):
+        """Robuste Bewegungserkennung initialisieren (Threshold weiterhin einstellbar)."""
+        # Background Subtractor mit festen Parametern (außer Threshold)
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+            detectShadows=False,
+            varThreshold=16,  # Fester Wert für Stabilität
+            history=500
+        )
+        
+        # Motion-Tracking zurücksetzen
+        self.motion_history = []
+        self.motion_stable_count = 0
+        self.no_motion_stable_count = 0
+        self.last_frame = None
+        
+        logging.info("Robuste Motion-Detection initialisiert - Threshold bleibt einstellbar")
+    
     def stop_detection(self):
         """Erkennung stoppen."""
         self.running = False
         self.update_timer.stop()
         self.camera_manager.stop()
-        self.ui.start_btn.setText("▶ Starten")
+        self.ui.start_btn.setText("Starten")
         self.ui.show_status("Bereit", "ready")
-        self.detection_state = "idle"
+        self.ui.update_workflow_status("READY")
+        
+        # Workflow-Status zurücksetzen
+        self.reset_workflow()
         self.bg_subtractor = None
+        
         logging.info("Erkennung gestoppt")
     
     def process_frame(self):
@@ -193,148 +277,216 @@ class DetectionApp(QMainWindow):
             # Helligkeitsüberwachung
             self.check_brightness(frame)
             
-            # Bewegungserkennung (nur im idle Zustand)
-            motion_detected = False
-            if self.detection_state == "idle":
-                motion_detected = self.detect_motion(frame)
-                
-                if motion_detected:
-                    # Bewegung erkannt - Förderband taktet
-                    self.detection_state = "settling"
-                    self.state_start_time = self.camera_manager.get_current_time()
-                    self.ui.show_status("🔄 Förderband taktet - Ausschwingzeit läuft...", "warning")
-                    logging.info("Bewegung erkannt - Förderband startet")
+            # Industrieller Workflow verarbeiten
+            self.process_industrial_workflow(frame)
             
-            # KI-Erkennung nur während Capture-Phase
+            # KI-Erkennung nur während Aufnahme-Phase
             detections = []
-            if self.detection_state == "capturing":
+            if self.detection_running:
                 detections = self.detection_engine.detect(frame)
-                # Sammle alle Erkennungen der Capture-Phase
-                self.current_detections.extend(detections)
+                self.current_frame_detections = detections
+                
+                # Erkennungen für aktuellen Zyklus sammeln
+                self.update_cycle_statistics(detections)
             
             # Frame mit Erkennungen zeichnen
             annotated_frame = self.detection_engine.draw_detections(frame, detections)
             
-            # Zustandsinfo auf Frame zeichnen
-            self.draw_state_info(annotated_frame)
-            
             # UI aktualisieren
             self.ui.update_video(annotated_frame)
-            self.ui.update_stats(detections)
-            
-            # Frame-Zähler
-            self.frame_count += 1
-            if self.frame_count % 30 == 0:  # Alle 30 Frames
-                self.ui.update_frame_count(self.frame_count)
+            self.ui.update_last_cycle_stats(self.last_cycle_detections, self.current_frame_detections)
                 
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
     
-    def detect_motion(self, frame):
-        """Bewegungserkennung durchführen."""
-        if self.bg_subtractor is None:
-            return False
+    def process_industrial_workflow(self, frame):
+        """Industrieller Workflow mit robuster Motion-Detection."""
+        current_time = time.time()
         
-        import cv2
-        import numpy as np
-        
-        # Grayscale für Bewegungserkennung
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        # Background Subtraction
-        fg_mask = self.bg_subtractor.apply(gray)
-        
-        # Rauschen reduzieren
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
-        
-        # Bewegung detektieren
-        motion_pixels = cv2.countNonZero(fg_mask)
-        motion_threshold = self.settings.get('motion_threshold', 110) * 100  # Schwellwert anpassen
-        
-        return motion_pixels > motion_threshold
-    
-    def check_state_transitions(self):
-        """Prüfe Zustandsübergänge der industriellen Zustandsmaschine."""
-        if not self.running or self.state_start_time is None:
-            return
-            
-        current_time = self.camera_manager.get_current_time()
-        elapsed_time = current_time - self.state_start_time
-        
+        # Einstellungen (Threshold weiterhin einstellbar!)
         settling_time = self.settings.get('settling_time', 1.0)
         capture_time = self.settings.get('capture_time', 3.0)
         blow_off_time = self.settings.get('blow_off_time', 5.0)
         
-        if self.detection_state == "settling":
-            if elapsed_time >= settling_time:
-                # Ausschwingzeit vorbei - Aufnahme/Erkennung starten
-                self.detection_state = "capturing"
-                self.state_start_time = current_time
-                self.current_detections = []  # Reset für neue Capture-Session
-                self.ui.show_status("🎯 Aufnahme läuft - KI-Erkennung aktiv", "success")
-                logging.info("Ausschwingzeit beendet - KI-Erkennung startet")
+        # 1. Robuste Bewegungserkennung (nur wenn nicht in spezieller Phase)
+        if not self.motion_detected and not self.blow_off_active:
+            motion_now = self.detect_robust_motion(frame)
+            
+            if motion_now and not self.motion_detected:
+                # Bewegung erkannt - Förderband taktet
+                self.motion_detected = True
+                self.motion_cleared = False
+                self.motion_clear_time = None
+                self.no_motion_stable_count = 0  # Reset
+                self.ui.show_status("Förderband taktet - Warte auf Stillstand", "warning")
+                self.ui.update_workflow_status("MOTION")
+                logging.info("Bewegung erkannt - Förderband startet")
         
-        elif self.detection_state == "capturing":
-            if elapsed_time >= capture_time:
-                # Aufnahme beendet - Prüfe ob schlechte Teile erkannt wurden
-                bad_parts_detected = self.check_for_bad_parts()
+        # 2. Stabiles Ausschwingen nach Bewegung
+        if self.motion_detected and not self.motion_cleared:
+            motion_now = self.detect_robust_motion(frame)
+            
+            if not motion_now:
+                # Stabile No-Motion Zeit akkumulieren
+                self.no_motion_stable_count += 1
+                
+                # Ausschwingzeit startet erst nach stabiler No-Motion Phase
+                if self.no_motion_stable_count >= 10:  # ~300ms stabile No-Motion
+                    if self.motion_clear_time is None:
+                        self.motion_clear_time = current_time
+                        self.ui.show_status("Ausschwingzeit läuft...", "warning")
+                        self.ui.update_workflow_status("SETTLING")
+                        logging.info("Stabile No-Motion erreicht - Ausschwingzeit startet")
+                    
+                    # Prüfe ob Ausschwingzeit abgelaufen
+                    elif current_time - self.motion_clear_time >= settling_time:
+                        # Ausschwingzeit beendet - Aufnahme startet
+                        self.motion_cleared = True
+                        self.detection_running = True
+                        self.detection_start_time = current_time
+                        self.last_cycle_detections = {}  # Reset für neue Aufnahme-Session
+                        self.ui.show_status("Aufnahme läuft - KI-Erkennung aktiv", "success")
+                        self.ui.update_workflow_status("CAPTURING")
+                        logging.info("Ausschwingzeit beendet - KI-Erkennung startet")
+            else:
+                # Wieder Bewegung - alles zurücksetzen
+                self.motion_clear_time = None
+                self.no_motion_stable_count = 0
+                logging.debug("Motion detected during settling - resetting")
+        
+        # 3. Aufnahme-/Erkennungsphase
+        if self.detection_running:
+            if current_time - self.detection_start_time >= capture_time:
+                # Aufnahme beendet - Prüfe Ergebnis
+                self.detection_running = False
+                bad_parts_detected = self.evaluate_detection_results()
                 
                 if bad_parts_detected:
                     # Schlechte Teile erkannt - Abblasen erforderlich
-                    self.detection_state = "blow_off"
-                    self.state_start_time = current_time
-                    self.ui.show_status("💨 Schlechte Teile erkannt - Abblasen aktiv", "error")
+                    self.blow_off_active = True
+                    self.blow_off_start_time = current_time
+                    self.ui.show_status("Schlechte Teile erkannt - Abblasen aktiv", "error")
+                    self.ui.update_workflow_status("BLOWING")
                     logging.info(f"Schlechte Teile erkannt - Abblas-Wartezeit: {blow_off_time}s")
                 else:
-                    # Keine schlechten Teile - zurück zu idle
-                    self.detection_state = "idle"
-                    self.state_start_time = None
-                    self.ui.show_status("✅ Kontrolle beendet - Bereit für nächste Bewegung", "ready")
-                    logging.info("Keine schlechten Teile - zurück zu idle")
+                    # Alles gut - zurück zum Anfang
+                    self.reset_workflow()
+                    self.ui.show_status("Prüfung abgeschlossen - Bereit für nächsten Zyklus", "ready")
+                    self.ui.update_workflow_status("READY")
+                    logging.info("Keine schlechten Teile - Zyklus beendet")
         
-        elif self.detection_state == "blow_off":
-            if elapsed_time >= blow_off_time:
-                # Abblas-Wartezeit beendet - zurück zu idle
-                self.detection_state = "idle"
-                self.state_start_time = None
-                self.ui.show_status("🔄 Abblasen beendet - Bereit für nächste Bewegung", "ready")
-                logging.info("Abblas-Wartezeit beendet - zurück zu idle")
+        # 4. Abblas-Wartezeit
+        if self.blow_off_active:
+            if current_time - self.blow_off_start_time >= blow_off_time:
+                # Abblas-Wartezeit beendet
+                self.blow_off_active = False
+                self.reset_workflow()
+                self.ui.show_status("Abblasen beendet - Bereit für nächsten Zyklus", "ready")
+                self.ui.update_workflow_status("READY")
+                logging.info("Abblas-Wartezeit beendet - Zyklus beendet")
     
-    def check_for_bad_parts(self):
-        """Prüfe ob schlechte Teile in den aktuellen Erkennungen sind.
-        
-        Returns:
-            bool: True wenn schlechte Teile erkannt wurden
-        """
-        if not self.current_detections:
+    def detect_robust_motion(self, frame):
+        """Robuste Bewegungserkennung (Threshold weiterhin einstellbar!)."""
+        if self.bg_subtractor is None:
             return False
         
+        # Grayscale für bessere Performance
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Gaussian Blur für Rauschreduktion
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Background Subtraction
+        fg_mask = self.bg_subtractor.apply(gray)
+        
+        # Morphologische Operationen für Rauschreduktion
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Motion Pixels zählen
+        motion_pixels = cv2.countNonZero(fg_mask)
+        
+        # EINSTELLBARER Threshold (das war das Missverständnis - bleibt einstellbar!)
+        motion_threshold = self.settings.get('motion_threshold', 110) * 100
+        has_motion = motion_pixels > motion_threshold
+        
+        # Rolling Window für Stabilität (wie komplexe App)
+        self.motion_history.append(has_motion)
+        if len(self.motion_history) > 5:  # Letzte 5 Frames
+            self.motion_history.pop(0)
+        
+        # Motion nur wenn mindestens 3 von 5 Frames Motion haben
+        stable_motion = sum(self.motion_history) >= 3
+        
+        # Zusätzliche Stabilität: Motion muss mindestens 3 Frames bestehen
+        if stable_motion:
+            self.motion_stable_count += 1
+        else:
+            self.motion_stable_count = 0
+        
+        # Endgültige Motion-Entscheidung
+        final_motion = self.motion_stable_count >= 3
+        
+        return final_motion
+    
+    def reset_workflow(self):
+        """Workflow für nächsten Zyklus zurücksetzen."""
+        self.motion_detected = False
+        self.motion_cleared = False
+        self.detection_running = False
+        self.blow_off_active = False
+        self.motion_clear_time = None
+        self.detection_start_time = None
+        self.blow_off_start_time = None
+        self.motion_stable_count = 0
+        self.no_motion_stable_count = 0
+    
+    def update_cycle_statistics(self, detections):
+        """Erkennungen für aktuellen Zyklus sammeln (NICHT Session-Summen!)."""
+        for detection in detections:
+            _, _, _, _, confidence, class_id = detection
+            class_name = self.detection_engine.class_names.get(class_id, f"Class {class_id}")
+            
+            # Nur für aktuellen Zyklus (nicht Session-Gesamtstatistik)
+            if class_name not in self.last_cycle_detections:
+                self.last_cycle_detections[class_name] = {
+                    'count': 0,
+                    'max_confidence': 0.0,
+                    'avg_confidence': 0.0,
+                    'confidences': [],
+                    'class_id': class_id
+                }
+            
+            self.last_cycle_detections[class_name]['count'] += 1
+            self.last_cycle_detections[class_name]['confidences'].append(confidence)
+            self.last_cycle_detections[class_name]['max_confidence'] = max(
+                self.last_cycle_detections[class_name]['max_confidence'], confidence
+            )
+            
+            # Durchschnitt berechnen
+            confidences = self.last_cycle_detections[class_name]['confidences']
+            self.last_cycle_detections[class_name]['avg_confidence'] = sum(confidences) / len(confidences)
+    
+    def evaluate_detection_results(self):
+        """Erkennungsergebnisse auswerten."""
         # Hole Bad Part Klassen aus Einstellungen
         bad_part_classes = self.settings.get('bad_part_classes', [])
+        min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
         
-        # Prüfe alle Erkennungen der Capture-Session
-        for detection in self.current_detections:
-            _, _, _, _, confidence, class_id = detection
+        # Prüfe auf schlechte Teile
+        for class_name, stats in self.last_cycle_detections.items():
+            class_id = stats.get('class_id', 0)
+            max_conf = stats.get('max_confidence', 0.0)
             
-            # Mindest-Konfidenz prüfen
-            min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
-            if confidence < min_confidence:
-                continue
-            
-            # Prüfe ob Klasse als "schlecht" definiert ist
-            if class_id in bad_part_classes:
-                class_name = self.detection_engine.class_names.get(class_id, f"Class {class_id}")
-                logging.info(f"Schlechtes Teil erkannt: {class_name} (Konfidenz: {confidence:.2f})")
+            if class_id in bad_part_classes and max_conf >= min_confidence:
+                logging.info(f"Schlechtes Teil erkannt: {class_name} (Konfidenz: {max_conf:.2f})")
                 return True
         
         return False
     
     def check_brightness(self, frame):
         """Helligkeitsüberwachung."""
-        import cv2
-        import numpy as np
-        
         # Durchschnittshelligkeit berechnen
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         brightness = np.mean(gray)
@@ -351,7 +503,7 @@ class DetectionApp(QMainWindow):
         high_threshold = self.settings.get('brightness_high_threshold', 220)
         duration_threshold = self.settings.get('brightness_duration_threshold', 3.0)
         
-        current_time = self.camera_manager.get_current_time()
+        current_time = time.time()
         
         if avg_brightness < low_threshold:
             if self.low_brightness_start is None:
@@ -366,28 +518,6 @@ class DetectionApp(QMainWindow):
         
         # Helligkeit in UI anzeigen
         self.ui.update_brightness(avg_brightness)
-    
-    def draw_state_info(self, frame):
-        """Zustandsinfo auf Frame zeichnen."""
-        import cv2
-        
-        # Hauptstatus
-        state_text = f"Status: {self.detection_state.upper()}"
-        cv2.putText(frame, state_text, (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
-        
-        # Zeit-Info falls in zeitkritischem Zustand
-        if self.state_start_time is not None:
-            elapsed = self.camera_manager.get_current_time() - self.state_start_time
-            time_text = f"Zeit: {elapsed:.1f}s"
-            cv2.putText(frame, time_text, (10, 70), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
-        
-        # Erkennungen in aktueller Session
-        if self.detection_state == "capturing" and self.current_detections:
-            detection_text = f"Erkennungen: {len(self.current_detections)}"
-            cv2.putText(frame, detection_text, (10, 110), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
     
     def load_model(self):
         """KI-Modell laden."""
@@ -414,7 +544,10 @@ class DetectionApp(QMainWindow):
         if source:
             if self.camera_manager.set_source(source):
                 self.ui.show_status(f"Quelle ausgewählt: {source}", "success")
+                
+                # Speichere Quelle und Modus
                 self.settings.set('last_source', source)
+                self.settings.set('last_mode_was_video', isinstance(source, str))
                 self.settings.save()
             else:
                 self.ui.show_status("Fehler bei Quellenauswahl", "error")

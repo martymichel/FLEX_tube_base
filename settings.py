@@ -1,6 +1,6 @@
 """
 Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen für industriellen Workflow
+Verwaltet alle Anwendungseinstellungen für industriellen Workflow mit Auto-Loading
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung für industriellen Workflow."""
+    """Einfache Einstellungsverwaltung für industriellen Workflow mit Auto-Loading."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -61,7 +61,7 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
     
     def get_defaults(self):
-        """Standardeinstellungen für industriellen Workflow.
+        """Standardeinstellungen für industriellen Workflow mit Auto-Loading.
         
         Returns:
             dict: Standardeinstellungen
@@ -69,10 +69,11 @@ class Settings:
         return {
             # KI-Einstellungen
             'confidence_threshold': 0.5,
-            'last_model': '',
+            'last_model': '',                    # Auto-Loading: Letztes Modell
             
             # Kamera-Einstellungen  
-            'last_source': 0,
+            'last_source': None,                 # Auto-Loading: Letzte Kamera/Video
+            'last_mode_was_video': False,        # Auto-Loading: War es Video oder Kamera?
             'video_width': 1280,
             'video_height': 720,
             

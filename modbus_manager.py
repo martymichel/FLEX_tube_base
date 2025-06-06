@@ -77,23 +77,23 @@ class ModbusManager:
     
     def startup_reconnect(self):
         """Neuverbindung bei App-Start mit Controller-Reset."""
-        logging.info("🔄 Starte WAGO Neuverbindung bei App-Start...")
+        logging.info("Starte WAGO Neuverbindung bei App-Start...")
         
         # Schritt 1: Controller-Reset durchführen
         if self.restart_controller():
-            logging.info("✅ Controller-Reset erfolgreich")
+            logging.info("Controller-Reset erfolgreich")
         else:
-            logging.warning("⚠️ Controller-Reset fehlgeschlagen - versuche trotzdem Verbindung...")
+            logging.warning("Controller-Reset fehlgeschlagen - versuche trotzdem Verbindung...")
         
         # Schritt 2: Kurz warten nach Reset
         time.sleep(3)
         
         # Schritt 3: Verbindung herstellen
         if self.connect():
-            logging.info("✅ WAGO Neuverbindung bei Start erfolgreich")
+            logging.info("WAGO Neuverbindung bei Start erfolgreich")
             return True
         else:
-            logging.error("❌ WAGO Neuverbindung bei Start fehlgeschlagen")
+            logging.error("WAGO Neuverbindung bei Start fehlgeschlagen")
             return False
     
     def restart_controller(self):
@@ -202,7 +202,7 @@ class ModbusManager:
     def start_coil_refresh(self):
         """SIMPLE Coil-Refresh für Detection-Active."""
         # In SIMPLE Version: Kein extra Thread, wird bei Bedarf aufgefrischt
-        logging.info("Coil-Refresh im SIMPLE Modus (bei Bedarf)")
+        logging.debug("Coil-Refresh im SIMPLE Modus (bei Bedarf)")
         return True
     
     def stop_coil_refresh(self):

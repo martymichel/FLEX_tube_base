@@ -13,7 +13,7 @@
   "settling_time": 1.0,
   "capture_time": 1.5,
   "clearing_time": 1.0,
-  "brightness_low_threshold": 120,
+  "brightness_low_threshold": 124,
   "brightness_high_threshold": 140,
   "brightness_duration_threshold": 1.0,
   "blow_off_time": 1.0,
@@ -26,5 +26,13 @@
   "green_threshold": 4,
   "good_part_classes": [
     0
-  ]
+  ],
+  "save_bad_images": false,
+  "save_good_images": false,
+  "bad_images_directory": "bad_images",
+  "good_images_directory": "good_images",
+  "max_image_files": 1000,
+  "modbus_enabled": true,
+  "modbus_ip": "192.168.1.100",
+  "reject_coil_duration_seconds": 2.6
 }

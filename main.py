@@ -23,7 +23,7 @@ from user_manager import UserManager
 from modbus_manager import ModbusManager
 from image_saver import ImageSaver
 
-# Logging konfigurieren
+# Logging konfigurieren - OHNE Unicode-Emojis für Windows-Kompatibilität
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -123,29 +123,29 @@ class DetectionApp(QMainWindow):
             return
         
         try:
-            logging.info("🚀 Initialisiere WAGO Modbus mit automatischer Neuverbindung...")
+            logging.info("Initialisiere WAGO Modbus mit automatischer Neuverbindung...")
             
             # IMMER eine Neuverbindung bei App-Start durchführen
             if self.modbus_manager.startup_reconnect():
                 
                 # Watchdog starten
                 if self.modbus_manager.start_watchdog():
-                    logging.info("✅ WAGO Watchdog erfolgreich gestartet")
+                    logging.info("WAGO Watchdog erfolgreich gestartet")
                 else:
-                    logging.warning("⚠️ WAGO Watchdog konnte nicht gestartet werden")
+                    logging.warning("WAGO Watchdog konnte nicht gestartet werden")
                 
                 # Coil-Refresh starten (SIMPLE Version)
                 if self.modbus_manager.start_coil_refresh():
-                    logging.info("✅ WAGO Coil-Refresh erfolgreich gestartet")
+                    logging.info("WAGO Coil-Refresh erfolgreich gestartet")
                 else:
-                    logging.warning("⚠️ WAGO Coil-Refresh konnte nicht gestartet werden")
+                    logging.warning("WAGO Coil-Refresh konnte nicht gestartet werden")
                 
                 # UI Status aktualisieren
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
-                logging.info("🎯 WAGO Modbus vollständig initialisiert")
+                logging.info("WAGO Modbus vollständig initialisiert")
                 
             else:
-                logging.error("❌ WAGO Modbus-Neuverbindung bei Start fehlgeschlagen")
+                logging.error("WAGO Modbus-Neuverbindung bei Start fehlgeschlagen")
                 self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
                 
         except Exception as e:

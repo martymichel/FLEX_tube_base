@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
-Korrigierte Version: Motion-Threshold einstellbar, Status über Video, letzte Erkennung, keine Emojis
+Mit Counter, Motion-Anzeige und optimiertem Layout
 """
 
 import sys
@@ -32,7 +32,7 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung für industrielle KI-Objekterkennung mit robuster Motion-Detection."""
+    """Hauptanwendung für industrielle KI-Objekterkennung mit Counter und Motion-Anzeige."""
     
     def __init__(self):
         super().__init__()
@@ -81,6 +81,10 @@ class DetectionApp(QMainWindow):
         self.motion_stable_count = 0  # Zähler für stabile Motion-States
         self.no_motion_stable_count = 0  # Zähler für stabile No-Motion-States
         
+        # Motion-Wert Tracking (für Anzeige)
+        self.motion_values = []  # Rolling window für geglättete Motion-Anzeige
+        self.current_motion_value = 0.0  # Aktueller, geglätteter Motion-Wert
+        
         # Helligkeitsüberwachung
         self.brightness_values = []
         self.low_brightness_start = None
@@ -94,7 +98,7 @@ class DetectionApp(QMainWindow):
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
-        logging.info("DetectionApp gestartet - Industrieller Workflow mit einstellbarem Motion-Threshold")
+        logging.info("DetectionApp gestartet - Industrieller Workflow mit Counter und Motion-Anzeige")
     
     def auto_load_on_startup(self):
         """Automatisches Laden von Modell und Kamera beim Start."""
@@ -250,6 +254,10 @@ class DetectionApp(QMainWindow):
         self.no_motion_stable_count = 0
         self.last_frame = None
         
+        # Motion-Wert Tracking zurücksetzen
+        self.motion_values = []
+        self.current_motion_value = 0.0
+        
         logging.info("Robuste Motion-Detection initialisiert - Threshold bleibt einstellbar")
     
     def stop_detection(self):
@@ -277,6 +285,9 @@ class DetectionApp(QMainWindow):
             # Helligkeitsüberwachung
             self.check_brightness(frame)
             
+            # Motion-Wert berechnen und anzeigen (auch wenn kein Workflow läuft)
+            self.update_motion_display(frame)
+            
             # Industrieller Workflow verarbeiten
             self.process_industrial_workflow(frame)
             
@@ -298,6 +309,43 @@ class DetectionApp(QMainWindow):
                 
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
+    
+    def update_motion_display(self, frame):
+        """Motion-Wert für Anzeige berechnen und UI aktualisieren."""
+        if self.bg_subtractor is None:
+            return
+        
+        # Grayscale für bessere Performance
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        
+        # Gaussian Blur für Rauschreduktion
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Background Subtraction
+        fg_mask = self.bg_subtractor.apply(gray)
+        
+        # Morphologische Operationen für Rauschreduktion
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Motion Pixels zählen (roher Wert)
+        motion_pixels = cv2.countNonZero(fg_mask)
+        
+        # Normalisiere auf sinnvollen Bereich (0-255)
+        # Basierend auf typischen Werten für 1280x720
+        motion_value = min(255, motion_pixels / 100)  # Grober Normalisierungsansatz
+        
+        # Glättung über mehrere Frames für Anzeige
+        self.motion_values.append(motion_value)
+        if len(self.motion_values) > 10:  # Letzte 10 Frames
+            self.motion_values.pop(0)
+        
+        # Geglätteter Motion-Wert für Anzeige
+        self.current_motion_value = np.mean(self.motion_values)
+        
+        # UI aktualisieren
+        self.ui.update_motion(self.current_motion_value)
     
     def process_industrial_workflow(self, frame):
         """Industrieller Workflow mit robuster Motion-Detection."""
@@ -360,6 +408,9 @@ class DetectionApp(QMainWindow):
                 # Aufnahme beendet - Prüfe Ergebnis
                 self.detection_running = False
                 bad_parts_detected = self.evaluate_detection_results()
+                
+                # Counter aktualisieren
+                self.ui.increment_session_counters(bad_parts_detected)
                 
                 if bad_parts_detected:
                     # Schlechte Teile erkannt - Abblasen erforderlich

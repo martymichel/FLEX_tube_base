@@ -1,6 +1,6 @@
 """
-UI-Komponenten - kompakt und fokussiert
-Status über Video, letzte Erkennung statt Session-Summen, keine Emojis
+UI-Komponenten - kompakt und fokussiert mit Counter und Motion-Anzeige
+Status zwischen Menü und Counter, Motion-Wert-Anzeige wie Helligkeit
 """
 
 import os
@@ -17,13 +17,19 @@ import cv2
 import numpy as np
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche mit kompakter Sidebar."""
+    """Hauptbenutzeroberfläche mit kompakter Sidebar und Counter."""
     
     def __init__(self, parent_app):
         super().__init__()
         self.app = parent_app
         self.sidebar_visible = True
         self.brightness_warning_visible = False
+        
+        # Counter-Statistiken
+        self.session_good_parts = 0
+        self.session_bad_parts = 0
+        self.session_total_cycles = 0
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -135,13 +141,14 @@ class MainUI(QWidget):
         user_layout.addLayout(user_info_layout)
         layout.addWidget(user_group)
         
-        # Workflow-Status
-        workflow_group = QGroupBox("Workflow")
+        # Workflow-Status mit Motion und Helligkeit
+        workflow_group = QGroupBox("Status & Sensoren")
         workflow_layout = QVBoxLayout(workflow_group)
         workflow_layout.setSpacing(5)
         
+        # Workflow-Status
         workflow_info_layout = QHBoxLayout()
-        workflow_info_layout.addWidget(QLabel("Status:"))
+        workflow_info_layout.addWidget(QLabel("Workflow:"))
         self.workflow_info = QLabel("READY")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workflow_info.setStyleSheet("""
@@ -153,6 +160,21 @@ class MainUI(QWidget):
         """)
         workflow_info_layout.addWidget(self.workflow_info, 1)
         workflow_layout.addLayout(workflow_info_layout)
+        
+        # Motion-Wert Anzeige (wie Helligkeit)
+        motion_layout = QHBoxLayout()
+        motion_layout.addWidget(QLabel("Motion:"))
+        self.motion_info = QLabel("--")
+        self.motion_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_info.setStyleSheet("""
+            background-color: #34495e;
+            padding: 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            min-width: 60px;
+        """)
+        motion_layout.addWidget(self.motion_info)
+        workflow_layout.addLayout(motion_layout)
         
         # Helligkeitsanzeige (kompakt)
         brightness_layout = QHBoxLayout()
@@ -291,7 +313,7 @@ class MainUI(QWidget):
         return self.sidebar
     
     def create_main_area(self):
-        """Hauptbereich mit Video und Status ÜBER dem Video erstellen."""
+        """Hauptbereich mit optimiertem Header-Layout erstellen."""
         main_area = QFrame()
         main_area.setStyleSheet("""
             QFrame {
@@ -303,10 +325,11 @@ class MainUI(QWidget):
         layout = QVBoxLayout(main_area)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Header mit Toggle-Button und Status
+        # Header mit: [Menü-Button] [Status] [Counter]
         header_layout = QHBoxLayout()
+        header_layout.setSpacing(20)
         
-        # Sidebar Toggle Button
+        # 1. Sidebar Toggle Button (links)
         self.sidebar_toggle_btn = QToolButton()
         self.sidebar_toggle_btn.setText("≡")
         self.sidebar_toggle_btn.setStyleSheet("""
@@ -326,16 +349,7 @@ class MainUI(QWidget):
         """)
         header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # Titel in der Mitte
-        title_label = QLabel("Live Video")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setFont(QFont("", 16, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: #2c3e50; padding: 10px;")
-        header_layout.addWidget(title_label, 1)
-        
-        layout.addLayout(header_layout)
-        
-        # STATUS ÜBER DEM VIDEO (wie gewünscht)
+        # 2. STATUS IN DER MITTE (zwischen Menü und Counter)
         self.status_label = QLabel("Bereit")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("", 16, QFont.Weight.Bold))
@@ -345,12 +359,84 @@ class MainUI(QWidget):
                 color: white;
                 padding: 15px;
                 border-radius: 8px;
-                margin-bottom: 10px;
             }
         """)
-        layout.addWidget(self.status_label)
+        header_layout.addWidget(self.status_label, 1)  # Stretch factor 1 für die Mitte
         
-        # Video-Bereich (ohne Status-Overlay)
+        # 3. COUNTER (rechts oben, minimalistisch aber funktional)
+        self.counter_frame = QFrame()
+        self.counter_frame.setStyleSheet("""
+            QFrame {
+                background-color: #34495e;
+                border-radius: 8px;
+                padding: 10px;
+            }
+            QLabel {
+                color: white;
+                font-weight: bold;
+            }
+        """)
+        
+        counter_layout = QVBoxLayout(self.counter_frame)
+        counter_layout.setSpacing(5)
+        counter_layout.setContentsMargins(15, 10, 15, 10)
+        
+        # Session-Statistiken
+        session_title = QLabel("Session")
+        session_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        session_title.setFont(QFont("", 12, QFont.Weight.Bold))
+        counter_layout.addWidget(session_title)
+        
+        # Good Parts
+        good_layout = QHBoxLayout()
+        good_layout.addWidget(QLabel("OK:"))
+        self.good_parts_counter = QLabel("0")
+        self.good_parts_counter.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.good_parts_counter.setStyleSheet("color: #27ae60; font-size: 14px;")
+        good_layout.addWidget(self.good_parts_counter)
+        counter_layout.addLayout(good_layout)
+        
+        # Bad Parts
+        bad_layout = QHBoxLayout()
+        bad_layout.addWidget(QLabel("Nicht OK:"))
+        self.bad_parts_counter = QLabel("0")
+        self.bad_parts_counter.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.bad_parts_counter.setStyleSheet("color: #e74c3c; font-size: 14px;")
+        bad_layout.addWidget(self.bad_parts_counter)
+        counter_layout.addLayout(bad_layout)
+        
+        # Total Cycles
+        total_layout = QHBoxLayout()
+        total_layout.addWidget(QLabel("Zyklen:"))
+        self.total_cycles_counter = QLabel("0")
+        self.total_cycles_counter.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.total_cycles_counter.setStyleSheet("color: #3498db; font-size: 14px;")
+        total_layout.addWidget(self.total_cycles_counter)
+        counter_layout.addLayout(total_layout)
+        
+        # Reset Button (minimalistisch)
+        reset_counter_btn = QPushButton("Reset")
+        reset_counter_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #7f8c8d;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+                font-size: 10px;
+            }
+            QPushButton:hover {
+                background-color: #95a5a6;
+            }
+        """)
+        reset_counter_btn.clicked.connect(self.reset_session_counter)
+        counter_layout.addWidget(reset_counter_btn)
+        
+        header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
+        
+        layout.addLayout(header_layout)
+        
+        # Video-Bereich (ohne separaten Status, da Status jetzt im Header ist)
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setMinimumSize(640, 480)
@@ -366,6 +452,30 @@ class MainUI(QWidget):
         layout.addWidget(self.video_label, 1)  # Stretch factor 1
         
         return main_area
+    
+    def reset_session_counter(self):
+        """Session-Counter zurücksetzen."""
+        self.session_good_parts = 0
+        self.session_bad_parts = 0
+        self.session_total_cycles = 0
+        self.update_counter_display()
+    
+    def update_counter_display(self):
+        """Counter-Anzeige aktualisieren."""
+        self.good_parts_counter.setText(str(self.session_good_parts))
+        self.bad_parts_counter.setText(str(self.session_bad_parts))
+        self.total_cycles_counter.setText(str(self.session_total_cycles))
+    
+    def increment_session_counters(self, bad_parts_detected):
+        """Session-Counter nach Zyklus aktualisieren."""
+        self.session_total_cycles += 1
+        
+        if bad_parts_detected:
+            self.session_bad_parts += 1
+        else:
+            self.session_good_parts += 1
+        
+        self.update_counter_display()
     
     def toggle_sidebar(self):
         """Sidebar ein-/ausblenden."""
@@ -424,7 +534,7 @@ class MainUI(QWidget):
         """)
     
     def show_status(self, message, status_type="info"):
-        """Status ÜBER dem Video anzeigen (wie gewünscht)."""
+        """Status im Header anzeigen (zwischen Menü und Counter)."""
         self.status_label.setText(message)
         
         colors = {
@@ -442,8 +552,29 @@ class MainUI(QWidget):
                 color: white;
                 padding: 15px;
                 border-radius: 8px;
-                margin-bottom: 10px;
             }}
+        """)
+    
+    def update_motion(self, motion_value):
+        """Motion-Wert aktualisieren (wie Helligkeit)."""
+        self.motion_info.setText(f"{motion_value:.0f}")
+        
+        # Farbe je nach Motion-Level  
+        # Niedrige Werte = ruhig (grün), hohe Werte = Bewegung (orange/rot)
+        if motion_value < 50:
+            color = "#27ae60"  # Grün (ruhig)
+        elif motion_value < 150:
+            color = "#f39c12"  # Orange (moderate Bewegung)
+        else:
+            color = "#e74c3c"  # Rot (starke Bewegung)
+        
+        self.motion_info.setStyleSheet(f"""
+            background-color: {color};
+            color: white;
+            padding: 5px;
+            border-radius: 4px;
+            font-weight: bold;
+            min-width: 60px;
         """)
     
     def update_brightness(self, brightness):
@@ -658,7 +789,7 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Erweiterte Einstellungen-Dialog für industriellen Workflow."""
+    """Erweiterte Einstellungen-Dialog für industriellen Workflow ohne Helligkeits-Limits."""
     
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -743,17 +874,19 @@ class SettingsDialog(QDialog):
         self.bad_part_confidence_spin.setDecimals(2)
         form_layout.addRow("Mindest-Konfidenz für Schlecht-Teile:", self.bad_part_confidence_spin)
         
-        # Helligkeitsüberwachung
+        # Helligkeitsüberwachung (OHNE Limits, nur Low < High)
         brightness_label = QLabel("Helligkeitsüberwachung")
         brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(brightness_label)
         
         self.brightness_low_spin = QSpinBox()
-        self.brightness_low_spin.setRange(1, 100)
+        self.brightness_low_spin.setRange(0, 254)  # Kann bis 254 gehen
+        self.brightness_low_spin.valueChanged.connect(self.validate_brightness_ranges)
         form_layout.addRow("Untere Schwelle:", self.brightness_low_spin)
         
         self.brightness_high_spin = QSpinBox()
-        self.brightness_high_spin.setRange(150, 255)
+        self.brightness_high_spin.setRange(1, 255)  # Kann ab 1 starten
+        self.brightness_high_spin.valueChanged.connect(self.validate_brightness_ranges)
         form_layout.addRow("Obere Schwelle:", self.brightness_high_spin)
         
         self.brightness_duration_spin = QDoubleSpinBox()
@@ -805,6 +938,20 @@ class SettingsDialog(QDialog):
         button_layout.addWidget(reset_btn)
         
         layout.addLayout(button_layout)
+    
+    def validate_brightness_ranges(self):
+        """Stelle sicher, dass Low < High bei Helligkeitseinstellungen."""
+        low_value = self.brightness_low_spin.value()
+        high_value = self.brightness_high_spin.value()
+        
+        # Wenn Low >= High, korrigiere automatisch
+        if low_value >= high_value:
+            if self.sender() == self.brightness_low_spin:
+                # Low wurde geändert und ist zu hoch
+                self.brightness_high_spin.setValue(low_value + 1)
+            else:
+                # High wurde geändert und ist zu niedrig
+                self.brightness_low_spin.setValue(high_value - 1)
     
     def add_bad_class(self):
         """Schlecht-Teil Klasse hinzufügen."""

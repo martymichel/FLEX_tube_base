@@ -9,7 +9,7 @@
   "show_class_names": false,
   "auto_save_snapshots": false,
   "log_level": "INFO",
-  "motion_threshold": 55,
+  "motion_threshold": 45,
   "settling_time": 0.3,
   "capture_time": 1.5,
   "clearing_time": 1.0,
@@ -18,9 +18,7 @@
   "brightness_duration_threshold": 1.0,
   "blow_off_time": 1.0,
   "bad_part_classes": [
-    1,
-    0,
-    2
+    1
   ],
   "bad_part_min_confidence": 0.6,
   "last_mode_was_video": true

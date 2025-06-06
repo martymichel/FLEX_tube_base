@@ -18,7 +18,7 @@ from PyQt6.QtGui import QFont
 from detection_engine import DetectionEngine
 from camera_manager import CameraManager  
 from settings import Settings
-from ui_components import MainUI
+from ui import MainUI  # Jetzt aus dem ui-Package
 from user_manager import UserManager
 
 # Logging konfigurieren

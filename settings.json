@@ -13,8 +13,8 @@
   "settling_time": 0.3,
   "capture_time": 1.5,
   "clearing_time": 1.0,
-  "brightness_low_threshold": 100,
-  "brightness_high_threshold": 150,
+  "brightness_low_threshold": 131,
+  "brightness_high_threshold": 133,
   "brightness_duration_threshold": 1.0,
   "blow_off_time": 1.0,
   "bad_part_classes": [

@@ -10,7 +10,7 @@
   "auto_save_snapshots": false,
   "log_level": "INFO",
   "motion_threshold": 45,
-  "settling_time": 0.3,
+  "settling_time": 1.0,
   "capture_time": 1.5,
   "clearing_time": 1.0,
   "brightness_low_threshold": 120,

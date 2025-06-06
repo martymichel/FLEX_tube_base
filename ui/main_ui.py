@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap, QFont
 import cv2
 import numpy as np
+import logging
 
 from .dialogs import CameraSelectionDialog, SettingsDialog
 
@@ -250,7 +251,99 @@ class MainUI(QWidget):
         
         modbus_layout.addLayout(coils_layout)
         
+        # Erweiterte Modbus-Aktionen (nur für Admin)
+        actions_layout = QHBoxLayout()
+        
+        # Reset Button
+        self.modbus_reset_btn = QPushButton("Reset")
+        self.modbus_reset_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                font-size: 11px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #d35400;
+            }
+        """)
+        self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen")
+        self.modbus_reset_btn.clicked.connect(self.reset_modbus_controller)
+        actions_layout.addWidget(self.modbus_reset_btn)
+        
+        # Reconnect Button
+        self.modbus_reconnect_btn = QPushButton("Neuverbindung")
+        self.modbus_reconnect_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                font-size: 11px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden")
+        self.modbus_reconnect_btn.clicked.connect(self.reconnect_modbus)
+        actions_layout.addWidget(self.modbus_reconnect_btn)
+        
+        modbus_layout.addLayout(actions_layout)
+        
         layout.addWidget(modbus_group)
+    
+    def reset_modbus_controller(self):
+        """WAGO Controller zurücksetzen."""
+        if not self.app.user_manager.is_admin():
+            self.show_status("Admin-Rechte erforderlich für Controller-Reset", "error")
+            return
+        
+        reply = QMessageBox.question(
+            self,
+            "Controller Reset",
+            "WAGO Controller zurücksetzen?\n\nDies kann Verbindungsprobleme beheben.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.show_status("Führe Controller-Reset durch...", "warning")
+            
+            if self.app.modbus_manager.restart_controller():
+                self.show_status("Controller-Reset erfolgreich", "success")
+                QMessageBox.information(
+                    self,
+                    "Reset erfolgreich",
+                    "WAGO Controller wurde zurückgesetzt.\nVerbindung wird neu aufgebaut..."
+                )
+                # Neuverbindung nach Reset
+                self.reconnect_modbus()
+            else:
+                self.show_status("Controller-Reset fehlgeschlagen", "error")
+                QMessageBox.critical(
+                    self,
+                    "Reset fehlgeschlagen",
+                    "Controller-Reset konnte nicht durchgeführt werden.\nPrüfen Sie die Verbindung."
+                )
+    
+    def reconnect_modbus(self):
+        """Modbus neu verbinden."""
+        if not self.app.user_manager.is_admin():
+            self.show_status("Admin-Rechte erforderlich für Neuverbindung", "error")
+            return
+        
+        self.show_status("Verbinde Modbus neu...", "warning")
+        
+        if self.app.modbus_manager.force_reconnect():
+            # Watchdog und Coil-Refresh neu starten
+            if self.app.modbus_manager.start_watchdog():
+                logging.info("Watchdog nach Neuverbindung gestartet")
+            
+            if self.app.modbus_manager.start_coil_refresh():
+                logging.info("Coil-Refresh nach Neuverbindung gestartet")
+            
+            self.update_modbus_status(True, self.app.modbus_manager.ip_address)
+            self.show_status("Modbus erfolgreich neu verbunden", "success")
+        else:
+            self.update_modbus_status(False, self.app.modbus_manager.ip_address)
+            self.show_status("Modbus-Neuverbindung fehlgeschlagen", "error")
     
     def _create_sensors_section(self, layout):
         """Workflow-Status mit Motion und Helligkeit."""
@@ -628,6 +721,10 @@ class MainUI(QWidget):
             """)
         
         self.modbus_ip.setText(ip_address)
+        
+        # Admin-Buttons je nach Verbindungsstatus aktivieren/deaktivieren
+        self.modbus_reset_btn.setEnabled(connected and self.app.user_manager.is_admin())
+        self.modbus_reconnect_btn.setEnabled(self.app.user_manager.is_admin())
     
     def update_coil_status(self, reject_active=False, detection_active=False):
         """Coil-Status-Indikatoren aktualisieren."""
@@ -727,6 +824,10 @@ class MainUI(QWidget):
         self.model_btn.setEnabled(can_admin)
         self.camera_btn.setEnabled(can_admin)
         self.settings_btn.setEnabled(can_admin)
+        
+        # Modbus-Buttons für Admin
+        self.modbus_reset_btn.setEnabled(can_admin and self.app.modbus_manager.connected)
+        self.modbus_reconnect_btn.setEnabled(can_admin)
     
     def update_workflow_status(self, status):
         """Workflow-Status aktualisieren."""

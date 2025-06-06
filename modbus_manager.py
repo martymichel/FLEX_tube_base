@@ -39,6 +39,10 @@ class ModbusManager:
         # Timer für Ausschuss-Coil
         self.reject_coil_timer = None
         
+        # Verbindungs-Retry-Counter
+        self.connection_attempts = 0
+        self.max_connection_attempts = 3
+        
         # Modbus-Parameter aus Settings
         self.ip_address = self.settings.get('modbus_ip', '192.168.1.100')
         self.port = self.settings.get('modbus_port', 502)
@@ -51,24 +55,86 @@ class ModbusManager:
         logging.info(f"ModbusManager initialisiert - IP: {self.ip_address}, Port: {self.port}")
     
     def connect(self):
-        """Verbindung zur WAGO herstellen."""
+        """Verbindung zur WAGO herstellen mit intelligentem Retry und Reset."""
         if not MODBUS_AVAILABLE:
             logging.warning("pymodbus nicht verfügbar - Modbus-Verbindung nicht möglich")
             return False
         
-        try:
-            self.client = ModbusTcpClient(self.ip_address, port=self.port)
-            self.connected = self.client.connect()
+        self.connection_attempts = 0
+        
+        while self.connection_attempts < self.max_connection_attempts:
+            self.connection_attempts += 1
             
-            if self.connected:
-                logging.info(f"Modbus-Verbindung erfolgreich zu {self.ip_address}:{self.port}")
-                return True
+            try:
+                logging.info(f"Verbindungsversuch {self.connection_attempts}/{self.max_connection_attempts} zu {self.ip_address}:{self.port}")
+                
+                # Neue Client-Instanz erstellen
+                if self.client:
+                    try:
+                        self.client.close()
+                    except:
+                        pass
+                
+                self.client = ModbusTcpClient(self.ip_address, port=self.port)
+                self.connected = self.client.connect()
+                
+                if self.connected:
+                    logging.info(f"Modbus-Verbindung erfolgreich zu {self.ip_address}:{self.port}")
+                    return True
+                else:
+                    logging.warning(f"Modbus-Verbindung fehlgeschlagen (Versuch {self.connection_attempts})")
+                    
+                    # Bei zweitem Fehlschlag: Controller-Reset versuchen
+                    if self.connection_attempts == 2:
+                        logging.info("Versuche Controller-Reset zur Behebung der Verbindungsprobleme...")
+                        self.restart_controller()
+                        time.sleep(3)  # Kurz warten nach Reset
+                    
+                    time.sleep(1)  # Kurze Pause zwischen Versuchen
+                    
+            except Exception as e:
+                logging.error(f"Fehler bei Modbus-Verbindung (Versuch {self.connection_attempts}): {e}")
+                time.sleep(1)
+        
+        logging.error(f"Modbus-Verbindung nach {self.max_connection_attempts} Versuchen fehlgeschlagen")
+        return False
+    
+    def restart_controller(self):
+        """Führt einen Software-Reset des WAGO 750-362 über Modbus aus."""
+        logging.info("Führe WAGO Controller Software-Reset durch...")
+        
+        try:
+            # Versuche mit aktueller Verbindung
+            if self.client:
+                with self._lock:
+                    result = self.client.write_register(0x2040, 0xAA55)
+                    if not result.isError():
+                        logging.info("Software-Reset-Befehl an WAGO 750-362 gesendet (Register 0x2040 = 0xAA55)")
+                        return True
+                    else:
+                        logging.warning("Fehler beim Senden des Reset-Befehls (Register 0x2040)")
+            
+            # Falls aktuelle Verbindung nicht funktioniert, neue Verbindung für Reset versuchen
+            logging.info("Versuche Reset über neue temporäre Verbindung...")
+            temp_client = ModbusTcpClient(self.ip_address, port=self.port)
+            
+            if temp_client.connect():
+                try:
+                    result = temp_client.write_register(0x2040, 0xAA55)
+                    if not result.isError():
+                        logging.info("Software-Reset erfolgreich über temporäre Verbindung gesendet")
+                        return True
+                    else:
+                        logging.error("Fehler beim Reset über temporäre Verbindung")
+                        return False
+                finally:
+                    temp_client.close()
             else:
-                logging.error(f"Modbus-Verbindung fehlgeschlagen zu {self.ip_address}:{self.port}")
+                logging.error("Konnte keine temporäre Verbindung für Reset herstellen")
                 return False
                 
         except Exception as e:
-            logging.error(f"Fehler bei Modbus-Verbindung: {e}")
+            logging.error(f"Ausnahme beim Senden des Reset-Befehls: {e}")
             return False
     
     def disconnect(self):
@@ -84,15 +150,37 @@ class ModbusManager:
         # Alle Coils ausschalten
         self.set_all_coils_off()
         
-        # Verbindung trennen
+        # Verbindung sauber trennen
         if self.client and self.connected:
             try:
+                # Kurz warten damit letzte Befehle ankommen
+                time.sleep(0.1)
                 self.client.close()
-                logging.info("Modbus-Verbindung getrennt")
+                logging.info("Modbus-Verbindung sauber getrennt")
             except Exception as e:
                 logging.warning(f"Fehler beim Trennen der Modbus-Verbindung: {e}")
         
         self.connected = False
+        self.client = None
+    
+    def force_reconnect(self):
+        """Erzwingt eine Neuverbindung mit Controller-Reset."""
+        logging.info("Erzwinge Modbus-Neuverbindung...")
+        
+        # Alte Verbindung trennen
+        self.disconnect()
+        
+        # Kurz warten
+        time.sleep(1)
+        
+        # Controller-Reset durchführen
+        self.restart_controller()
+        
+        # Etwas länger warten nach Reset
+        time.sleep(3)
+        
+        # Neue Verbindung aufbauen
+        return self.connect()
     
     def initialize_watchdog(self):
         """Watchdog konfigurieren und starten."""
@@ -171,13 +259,21 @@ class ModbusManager:
                         logging.debug(f"Watchdog getriggert: {self.watchdog_value}")
                     else:
                         logging.warning("Watchdog-Trigger fehlgeschlagen")
+                        
+                        # Bei wiederholten Fehlern: Neuverbindung versuchen
+                        if not self._test_connection():
+                            logging.error("Modbus-Verbindung verloren - versuche Neuverbindung...")
+                            if self.force_reconnect():
+                                logging.info("Modbus-Neuverbindung erfolgreich")
+                            else:
+                                logging.error("Modbus-Neuverbindung fehlgeschlagen")
                     
                     # Optional: Watchdog-Status prüfen
                     try:
                         status_result = self.client.read_holding_registers(0x1006, 1)
                         if not status_result.isError() and status_result.registers[0] == 2:
                             logging.error("ALARM: Watchdog abgelaufen!")
-                            # Optional: Watchdog neu starten
+                            # Watchdog neu starten
                             self.client.write_register(0x1007, 1)
                     except:
                         pass  # Status-Check ist optional
@@ -188,6 +284,18 @@ class ModbusManager:
             except Exception as e:
                 logging.error(f"Fehler im Watchdog-Loop: {e}")
                 time.sleep(1.0)  # Bei Fehler kurz warten
+    
+    def _test_connection(self):
+        """Teste ob Modbus-Verbindung noch funktioniert."""
+        try:
+            if not self.client or not self.connected:
+                return False
+            
+            # Einfacher Test: Status-Register lesen
+            result = self.client.read_holding_registers(0x1006, 1)
+            return not result.isError()
+        except:
+            return False
     
     def set_coil(self, address, state):
         """Einzelne Coil setzen."""
@@ -202,6 +310,12 @@ class ModbusManager:
                     return True
                 else:
                     logging.warning(f"Fehler beim Setzen von Coil {address}")
+                    
+                    # Bei Fehlern: Verbindung testen
+                    if not self._test_connection():
+                        logging.warning("Modbus-Verbindung gestört - versuche Neuverbindung...")
+                        self.force_reconnect()
+                    
                     return False
         except Exception as e:
             logging.error(f"Fehler beim Setzen von Coil {address}: {e}")
@@ -315,7 +429,8 @@ class ModbusManager:
             'port': self.port,
             'watchdog_running': self.watchdog_running,
             'coil_refresh_running': self.coil_refresh_running,
-            'detection_active_coil_state': self.detection_active_coil_state
+            'detection_active_coil_state': self.detection_active_coil_state,
+            'connection_attempts': self.connection_attempts
         }
     
     def update_settings(self, new_settings):

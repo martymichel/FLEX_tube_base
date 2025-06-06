@@ -1,12 +1,24 @@
 {
-  "confidence_threshold": 1.0,
+  "confidence_threshold": 0.7,
   "last_model": "P:/PY/FLEX_tube/template_ai_modell.pt",
   "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
-  "video_width": 320,
-  "video_height": 240,
+  "video_width": 640,
+  "video_height": 480,
   "sidebar_width": 350,
   "show_confidence": false,
   "show_class_names": true,
   "auto_save_snapshots": false,
-  "log_level": "INFO"
+  "log_level": "INFO",
+  "motion_threshold": 82,
+  "settling_time": 0.6,
+  "capture_time": 1.0,
+  "clearing_time": 1.0,
+  "brightness_low_threshold": 100,
+  "brightness_high_threshold": 150,
+  "brightness_duration_threshold": 1.0,
+  "blow_off_time": 1.5,
+  "bad_part_classes": [
+    1
+  ],
+  "bad_part_min_confidence": 0.6
 }

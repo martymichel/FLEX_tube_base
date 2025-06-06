@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Einfache KI-Objekterkennungs-Anwendung - Erweitert
-Neuaufbau mit sauberer Architektur und erweiterten Grundfunktionen
+Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
+Kompletter Ablauf: Motion → Takten → Ausschwingen → Erkennung → Ausblasen → Warten
 """
 
 import sys
@@ -29,11 +29,11 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung für KI-Objekterkennung - einfach aber vollständig."""
+    """Hauptanwendung für industrielle KI-Objekterkennung mit Abblas-Logik."""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("KI-Objekterkennung - Erweitert")
+        self.setWindowTitle("KI-Objekterkennung - Industriell")
         self.setWindowState(Qt.WindowState.WindowFullScreen)
         
         # Komponenten initialisieren
@@ -52,11 +52,11 @@ class DetectionApp(QMainWindow):
         # Status
         self.running = False
         self.frame_count = 0
-        self.motion_detected = False
-        self.settling_start_time = None
-        self.capture_start_time = None
-        self.clearing_start_time = None
-        self.detection_state = "idle"  # idle, settling, capturing, clearing
+        
+        # Zustandsmaschine für industriellen Ablauf
+        self.detection_state = "idle"  # idle, settling, capturing, blow_off
+        self.state_start_time = None
+        self.current_detections = []  # Erkennungen aus der aktuellen Capture-Phase
         
         # Timer für Frame-Updates
         self.update_timer = QTimer()
@@ -81,7 +81,7 @@ class DetectionApp(QMainWindow):
         self.settings_timer.timeout.connect(self.check_settings_changes)
         self.settings_timer.start(2000)  # Alle 2 Sekunden prüfen
         
-        logging.info("DetectionApp gestartet - Erweiterte Version")
+        logging.info("DetectionApp gestartet - Industrieller Workflow")
     
     def setup_connections(self):
         """Signale und Slots verbinden."""
@@ -151,6 +151,8 @@ class DetectionApp(QMainWindow):
             if self.camera_manager.start():
                 self.running = True
                 self.detection_state = "idle"
+                self.state_start_time = None
+                self.current_detections = []
                 
                 # Bewegungserkennung initialisieren
                 import cv2
@@ -161,8 +163,8 @@ class DetectionApp(QMainWindow):
                 
                 self.update_timer.start(30)  # ~30 FPS
                 self.ui.start_btn.setText("⏹ Stoppen")
-                self.ui.show_status("Erkennung läuft - Warte auf Bewegung...", "success")
-                logging.info("Erkennung gestartet")
+                self.ui.show_status("Bereit - Warte auf Bewegung (Förderband)", "success")
+                logging.info("Erkennung gestartet - Warte auf Bewegung")
             else:
                 self.ui.show_status("Fehler beim Starten der Kamera", "error")
                 
@@ -191,22 +193,24 @@ class DetectionApp(QMainWindow):
             # Helligkeitsüberwachung
             self.check_brightness(frame)
             
-            # Bewegungserkennung
-            motion_detected = self.detect_motion(frame)
-            
-            # Zustandsmaschine für Bewegungserkennung
-            current_time = self.camera_manager.get_current_time()
-            
-            if self.detection_state == "idle" and motion_detected:
-                # Bewegung erkannt - Ausschwingzeit starten
-                self.detection_state = "settling"
-                self.settling_start_time = current_time
-                self.ui.show_status("Bewegung erkannt - Ausschwingzeit...", "warning")
+            # Bewegungserkennung (nur im idle Zustand)
+            motion_detected = False
+            if self.detection_state == "idle":
+                motion_detected = self.detect_motion(frame)
+                
+                if motion_detected:
+                    # Bewegung erkannt - Förderband taktet
+                    self.detection_state = "settling"
+                    self.state_start_time = self.camera_manager.get_current_time()
+                    self.ui.show_status("🔄 Förderband taktet - Ausschwingzeit läuft...", "warning")
+                    logging.info("Bewegung erkannt - Förderband startet")
             
             # KI-Erkennung nur während Capture-Phase
             detections = []
             if self.detection_state == "capturing":
                 detections = self.detection_engine.detect(frame)
+                # Sammle alle Erkennungen der Capture-Phase
+                self.current_detections.extend(detections)
             
             # Frame mit Erkennungen zeichnen
             annotated_frame = self.detection_engine.draw_detections(frame, detections)
@@ -251,34 +255,80 @@ class DetectionApp(QMainWindow):
         return motion_pixels > motion_threshold
     
     def check_state_transitions(self):
-        """Prüfe Zustandsübergänge der Bewegungserkennung."""
-        if not self.running:
+        """Prüfe Zustandsübergänge der industriellen Zustandsmaschine."""
+        if not self.running or self.state_start_time is None:
             return
             
         current_time = self.camera_manager.get_current_time()
+        elapsed_time = current_time - self.state_start_time
+        
         settling_time = self.settings.get('settling_time', 1.0)
         capture_time = self.settings.get('capture_time', 3.0)
-        clearing_time = self.settings.get('clearing_time', 3.0)
+        blow_off_time = self.settings.get('blow_off_time', 5.0)
         
-        if self.detection_state == "settling" and self.settling_start_time:
-            if current_time - self.settling_start_time >= settling_time:
-                # Ausschwingzeit vorbei - Aufnahme starten
+        if self.detection_state == "settling":
+            if elapsed_time >= settling_time:
+                # Ausschwingzeit vorbei - Aufnahme/Erkennung starten
                 self.detection_state = "capturing"
-                self.capture_start_time = current_time
-                self.ui.show_status("Aufnahme läuft - KI-Erkennung aktiv", "success")
+                self.state_start_time = current_time
+                self.current_detections = []  # Reset für neue Capture-Session
+                self.ui.show_status("🎯 Aufnahme läuft - KI-Erkennung aktiv", "success")
+                logging.info("Ausschwingzeit beendet - KI-Erkennung startet")
         
-        elif self.detection_state == "capturing" and self.capture_start_time:
-            if current_time - self.capture_start_time >= capture_time:
-                # Aufnahme beendet - Clearing starten
-                self.detection_state = "clearing"
-                self.clearing_start_time = current_time
-                self.ui.show_status("Auswertung beendet - Wartezeit...", "info")
+        elif self.detection_state == "capturing":
+            if elapsed_time >= capture_time:
+                # Aufnahme beendet - Prüfe ob schlechte Teile erkannt wurden
+                bad_parts_detected = self.check_for_bad_parts()
+                
+                if bad_parts_detected:
+                    # Schlechte Teile erkannt - Abblasen erforderlich
+                    self.detection_state = "blow_off"
+                    self.state_start_time = current_time
+                    self.ui.show_status("💨 Schlechte Teile erkannt - Abblasen aktiv", "error")
+                    logging.info(f"Schlechte Teile erkannt - Abblas-Wartezeit: {blow_off_time}s")
+                else:
+                    # Keine schlechten Teile - zurück zu idle
+                    self.detection_state = "idle"
+                    self.state_start_time = None
+                    self.ui.show_status("✅ Kontrolle beendet - Bereit für nächste Bewegung", "ready")
+                    logging.info("Keine schlechten Teile - zurück zu idle")
         
-        elif self.detection_state == "clearing" and self.clearing_start_time:
-            if current_time - self.clearing_start_time >= clearing_time:
-                # Clearing beendet - zurück zu idle
+        elif self.detection_state == "blow_off":
+            if elapsed_time >= blow_off_time:
+                # Abblas-Wartezeit beendet - zurück zu idle
                 self.detection_state = "idle"
-                self.ui.show_status("Bereit für nächste Bewegung", "ready")
+                self.state_start_time = None
+                self.ui.show_status("🔄 Abblasen beendet - Bereit für nächste Bewegung", "ready")
+                logging.info("Abblas-Wartezeit beendet - zurück zu idle")
+    
+    def check_for_bad_parts(self):
+        """Prüfe ob schlechte Teile in den aktuellen Erkennungen sind.
+        
+        Returns:
+            bool: True wenn schlechte Teile erkannt wurden
+        """
+        if not self.current_detections:
+            return False
+        
+        # Hole Bad Part Klassen aus Einstellungen
+        bad_part_classes = self.settings.get('bad_part_classes', [])
+        
+        # Prüfe alle Erkennungen der Capture-Session
+        for detection in self.current_detections:
+            _, _, _, _, confidence, class_id = detection
+            
+            # Mindest-Konfidenz prüfen
+            min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
+            if confidence < min_confidence:
+                continue
+            
+            # Prüfe ob Klasse als "schlecht" definiert ist
+            if class_id in bad_part_classes:
+                class_name = self.detection_engine.class_names.get(class_id, f"Class {class_id}")
+                logging.info(f"Schlechtes Teil erkannt: {class_name} (Konfidenz: {confidence:.2f})")
+                return True
+        
+        return False
     
     def check_brightness(self, frame):
         """Helligkeitsüberwachung."""
@@ -321,9 +371,23 @@ class DetectionApp(QMainWindow):
         """Zustandsinfo auf Frame zeichnen."""
         import cv2
         
+        # Hauptstatus
         state_text = f"Status: {self.detection_state.upper()}"
         cv2.putText(frame, state_text, (10, 30), 
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        
+        # Zeit-Info falls in zeitkritischem Zustand
+        if self.state_start_time is not None:
+            elapsed = self.camera_manager.get_current_time() - self.state_start_time
+            time_text = f"Zeit: {elapsed:.1f}s"
+            cv2.putText(frame, time_text, (10, 70), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
+        
+        # Erkennungen in aktueller Session
+        if self.detection_state == "capturing" and self.current_detections:
+            detection_text = f"Erkennungen: {len(self.current_detections)}"
+            cv2.putText(frame, detection_text, (10, 110), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
     
     def load_model(self):
         """KI-Modell laden."""

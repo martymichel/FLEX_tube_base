@@ -1,6 +1,6 @@
 """
 Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen mit erweiterten Funktionen
+Verwaltet alle Anwendungseinstellungen für industriellen Workflow
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung mit erweiterten Funktionen."""
+    """Einfache Einstellungsverwaltung für industriellen Workflow."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -61,10 +61,10 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
     
     def get_defaults(self):
-        """Standardeinstellungen zurückgeben.
+        """Standardeinstellungen für industriellen Workflow.
         
         Returns:
-            dict: Standardeinstellungen mit erweiterten Funktionen
+            dict: Standardeinstellungen
         """
         return {
             # KI-Einstellungen
@@ -76,11 +76,15 @@ class Settings:
             'video_width': 1280,
             'video_height': 720,
             
-            # Bewegungserkennung
-            'motion_threshold': 110,
-            'settling_time': 1.0,      # Ausschwingzeit in Sekunden
-            'capture_time': 3.0,       # Aufnahmezeit in Sekunden
-            'clearing_time': 3.0,      # Wartezeit nach Ausschuss in Sekunden
+            # Industrieller Workflow - Zeiteinstellungen
+            'motion_threshold': 110,      # Schwellwert für Bewegungserkennung
+            'settling_time': 1.0,         # Ausschwingzeit nach Bewegung (Sekunden)
+            'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)
+            'blow_off_time': 5.0,         # Wartezeit nach Abblasen (Sekunden)
+            
+            # Schlecht-Teil Erkennung
+            'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
+            'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile
             
             # Helligkeitsüberwachung
             'brightness_low_threshold': 30,      # Untere Helligkeitsschwelle

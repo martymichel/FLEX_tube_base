@@ -1,6 +1,6 @@
 """
 UI-Komponenten - einfach und benutzerfreundlich
-Moderne, touch-freundliche Benutzeroberfläche mit erweiterten Funktionen
+Moderne, touch-freundliche Benutzeroberfläche für industriellen Workflow
 """
 
 import os
@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QSplitter, QFrame, QFileDialog, QDialog, QSpinBox,
     QDoubleSpinBox, QCheckBox, QFormLayout, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView, QToolButton
+    QTableWidget, QTableWidgetItem, QHeaderView, QToolButton, QListWidget
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QPixmap, QFont, QColor
@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche mit erweiterten Funktionen."""
+    """Hauptbenutzeroberfläche für industriellen Workflow."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -145,6 +145,27 @@ class MainUI(QWidget):
         camera_layout.addWidget(self.camera_btn)
         
         layout.addWidget(camera_section)
+        
+        # Workflow-Status
+        workflow_section = QFrame()
+        workflow_layout = QVBoxLayout(workflow_section)
+        
+        workflow_label = QLabel("⚙️ Workflow-Status:")
+        workflow_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        workflow_layout.addWidget(workflow_label)
+        
+        self.workflow_info = QLabel("Bereit")
+        self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.workflow_info.setStyleSheet("""
+            background-color: #34495e;
+            color: white;
+            padding: 8px;
+            border-radius: 4px;
+            font-weight: bold;
+        """)
+        workflow_layout.addWidget(self.workflow_info)
+        
+        layout.addWidget(workflow_section)
         
         # Helligkeitsanzeige
         brightness_section = QFrame()
@@ -347,6 +368,12 @@ class MainUI(QWidget):
             status_type (str): 'info', 'success', 'error', 'ready', 'warning'
         """
         self.status_label.setText(message)
+        
+        # Workflow-Info auch aktualisieren
+        if hasattr(self, 'workflow_info'):
+            # Kurze Version für Workflow-Status
+            short_status = self.app.detection_state.upper() if hasattr(self.app, 'detection_state') else "IDLE"
+            self.workflow_info.setText(short_status)
         
         colors = {
             'info': '#3498db',      # Blau
@@ -594,14 +621,14 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Erweiterte Einstellungen-Dialog."""
+    """Erweiterte Einstellungen-Dialog für industriellen Workflow."""
     
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("Einstellungen")
+        self.setWindowTitle("Industrielle Workflow-Einstellungen")
         self.setModal(True)
-        self.resize(600, 700)
+        self.resize(600, 800)
         
         self.setup_ui()
         self.load_settings()
@@ -614,7 +641,7 @@ class SettingsDialog(QDialog):
         form_layout = QFormLayout()
         
         # KI-Einstellungen
-        ki_label = QLabel("KI-Einstellungen")
+        ki_label = QLabel("🤖 KI-Einstellungen")
         ki_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(ki_label)
         
@@ -624,10 +651,10 @@ class SettingsDialog(QDialog):
         self.confidence_spin.setDecimals(2)
         form_layout.addRow("Konfidenz-Schwellwert:", self.confidence_spin)
         
-        # Bewegungserkennung
-        motion_label = QLabel("Bewegungserkennung")
-        motion_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        form_layout.addRow(motion_label)
+        # Industrieller Workflow
+        workflow_label = QLabel("⚙️ Industrieller Workflow")
+        workflow_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(workflow_label)
         
         self.motion_threshold_spin = QSpinBox()
         self.motion_threshold_spin.setRange(1, 255)
@@ -643,13 +670,44 @@ class SettingsDialog(QDialog):
         self.capture_time_spin.setSingleStep(0.1)
         form_layout.addRow("Aufnahmezeit (Sekunden):", self.capture_time_spin)
         
-        self.clearing_time_spin = QDoubleSpinBox()
-        self.clearing_time_spin.setRange(1.0, 30.0)
-        self.clearing_time_spin.setSingleStep(0.5)
-        form_layout.addRow("Wartezeit nach Ausschuss (Sekunden):", self.clearing_time_spin)
+        self.blow_off_time_spin = QDoubleSpinBox()
+        self.blow_off_time_spin.setRange(1.0, 30.0)
+        self.blow_off_time_spin.setSingleStep(0.5)
+        form_layout.addRow("Abblas-Wartezeit (Sekunden):", self.blow_off_time_spin)
+        
+        # Schlecht-Teil Konfiguration
+        bad_parts_label = QLabel("🚫 Schlecht-Teil Konfiguration")
+        bad_parts_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(bad_parts_label)
+        
+        self.bad_part_classes_list = QListWidget()
+        self.bad_part_classes_list.setMaximumHeight(100)
+        form_layout.addRow("Schlecht-Teil Klassen (IDs):", self.bad_part_classes_list)
+        
+        # Input für neue Klassen-ID
+        bad_class_input_layout = QHBoxLayout()
+        self.bad_class_input = QSpinBox()
+        self.bad_class_input.setRange(0, 999)
+        bad_class_input_layout.addWidget(self.bad_class_input)
+        
+        add_bad_class_btn = QPushButton("Hinzufügen")
+        add_bad_class_btn.clicked.connect(self.add_bad_class)
+        bad_class_input_layout.addWidget(add_bad_class_btn)
+        
+        remove_bad_class_btn = QPushButton("Entfernen")
+        remove_bad_class_btn.clicked.connect(self.remove_bad_class)
+        bad_class_input_layout.addWidget(remove_bad_class_btn)
+        
+        form_layout.addRow("Klassen-ID hinzufügen:", bad_class_input_layout)
+        
+        self.bad_part_confidence_spin = QDoubleSpinBox()
+        self.bad_part_confidence_spin.setRange(0.1, 1.0)
+        self.bad_part_confidence_spin.setSingleStep(0.1)
+        self.bad_part_confidence_spin.setDecimals(2)
+        form_layout.addRow("Mindest-Konfidenz für Schlecht-Teile:", self.bad_part_confidence_spin)
         
         # Helligkeitsüberwachung
-        brightness_label = QLabel("Helligkeitsüberwachung")
+        brightness_label = QLabel("💡 Helligkeitsüberwachung")
         brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(brightness_label)
         
@@ -667,7 +725,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Warndauer (Sekunden):", self.brightness_duration_spin)
         
         # Video-Einstellungen
-        video_label = QLabel("Video-Einstellungen")
+        video_label = QLabel("🎥 Video-Einstellungen")
         video_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(video_label)
         
@@ -682,7 +740,7 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Video-Höhe:", self.height_spin)
         
         # Anzeige-Optionen
-        display_label = QLabel("Anzeige-Optionen")
+        display_label = QLabel("🖥️ Anzeige-Optionen")
         display_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(display_label)
         
@@ -711,13 +769,37 @@ class SettingsDialog(QDialog):
         
         layout.addLayout(button_layout)
     
+    def add_bad_class(self):
+        """Schlecht-Teil Klasse hinzufügen."""
+        class_id = self.bad_class_input.value()
+        # Prüfe ob bereits vorhanden
+        for i in range(self.bad_part_classes_list.count()):
+            if self.bad_part_classes_list.item(i).text() == str(class_id):
+                return  # Bereits vorhanden
+        
+        self.bad_part_classes_list.addItem(str(class_id))
+    
+    def remove_bad_class(self):
+        """Ausgewählte Schlecht-Teil Klasse entfernen."""
+        current_row = self.bad_part_classes_list.currentRow()
+        if current_row >= 0:
+            self.bad_part_classes_list.takeItem(current_row)
+    
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
         self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
         self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
-        self.clearing_time_spin.setValue(self.settings.get('clearing_time', 3.0))
+        self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
+        
+        # Schlecht-Teil Klassen laden
+        bad_classes = self.settings.get('bad_part_classes', [1])
+        self.bad_part_classes_list.clear()
+        for class_id in bad_classes:
+            self.bad_part_classes_list.addItem(str(class_id))
+        
+        self.bad_part_confidence_spin.setValue(self.settings.get('bad_part_min_confidence', 0.5))
         self.brightness_low_spin.setValue(self.settings.get('brightness_low_threshold', 30))
         self.brightness_high_spin.setValue(self.settings.get('brightness_high_threshold', 220))
         self.brightness_duration_spin.setValue(self.settings.get('brightness_duration_threshold', 3.0))
@@ -732,7 +814,15 @@ class SettingsDialog(QDialog):
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
         self.settings.set('settling_time', self.settling_time_spin.value())
         self.settings.set('capture_time', self.capture_time_spin.value())
-        self.settings.set('clearing_time', self.clearing_time_spin.value())
+        self.settings.set('blow_off_time', self.blow_off_time_spin.value())
+        
+        # Schlecht-Teil Klassen sammeln
+        bad_classes = []
+        for i in range(self.bad_part_classes_list.count()):
+            bad_classes.append(int(self.bad_part_classes_list.item(i).text()))
+        self.settings.set('bad_part_classes', bad_classes)
+        
+        self.settings.set('bad_part_min_confidence', self.bad_part_confidence_spin.value())
         self.settings.set('brightness_low_threshold', self.brightness_low_spin.value())
         self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())

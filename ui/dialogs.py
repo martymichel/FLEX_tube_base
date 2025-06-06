@@ -1,6 +1,6 @@
 """
 Dialog-Komponenten für Kamera-Auswahl und Einstellungen
-Alle Dialog-Fenster der Anwendung
+Alle Dialog-Fenster der Anwendung mit Emojis und ohne Video/Anzeige-Einstellungen
 """
 
 import os
@@ -18,7 +18,7 @@ class CameraSelectionDialog(QDialog):
     def __init__(self, camera_manager, parent=None):
         super().__init__(parent)
         self.camera_manager = camera_manager
-        self.setWindowTitle("Kamera/Video auswählen")
+        self.setWindowTitle("📹 Kamera/Video auswählen")
         self.setModal(True)
         self.resize(500, 400)
         
@@ -33,7 +33,7 @@ class CameraSelectionDialog(QDialog):
         webcam_section = QFrame()
         webcam_layout = QVBoxLayout(webcam_section)
         
-        webcam_label = QLabel("Webcams:")
+        webcam_label = QLabel("📷 Webcams:")
         webcam_label.setFont(QFont("", 12, QFont.Weight.Bold))
         webcam_layout.addWidget(webcam_label)
         
@@ -53,7 +53,7 @@ class CameraSelectionDialog(QDialog):
         video_section = QFrame()
         video_layout = QVBoxLayout(video_section)
         
-        video_label = QLabel("Video-Datei:")
+        video_label = QLabel("🎬 Video-Datei:")
         video_label.setFont(QFont("", 12, QFont.Weight.Bold))
         video_layout.addWidget(video_label)
         
@@ -100,14 +100,14 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Erweiterte Einstellungen-Dialog für industriellen Workflow ohne Helligkeits-Limits."""
+    """Erweiterte Einstellungen-Dialog für industriellen Workflow mit Emojis und ohne Video/Anzeige-Optionen."""
     
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("Industrielle Workflow-Einstellungen")
+        self.setWindowTitle("⚙️ Industrielle Workflow-Einstellungen")
         self.setModal(True)
-        self.resize(600, 800)
+        self.resize(600, 900)
         
         self.setup_ui()
         self.load_settings()
@@ -121,33 +121,47 @@ class SettingsDialog(QDialog):
         
         # KI-Einstellungen
         self._create_ai_section(form_layout)
+        self._add_separator(form_layout)
         
         # Industrieller Workflow
         self._create_workflow_section(form_layout)
+        self._add_separator(form_layout)
         
         # Schlecht-Teil Konfiguration
         self._create_bad_parts_section(form_layout)
+        self._add_separator(form_layout)
         
         # Gut-Teil Konfiguration
         self._create_good_parts_section(form_layout)
+        self._add_separator(form_layout)
+        
+        # Bilderspeicherung
+        self._create_image_saving_section(form_layout)
+        self._add_separator(form_layout)
         
         # Helligkeitsüberwachung
         self._create_brightness_section(form_layout)
+        self._add_separator(form_layout)
         
-        # Video-Einstellungen
-        self._create_video_section(form_layout)
-        
-        # Anzeige-Optionen
-        self._create_display_section(form_layout)
+        # MODBUS-Einstellungen
+        self._create_modbus_section(form_layout)
         
         layout.addLayout(form_layout)
         
         # Buttons
         self._create_button_section(layout)
     
+    def _add_separator(self, form_layout):
+        """Füge eine visuelle Trennlinie hinzu."""
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet("color: #7f8c8d; margin: 10px 0;")
+        form_layout.addRow(separator)
+    
     def _create_ai_section(self, form_layout):
-        """KI-Einstellungen erstellen."""
-        ki_label = QLabel("KI-Einstellungen")
+        """🤖 KI-Einstellungen erstellen."""
+        ki_label = QLabel("🤖 KI-Einstellungen")
         ki_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(ki_label)
         
@@ -158,8 +172,8 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Konfidenz-Schwellwert:", self.confidence_spin)
     
     def _create_workflow_section(self, form_layout):
-        """Workflow-Einstellungen erstellen."""
-        workflow_label = QLabel("Industrieller Workflow")
+        """🏭 Workflow-Einstellungen erstellen."""
+        workflow_label = QLabel("🏭 Industrieller Workflow")
         workflow_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(workflow_label)
         
@@ -191,8 +205,8 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Abblas-Wartezeit (Sekunden):", self.blow_off_time_spin)
     
     def _create_bad_parts_section(self, form_layout):
-        """Schlecht-Teil-Konfiguration erstellen."""
-        bad_parts_label = QLabel("Schlecht-Teil Konfiguration")
+        """❌ Schlecht-Teil-Konfiguration erstellen."""
+        bad_parts_label = QLabel("❌ Schlecht-Teil Konfiguration")
         bad_parts_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(bad_parts_label)
         
@@ -223,8 +237,8 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Mindest-Konfidenz für Schlecht-Teile:", self.bad_part_confidence_spin)
     
     def _create_good_parts_section(self, form_layout):
-        """Gut-Teil-Konfiguration erstellen."""
-        good_parts_label = QLabel("Gut-Teil Konfiguration")
+        """✅ Gut-Teil-Konfiguration erstellen."""
+        good_parts_label = QLabel("✅ Gut-Teil Konfiguration")
         good_parts_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(good_parts_label)
         
@@ -248,72 +262,131 @@ class SettingsDialog(QDialog):
         
         form_layout.addRow("Klassen-ID hinzufügen:", good_class_input_layout)
     
+    def _create_image_saving_section(self, form_layout):
+        """📸 Bilderspeicherung-Einstellungen erstellen."""
+        image_label = QLabel("📸 Bilderspeicherung")
+        image_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(image_label)
+        
+        # Schlechtbilder speichern
+        self.save_bad_images_check = QCheckBox()
+        form_layout.addRow("Schlechtbilder speichern:", self.save_bad_images_check)
+        
+        # Schlechtbilder-Verzeichnis
+        bad_dir_layout = QHBoxLayout()
+        self.bad_images_dir_input = QLabel("bad_images")
+        self.bad_images_dir_input.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        bad_dir_layout.addWidget(self.bad_images_dir_input, 1)
+        
+        bad_dir_browse_btn = QPushButton("📁")
+        bad_dir_browse_btn.clicked.connect(self.browse_bad_images_directory)
+        bad_dir_layout.addWidget(bad_dir_browse_btn)
+        
+        form_layout.addRow("Schlechtbilder-Verzeichnis:", bad_dir_layout)
+        
+        # Gutbilder speichern
+        self.save_good_images_check = QCheckBox()
+        form_layout.addRow("Gutbilder speichern:", self.save_good_images_check)
+        
+        # Gutbilder-Verzeichnis
+        good_dir_layout = QHBoxLayout()
+        self.good_images_dir_input = QLabel("good_images")
+        self.good_images_dir_input.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        good_dir_layout.addWidget(self.good_images_dir_input, 1)
+        
+        good_dir_browse_btn = QPushButton("📁")
+        good_dir_browse_btn.clicked.connect(self.browse_good_images_directory)
+        good_dir_layout.addWidget(good_dir_browse_btn)
+        
+        form_layout.addRow("Gutbilder-Verzeichnis:", good_dir_layout)
+        
+        # Maximale Dateien
+        self.max_images_spin = QSpinBox()
+        self.max_images_spin.setRange(1000, 500000)
+        self.max_images_spin.setSingleStep(1000)
+        self.max_images_spin.setValue(100000)
+        form_layout.addRow("Max. Dateien pro Verzeichnis:", self.max_images_spin)
+    
     def _create_brightness_section(self, form_layout):
-        """Helligkeitsüberwachung erstellen."""
-        brightness_label = QLabel("Helligkeitsüberwachung")
+        """💡 Helligkeitsüberwachung erstellen."""
+        brightness_label = QLabel("💡 Helligkeitsüberwachung")
         brightness_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(brightness_label)
         
         self.brightness_low_spin = QSpinBox()
         self.brightness_low_spin.setRange(0, 254)
         self.brightness_low_spin.valueChanged.connect(self.validate_brightness_ranges)
-        form_layout.addRow("Untere Schwelle:", self.brightness_low_spin)
+        form_layout.addRow("Untere Schwelle (stoppt bei zu dunkel):", self.brightness_low_spin)
         
         self.brightness_high_spin = QSpinBox()
         self.brightness_high_spin.setRange(1, 255)
         self.brightness_high_spin.valueChanged.connect(self.validate_brightness_ranges)
-        form_layout.addRow("Obere Schwelle:", self.brightness_high_spin)
+        form_layout.addRow("Obere Schwelle (stoppt bei zu hell):", self.brightness_high_spin)
         
         self.brightness_duration_spin = QDoubleSpinBox()
         self.brightness_duration_spin.setRange(1.0, 30.0)
         self.brightness_duration_spin.setSingleStep(0.5)
-        form_layout.addRow("Warndauer (Sekunden):", self.brightness_duration_spin)
+        form_layout.addRow("Dauer bis Auto-Stopp (Sekunden):", self.brightness_duration_spin)
     
-    def _create_video_section(self, form_layout):
-        """Video-Einstellungen erstellen."""
-        video_label = QLabel("Video-Einstellungen")
-        video_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        form_layout.addRow(video_label)
+    def _create_modbus_section(self, form_layout):
+        """🔌 MODBUS-Einstellungen erstellen."""
+        modbus_label = QLabel("🔌 WAGO Modbus")
+        modbus_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(modbus_label)
         
-        self.width_spin = QSpinBox()
-        self.width_spin.setRange(320, 1920)
-        self.width_spin.setSingleStep(160)
-        form_layout.addRow("Video-Breite:", self.width_spin)
+        # Modbus aktiviert
+        self.modbus_enabled_check = QCheckBox()
+        form_layout.addRow("Modbus aktiviert:", self.modbus_enabled_check)
         
-        self.height_spin = QSpinBox()
-        self.height_spin.setRange(240, 1080)
-        self.height_spin.setSingleStep(120)
-        form_layout.addRow("Video-Höhe:", self.height_spin)
-    
-    def _create_display_section(self, form_layout):
-        """Anzeige-Optionen erstellen."""
-        display_label = QLabel("Anzeige-Optionen")
-        display_label.setFont(QFont("", 12, QFont.Weight.Bold))
-        form_layout.addRow(display_label)
+        # IP-Adresse
+        self.modbus_ip_input = QLabel("192.168.1.100")
+        self.modbus_ip_input.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        form_layout.addRow("WAGO IP-Adresse:", self.modbus_ip_input)
         
-        self.show_confidence_check = QCheckBox()
-        form_layout.addRow("Konfidenz anzeigen:", self.show_confidence_check)
-        
-        self.show_names_check = QCheckBox()
-        form_layout.addRow("Klassennamen anzeigen:", self.show_names_check)
+        # Reject Coil Dauer
+        self.reject_coil_duration_spin = QDoubleSpinBox()
+        self.reject_coil_duration_spin.setRange(0.1, 10.0)
+        self.reject_coil_duration_spin.setSingleStep(0.1)
+        self.reject_coil_duration_spin.setDecimals(1)
+        form_layout.addRow("Ausschuss-Signal Dauer (Sekunden):", self.reject_coil_duration_spin)
     
     def _create_button_section(self, layout):
         """Button-Sektion erstellen."""
         button_layout = QHBoxLayout()
         
-        save_btn = QPushButton("Speichern")
+        save_btn = QPushButton("💾 Speichern")
         save_btn.clicked.connect(self.save_settings)
         button_layout.addWidget(save_btn)
         
-        cancel_btn = QPushButton("Abbrechen")
+        cancel_btn = QPushButton("❌ Abbrechen")
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
         
-        reset_btn = QPushButton("Zurücksetzen")
+        reset_btn = QPushButton("🔄 Zurücksetzen")
         reset_btn.clicked.connect(self.reset_settings)
         button_layout.addWidget(reset_btn)
         
         layout.addLayout(button_layout)
+    
+    def browse_bad_images_directory(self):
+        """Verzeichnis für Schlechtbilder auswählen."""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Verzeichnis für Schlechtbilder auswählen",
+            self.bad_images_dir_input.text()
+        )
+        if directory:
+            self.bad_images_dir_input.setText(directory)
+    
+    def browse_good_images_directory(self):
+        """Verzeichnis für Gutbilder auswählen."""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Verzeichnis für Gutbilder auswählen",
+            self.good_images_dir_input.text()
+        )
+        if directory:
+            self.good_images_dir_input.setText(directory)
     
     def validate_brightness_ranges(self):
         """Stelle sicher, dass Low < High bei Helligkeitseinstellungen."""
@@ -384,13 +457,23 @@ class SettingsDialog(QDialog):
             self.good_part_classes_list.addItem(str(class_id))
         
         self.bad_part_confidence_spin.setValue(self.settings.get('bad_part_min_confidence', 0.5))
+        
+        # Bilderspeicherung
+        self.save_bad_images_check.setChecked(self.settings.get('save_bad_images', False))
+        self.save_good_images_check.setChecked(self.settings.get('save_good_images', False))
+        self.bad_images_dir_input.setText(self.settings.get('bad_images_directory', 'bad_images'))
+        self.good_images_dir_input.setText(self.settings.get('good_images_directory', 'good_images'))
+        self.max_images_spin.setValue(self.settings.get('max_image_files', 100000))
+        
+        # Helligkeit
         self.brightness_low_spin.setValue(self.settings.get('brightness_low_threshold', 30))
         self.brightness_high_spin.setValue(self.settings.get('brightness_high_threshold', 220))
         self.brightness_duration_spin.setValue(self.settings.get('brightness_duration_threshold', 3.0))
-        self.width_spin.setValue(self.settings.get('video_width', 1280))
-        self.height_spin.setValue(self.settings.get('video_height', 720))
-        self.show_confidence_check.setChecked(self.settings.get('show_confidence', True))
-        self.show_names_check.setChecked(self.settings.get('show_class_names', True))
+        
+        # MODBUS
+        self.modbus_enabled_check.setChecked(self.settings.get('modbus_enabled', True))
+        self.modbus_ip_input.setText(self.settings.get('modbus_ip', '192.168.1.100'))
+        self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
     
     def save_settings(self):
         """Einstellungen speichern."""
@@ -415,13 +498,23 @@ class SettingsDialog(QDialog):
         self.settings.set('good_part_classes', good_classes)
         
         self.settings.set('bad_part_min_confidence', self.bad_part_confidence_spin.value())
+        
+        # Bilderspeicherung
+        self.settings.set('save_bad_images', self.save_bad_images_check.isChecked())
+        self.settings.set('save_good_images', self.save_good_images_check.isChecked())
+        self.settings.set('bad_images_directory', self.bad_images_dir_input.text())
+        self.settings.set('good_images_directory', self.good_images_dir_input.text())
+        self.settings.set('max_image_files', self.max_images_spin.value())
+        
+        # Helligkeit
         self.settings.set('brightness_low_threshold', self.brightness_low_spin.value())
         self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
-        self.settings.set('video_width', self.width_spin.value())
-        self.settings.set('video_height', self.height_spin.value())
-        self.settings.set('show_confidence', self.show_confidence_check.isChecked())
-        self.settings.set('show_class_names', self.show_names_check.isChecked())
+        
+        # MODBUS
+        self.settings.set('modbus_enabled', self.modbus_enabled_check.isChecked())
+        self.settings.set('modbus_ip', self.modbus_ip_input.text())
+        self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         
         self.settings.save()
         self.accept()

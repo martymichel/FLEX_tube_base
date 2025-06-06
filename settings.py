@@ -1,6 +1,6 @@
 """
 Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen für industriellen Workflow mit Auto-Loading und Modbus
+Verwaltet alle Anwendungseinstellungen für industriellen Workflow mit Auto-Loading, Modbus und Bilderspeicherung
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung für industriellen Workflow mit Auto-Loading und Modbus."""
+    """Einfache Einstellungsverwaltung für industriellen Workflow mit Auto-Loading, Modbus und Bilderspeicherung."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -61,7 +61,7 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
     
     def get_defaults(self):
-        """Standardeinstellungen für industriellen Workflow mit Auto-Loading und Modbus.
+        """Standardeinstellungen für industriellen Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
         
         Returns:
             dict: Standardeinstellungen
@@ -108,6 +108,13 @@ class Settings:
             'reject_coil_address': 0,                     # Coil-Adresse für Ausschuss-Signal
             'detection_active_coil_address': 1,           # Coil-Adresse für Detection-Active
             'reject_coil_duration_seconds': 1.0,          # Dauer des Ausschuss-Signals
+            
+            # BILDERSPEICHERUNG-Einstellungen
+            'save_bad_images': False,                     # Schlechtbilder speichern
+            'save_good_images': False,                    # Gutbilder speichern
+            'bad_images_directory': 'bad_images',         # Verzeichnis für Schlechtbilder
+            'good_images_directory': 'good_images',       # Verzeichnis für Gutbilder
+            'max_image_files': 100000,                    # Maximale Dateien pro Verzeichnis
             
             # UI-Einstellungen
             'sidebar_width': 350,

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
-Mit Counter, Motion-Anzeige, WAGO Modbus-Schnittstelle und optimiertem Layout
+Mit Counter, Motion-Anzeige, WAGO Modbus-Schnittstelle, Bilderspeicherung und Helligkeits-basiertem Stopp
 """
 
 import sys
@@ -21,6 +21,7 @@ from settings import Settings
 from ui.main_ui import MainUI  # Direkter Import aus main_ui
 from user_manager import UserManager
 from modbus_manager import ModbusManager
+from image_saver import ImageSaver
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -33,7 +34,7 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung für industrielle KI-Objekterkennung mit Counter, Motion-Anzeige und WAGO Modbus."""
+    """Hauptanwendung für industrielle KI-Objekterkennung mit Bilderspeicherung und Helligkeits-basiertem Stopp."""
     
     def __init__(self):
         super().__init__()
@@ -48,6 +49,9 @@ class DetectionApp(QMainWindow):
         
         # MODBUS-Manager initialisieren
         self.modbus_manager = ModbusManager(self.settings)
+        
+        # IMAGE-SAVER initialisieren
+        self.image_saver = ImageSaver(self.settings)
         
         # UI aufbauen
         self.ui = MainUI(self)
@@ -92,9 +96,11 @@ class DetectionApp(QMainWindow):
         self.motion_values = []  # Rolling window für geglättete Motion-Anzeige
         self.current_motion_value = 0.0  # Aktueller, geglätteter Motion-Wert
         
-        # Helligkeitsüberwachung
+        # Helligkeitsüberwachung mit Auto-Stopp
         self.brightness_values = []
         self.low_brightness_start = None
+        self.high_brightness_start = None
+        self.brightness_auto_stop_active = False
         
         # Einstellungen überwachen
         self.last_settings_update = 0
@@ -108,7 +114,7 @@ class DetectionApp(QMainWindow):
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
-        logging.info("DetectionApp gestartet - Industrieller Workflow mit WAGO Modbus")
+        logging.info("DetectionApp gestartet - Industrieller Workflow mit WAGO Modbus und Bilderspeicherung")
     
     def initialize_modbus_with_startup_reconnect(self):
         """WAGO Modbus mit automatischer Neuverbindung bei Start initialisieren."""
@@ -296,6 +302,9 @@ class DetectionApp(QMainWindow):
                     old_settings = self.settings.data.copy()
                     self.settings.load()
                     
+                    # Update Image Saver mit neuen Einstellungen
+                    self.image_saver.update_settings(self.settings.data)
+                    
                     # Prüfe ob Modbus-Einstellungen geändert wurden
                     modbus_changed = self.modbus_manager.update_settings(self.settings.data)
                     if modbus_changed:
@@ -338,6 +347,11 @@ class DetectionApp(QMainWindow):
                 
                 # Robuste Bewegungserkennung initialisieren
                 self.init_robust_motion_detection()
+                
+                # Helligkeits-Auto-Stopp zurücksetzen
+                self.brightness_auto_stop_active = False
+                self.low_brightness_start = None
+                self.high_brightness_start = None
                 
                 # MODBUS: Detection-Active-Signal setzen
                 if self.modbus_manager.connected:
@@ -406,7 +420,35 @@ class DetectionApp(QMainWindow):
         self.reset_workflow()
         self.bg_subtractor = None
         
+        # 7. Helligkeits-Auto-Stopp zurücksetzen
+        self.brightness_auto_stop_active = False
+        
         logging.info("Erkennung gestoppt")
+    
+    def stop_detection_due_to_brightness(self, reason):
+        """Erkennung aufgrund Helligkeitsproblem stoppen."""
+        if not self.running:
+            return
+            
+        logging.warning(f"Stoppe Erkennung aufgrund Helligkeit: {reason}")
+        
+        # Detection stoppen
+        self.stop_detection()
+        
+        # Flag setzen um wiederholte Stops zu verhindern
+        self.brightness_auto_stop_active = True
+        
+        # UI Meldung
+        self.ui.show_status(f"Erkennung gestoppt: {reason}", "error")
+        
+        # Optional: Benutzer benachrichtigen
+        from PyQt6.QtWidgets import QMessageBox
+        QMessageBox.warning(
+            self,
+            "Erkennung gestoppt",
+            f"Die Objekterkennung wurde automatisch gestoppt:\n\n{reason}\n\n"
+            f"Bitte die Beleuchtung prüfen und die Erkennung manuell neu starten."
+        )
     
     def process_frame(self):
         """Aktuelles Frame verarbeiten."""
@@ -419,8 +461,12 @@ class DetectionApp(QMainWindow):
             if frame is None:
                 return
             
-            # Helligkeitsüberwachung
-            self.check_brightness(frame)
+            # Helligkeitsüberwachung mit Auto-Stopp
+            self.check_brightness_with_auto_stop(frame)
+            
+            # Wenn brightness_auto_stop_active, nicht weiter verarbeiten
+            if self.brightness_auto_stop_active:
+                return
             
             # Motion-Wert berechnen und anzeigen (auch wenn kein Workflow läuft)
             self.update_motion_display(frame)
@@ -486,7 +532,7 @@ class DetectionApp(QMainWindow):
         self.ui.update_motion(self.current_motion_value)
     
     def process_industrial_workflow(self, frame):
-        """Industrieller Workflow mit robuster Motion-Detection und MODBUS-Integration."""
+        """Industrieller Workflow mit robuster Motion-Detection, MODBUS-Integration und Bilderspeicherung."""
         current_time = time.time()
         
         # Einstellungen (Threshold weiterhin einstellbar!)
@@ -547,6 +593,9 @@ class DetectionApp(QMainWindow):
                 self.detection_running = False
                 bad_parts_detected = self.evaluate_detection_results()
                 
+                # BILDERSPEICHERUNG: Speichere Frame (OHNE Bounding Boxes)
+                self.save_detection_result_image(frame, bad_parts_detected)
+                
                 # Counter aktualisieren
                 self.ui.increment_session_counters(bad_parts_detected)
                 
@@ -578,6 +627,27 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Abblasen beendet - Bereit für nächsten Zyklus", "ready")
                 self.ui.update_workflow_status("READY")
                 logging.info("Abblas-Wartezeit beendet - Zyklus beendet")
+    
+    def save_detection_result_image(self, frame, bad_parts_detected):
+        """Speichere Bild basierend auf Erkennungsergebnis."""
+        try:
+            if bad_parts_detected:
+                # Schlechtbild speichern
+                result = self.image_saver.save_bad_image(frame, self.last_cycle_detections)
+                if result == "DIRECTORY_FULL":
+                    self.ui.show_status("Schlechtbild-Verzeichnis voll (100000 Dateien)", "warning")
+                elif result:
+                    logging.debug("Schlechtbild gespeichert")
+            else:
+                # Gutbild speichern
+                result = self.image_saver.save_good_image(frame, self.last_cycle_detections)
+                if result == "DIRECTORY_FULL":
+                    self.ui.show_status("Gutbild-Verzeichnis voll (100000 Dateien)", "warning")
+                elif result:
+                    logging.debug("Gutbild gespeichert")
+                    
+        except Exception as e:
+            logging.error(f"Fehler beim Speichern des Ergebnisbilds: {e}")
     
     def detect_robust_motion(self, frame):
         """Robuste Bewegungserkennung (Threshold weiterhin einstellbar!)."""
@@ -699,8 +769,8 @@ class DetectionApp(QMainWindow):
         logging.info("Keine eindeutige Klassifizierung - Standard: Kein Abblasen")
         return False
     
-    def check_brightness(self, frame):
-        """Helligkeitsüberwachung."""
+    def check_brightness_with_auto_stop(self, frame):
+        """Helligkeitsüberwachung mit automatischem Stopp der Erkennung."""
         # Durchschnittshelligkeit berechnen
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         brightness = np.mean(gray)
@@ -719,16 +789,32 @@ class DetectionApp(QMainWindow):
         
         current_time = time.time()
         
+        # Zu dunkle Helligkeit prüfen
         if avg_brightness < low_threshold:
             if self.low_brightness_start is None:
                 self.low_brightness_start = current_time
             elif current_time - self.low_brightness_start >= duration_threshold:
-                self.ui.show_brightness_warning(f"Zu dunkel: {avg_brightness:.1f}")
-        elif avg_brightness > high_threshold:
-            self.ui.show_brightness_warning(f"Zu hell: {avg_brightness:.1f}")
+                # AUTO-STOPP: Zu dunkel für zu lange
+                if not self.brightness_auto_stop_active:
+                    self.stop_detection_due_to_brightness(f"Zu dunkel: {avg_brightness:.1f} < {low_threshold}")
+                return
         else:
             self.low_brightness_start = None
-            self.ui.hide_brightness_warning()
+        
+        # Zu helle Helligkeit prüfen
+        if avg_brightness > high_threshold:
+            if self.high_brightness_start is None:
+                self.high_brightness_start = current_time
+            elif current_time - self.high_brightness_start >= duration_threshold:
+                # AUTO-STOPP: Zu hell für zu lange
+                if not self.brightness_auto_stop_active:
+                    self.stop_detection_due_to_brightness(f"Zu hell: {avg_brightness:.1f} > {high_threshold}")
+                return
+        else:
+            self.high_brightness_start = None
+        
+        # Normale Helligkeit - kein Auto-Stopp erforderlich
+        self.ui.hide_brightness_warning()
         
         # Helligkeit in UI anzeigen
         self.ui.update_brightness(avg_brightness)

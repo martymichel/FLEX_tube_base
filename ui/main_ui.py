@@ -1,23 +1,26 @@
 """
-Hauptbenutzeroberfläche - kompakt und fokussiert mit Counter, Motion-Anzeige und WAGO Modbus-Status
-Status zwischen Menü und Counter, Motion-Wert-Anzeige wie Helligkeit
+Hauptbenutzeroberfläche - FINALE Version mit Einstellungen-Button, Admin-Reset, und Login-Status-Button
+Kompakt und fokussiert mit erweiterter Statistik-Tabelle und kompaktem Session Counter
 """
 
 import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QSplitter, QFrame, QTableWidget, QTableWidgetItem, QHeaderView, 
-    QToolButton, QGroupBox, QScrollArea, QMessageBox, QDialog
+    QToolButton, QGroupBox, QScrollArea, QMessageBox, QDialog,
+    QGraphicsDropShadowEffect, 
 )
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QFont
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QPixmap, QFont, QColor
 import cv2
 import numpy as np
+import logging
 
+# Lokale Importe
 from .dialogs import CameraSelectionDialog, SettingsDialog
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche mit kompakter Sidebar, Counter und WAGO Modbus-Status."""
+    """Hauptbenutzeroberfläche mit kompakter Sidebar, erweiterter Statistik-Tabelle und kompaktem Session Counter."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -31,6 +34,10 @@ class MainUI(QWidget):
         self.session_total_cycles = 0
         
         self.setup_ui()
+        
+        # User Manager Signale verbinden für Auto-Updates
+        if hasattr(self.app, 'user_manager'):
+            self.app.user_manager.user_status_changed.connect(self.on_user_status_changed)
     
     def setup_ui(self):
         """UI aufbauen."""
@@ -117,8 +124,8 @@ class MainUI(QWidget):
         layout.setSpacing(10)  # Kompakter Abstand
         layout.setContentsMargins(15, 15, 15, 15)  # Kompakte Ränder
         
-        # Titel und Benutzerstatus
-        self._create_title_section(layout)
+        # NEUER Breiter Login-Status-Button (kein separates Label mehr)
+        self._create_login_status_section(layout)
         
         # WAGO Modbus Status
         self._create_modbus_section(layout)
@@ -132,10 +139,10 @@ class MainUI(QWidget):
         # Kamera-Sektion
         self._create_camera_section(layout)
         
-        # Letzte Erkennung
+        # Letzte Erkennung - ERWEITERT
         self._create_stats_section(layout)
         
-        # Aktionen
+        # Aktionen (OHNE Einstellungen-Button)
         self._create_actions_section(layout)
         
         # BEENDEN Button (eigene Sektion am Ende)
@@ -154,31 +161,44 @@ class MainUI(QWidget):
         
         return self.sidebar
     
-    def _create_title_section(self, layout):
-        """Titel und Benutzerstatus erstellen."""
-        # Titel
-        title = QLabel("KI-Objekterkennung")
-        title.setFont(QFont("", 16, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+    def _create_login_status_section(self, layout):
+        """NEUER: Breiter Login-Status-Button (ersetzt separates Label + Button)."""
+        login_group = QGroupBox("Benutzer-Status")
+        login_layout = QVBoxLayout(login_group)
+        login_layout.setSpacing(5)
         
-        # Benutzerstatus
-        user_group = QGroupBox("Benutzer")
-        user_layout = QVBoxLayout(user_group)
-        user_layout.setSpacing(5)
+        # Breiter Status-Button der gleichzeitig Login/Logout macht
+        self.login_status_btn = QPushButton("Operator")
+        self.login_status_btn.setMinimumHeight(45)  # Deutlich höher
+        self.login_status_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #34495e;
+                color: white;
+                border: 2px solid #5d6d7e;
+                padding: 12px;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+                border-color: #2e86de;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+        """)
+        self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
+        login_layout.addWidget(self.login_status_btn)
         
-        user_info_layout = QHBoxLayout()
-        self.user_label = QLabel("Benutzer: Gast")
-        self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 3px; border-radius: 3px; font-size: 11px;")
-        user_info_layout.addWidget(self.user_label, 1)
-        
-        self.login_btn = QPushButton("Login")
-        self.login_btn.setMaximumWidth(50)
-        self.login_btn.setToolTip("Admin Login")
-        user_info_layout.addWidget(self.login_btn)
-        
-        user_layout.addLayout(user_info_layout)
-        layout.addWidget(user_group)
+        layout.addWidget(login_group)
+    
+    def on_user_status_changed(self, new_status):
+        """Callback für User-Status-Änderungen (Auto-Logout etc.)."""
+        self.update_user_interface()
+        if new_status == "Operator":
+            self.app.ui.show_status("Automatischer Logout - Operator-Modus", "warning")
     
     def _create_modbus_section(self, layout):
         """WAGO Modbus Status-Sektion erstellen."""
@@ -444,33 +464,17 @@ class MainUI(QWidget):
         layout.addWidget(camera_group)
     
     def _create_stats_section(self, layout):
-        """Moderne Statistiken-Sektion erstellen."""
+        """Statistiken-Sektion erstellen - ERWEITERT: 5 Spalten mit Durchschnitt."""
         stats_group = QGroupBox("Letzte Erkennung")
         stats_layout = QVBoxLayout(stats_group)
-        stats_layout.setSpacing(4)
-        stats_layout.setContentsMargins(8, 8, 8, 8)
+        stats_layout.setSpacing(5)
         
-        # Aktuelle Frame-Erkennungen (prominent)
-        self.current_frame_label = QLabel("Aktuell: 0")
-        self.current_frame_label.setStyleSheet("""
-            color: white;
-            background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0,
-                                    stop: 0 #f6ad55, stop: 1 #ed8936);
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-            text-align: center;
-        """)
-        self.current_frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        stats_layout.addWidget(self.current_frame_label)
-        
-        # Detaillierte Tabelle für LETZTEN Zyklus (kompakter)
-        self.last_cycle_table = QTableWidget(0, 3)
-        self.last_cycle_table.setHorizontalHeaderLabels(["Klasse", "Anz", "Max"])
+        # ERWEITERTE Tabelle für LETZTEN Zyklus - 5 Spalten
+        self.last_cycle_table = QTableWidget(0, 5)  # 5 Spalten: Klasse, Img, Min, Max, Anz
+        self.last_cycle_table.setHorizontalHeaderLabels(["Klasse", "Img", "Min", "Max", "Anz"])
         self.last_cycle_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.last_cycle_table.verticalHeader().hide()
-        self.last_cycle_table.setMaximumHeight(120)
+        self.last_cycle_table.setMaximumHeight(150)  # Kompakter
         self.last_cycle_table.setStyleSheet("""
             QTableWidget {
                 background: rgba(255, 255, 255, 0.05);
@@ -503,7 +507,7 @@ class MainUI(QWidget):
         layout.addWidget(stats_group)
     
     def _create_actions_section(self, layout):
-        """Aktionen-Sektion erstellen."""
+        """Aktionen-Sektion erstellen (OHNE Einstellungen-Button)."""
         actions_group = QGroupBox("Aktionen")
         actions_layout = QVBoxLayout(actions_group)
         actions_layout.setSpacing(5)
@@ -524,8 +528,7 @@ class MainUI(QWidget):
         self.snapshot_btn = QPushButton("Schnappschuss")
         actions_layout.addWidget(self.snapshot_btn)
         
-        self.settings_btn = QPushButton("Einstellungen")
-        actions_layout.addWidget(self.settings_btn)
+        # KEIN Einstellungen-Button mehr hier - wird in Header verschoben
         
         layout.addWidget(actions_group)
     
@@ -585,7 +588,7 @@ class MainUI(QWidget):
         layout = QVBoxLayout(main_area)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Header mit: [Menü-Button] [Status] [Counter]
+        # Header mit: [Menü-Button] [⚙️ Einstellungen] [Status] [Counter]
         header_layout = QHBoxLayout()
         header_layout.setSpacing(20)
         
@@ -609,7 +612,34 @@ class MainUI(QWidget):
         """)
         header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # 2. STATUS IN DER MITTE
+        # 2. NEU: EINSTELLUNGEN-BUTTON mit Zahnrad (neben Menü)
+        self.settings_btn = QPushButton("⚙️")
+        self.settings_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #8e44ad;
+                color: white;
+                border: none;
+                font-size: 20px;
+                padding: 8px;
+                border-radius: 4px;
+                min-width: 40px;
+                min-height: 40px;
+            }
+            QPushButton:hover {
+                background-color: #7d3c98;
+            }
+            QPushButton:pressed {
+                background-color: #6c3483;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+            }
+        """)
+        self.settings_btn.setToolTip("Einstellungen (Admin-Rechte erforderlich)")
+        header_layout.addWidget(self.settings_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        
+        # 3. STATUS IN DER MITTE (zwischen Buttons und Counter)
         self.status_label = QLabel("Bereit")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("", 16, QFont.Weight.Bold))
@@ -621,10 +651,10 @@ class MainUI(QWidget):
                 border-radius: 8px;
             }
         """)
-        header_layout.addWidget(self.status_label, 1)
+        header_layout.addWidget(self.status_label, 1)  # Stretch factor 1 für die Mitte
         
-        # 3. COUNTER (rechts oben)
-        self._create_counter_section(header_layout)
+        # 4. KOMPAKTER COUNTER (rechts oben) - ÜBERARBEITET
+        self._create_compact_counter_section(header_layout)
         
         layout.addLayout(header_layout)
         
@@ -640,19 +670,23 @@ class MainUI(QWidget):
                 font-size: 18px;
             }
         """)
-        self.video_label.setText("Kein Video")
+        self.video_label.setText("Kein Stream verfügbar")
         layout.addWidget(self.video_label, 1)
         
         return main_area
     
-    def _create_counter_section(self, header_layout):
-        """Counter-Sektion im Header erstellen."""
+    def _create_compact_counter_section(self, header_layout):
+        """KOMPAKTER Counter-Sektion im Header erstellen - ÜBERARBEITET für große Zahlen."""
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QColor, QFont
+        
         self.counter_frame = QFrame()
         self.counter_frame.setStyleSheet("""
             QFrame {
                 background-color: #34495e;
                 border-radius: 8px;
-                padding: 10px;
+                padding: 8px;
             }
             QLabel {
                 color: white;
@@ -660,62 +694,144 @@ class MainUI(QWidget):
             }
         """)
         
-        counter_layout = QVBoxLayout(self.counter_frame)
-        counter_layout.setSpacing(5)
-        counter_layout.setContentsMargins(15, 10, 15, 10)
+        # Schatten-Effekt hinzufügen
+        self.add_shadow_effect(self.counter_frame)
         
-        # Session-Statistiken
-        session_title = QLabel("Session")
-        session_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        session_title.setFont(QFont("", 12, QFont.Weight.Bold))
-        counter_layout.addWidget(session_title)
+        # BREITER Layout für große Zahlen
+        counter_layout = QHBoxLayout(self.counter_frame)
+        counter_layout.setSpacing(50)  # Mehr Abstand für breitere Counter
+        counter_layout.setContentsMargins(20, 8, 20, 8)
         
-        # Good Parts
-        good_layout = QHBoxLayout()
-        good_layout.addWidget(QLabel("OK:"))
+        # Monospace-Font für einheitliche Ziffernbreite
+        counter_font = QFont("Consolas", 28, QFont.Weight.Bold)
+        if not counter_font.exactMatch():
+            counter_font = QFont("Courier New", 28, QFont.Weight.Bold)
+        
+        # OK (Good Parts) - GROSSE ZAHLEN mit fester Breite
+        good_section = QVBoxLayout()
+        good_section.setSpacing(2)
+        good_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        good_label = QLabel("OK")
+        good_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        good_label.setFont(QFont("", 10, QFont.Weight.Bold))
+        good_label.setStyleSheet("color: #27ae60;")
+        good_section.addWidget(good_label)
+        
         self.good_parts_counter = QLabel("0")
-        self.good_parts_counter.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.good_parts_counter.setStyleSheet("color: #27ae60; font-size: 14px;")
-        good_layout.addWidget(self.good_parts_counter)
-        counter_layout.addLayout(good_layout)
+        self.good_parts_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.good_parts_counter.setFont(counter_font)
+        self.good_parts_counter.setStyleSheet("color: #27ae60;")
+        self.good_parts_counter.setMinimumWidth(120)  # Feste Mindestbreite für 6-stellig
+        good_section.addWidget(self.good_parts_counter)
         
-        # Bad Parts
-        bad_layout = QHBoxLayout()
-        bad_layout.addWidget(QLabel("Nicht OK:"))
+        # Prozentanzeige für OK
+        self.good_parts_percent = QLabel("--")
+        self.good_parts_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.good_parts_percent.setFont(QFont("", 16, QFont.Weight.Bold))
+        self.good_parts_percent.setStyleSheet("color: #27ae60;")
+        good_section.addWidget(self.good_parts_percent)
+        
+        counter_layout.addLayout(good_section)
+        
+        # Nicht OK (Bad Parts) - GROSSE ZAHLEN mit fester Breite
+        bad_section = QVBoxLayout()
+        bad_section.setSpacing(2)
+        bad_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        bad_label = QLabel("Nicht OK")
+        bad_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        bad_label.setFont(QFont("", 10, QFont.Weight.Bold))
+        bad_label.setStyleSheet("color: #e74c3c;")
+        bad_section.addWidget(bad_label)
+        
         self.bad_parts_counter = QLabel("0")
-        self.bad_parts_counter.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.bad_parts_counter.setStyleSheet("color: #e74c3c; font-size: 14px;")
-        bad_layout.addWidget(self.bad_parts_counter)
-        counter_layout.addLayout(bad_layout)
+        self.bad_parts_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.bad_parts_counter.setFont(counter_font)
+        self.bad_parts_counter.setStyleSheet("color: #e74c3c;")
+        self.bad_parts_counter.setMinimumWidth(120)  # Feste Mindestbreite für 6-stellig
+        bad_section.addWidget(self.bad_parts_counter)
         
-        # Total Cycles
-        total_layout = QHBoxLayout()
-        total_layout.addWidget(QLabel("Zyklen:"))
+        # Prozentanzeige für Nicht OK
+        self.bad_parts_percent = QLabel("--")
+        self.bad_parts_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.bad_parts_percent.setFont(QFont("", 16, QFont.Weight.Bold))
+        self.bad_parts_percent.setStyleSheet("color: #e74c3c;")
+        bad_section.addWidget(self.bad_parts_percent)
+        
+        counter_layout.addLayout(bad_section)
+        
+        # Gesamtzyklen - GROSSE ZAHLEN mit fester Breite
+        total_section = QVBoxLayout()
+        total_section.setSpacing(2)
+        total_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        total_label = QLabel("Zyklen")
+        total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        total_label.setFont(QFont("", 10, QFont.Weight.Bold))
+        total_label.setStyleSheet("color: #3498db;")
+        total_section.addWidget(total_label)
+        
         self.total_cycles_counter = QLabel("0")
-        self.total_cycles_counter.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.total_cycles_counter.setStyleSheet("color: #3498db; font-size: 14px;")
-        total_layout.addWidget(self.total_cycles_counter)
-        counter_layout.addLayout(total_layout)
+        self.total_cycles_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.total_cycles_counter.setFont(counter_font)
+        self.total_cycles_counter.setStyleSheet("color: #3498db;")
+        self.total_cycles_counter.setMinimumWidth(120)  # Feste Mindestbreite für 6-stellig
+        total_section.addWidget(self.total_cycles_counter)
         
-        # Reset Button
-        reset_counter_btn = QPushButton("Reset")
-        reset_counter_btn.setStyleSheet("""
+        # Spacer für einheitliche Höhe
+        total_spacer = QLabel("")
+        total_spacer.setFont(QFont("", 10))
+        total_section.addWidget(total_spacer)
+        
+        counter_layout.addLayout(total_section)
+        
+        # Reset Button (kleiner, am Ende) - NEU: NUR FÜR ADMIN
+        reset_section = QVBoxLayout()
+        reset_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.reset_counter_btn = QPushButton("Reset")
+        self.reset_counter_btn.setStyleSheet("""
             QPushButton {
                 background-color: #7f8c8d;
                 color: white;
                 border: none;
-                padding: 5px;
-                border-radius: 3px;
+                padding: 8px 12px;
+                border-radius: 4px;
                 font-size: 10px;
             }
             QPushButton:hover {
                 background-color: #95a5a6;
             }
+            QPushButton:disabled {
+                background-color: #5d6d7e;
+                color: #bdc3c7;
+            }
         """)
-        reset_counter_btn.clicked.connect(self.reset_session_counter)
-        counter_layout.addWidget(reset_counter_btn)
+        self.reset_counter_btn.clicked.connect(self.reset_session_counter)
+        self.reset_counter_btn.setToolTip("Counter zurücksetzen (Admin-Rechte erforderlich)")
+        reset_section.addWidget(self.reset_counter_btn)
+        
+        counter_layout.addLayout(reset_section)
         
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
+
+    def update_counters_with_formatting(self, good_count, bad_count, total_count):
+        """Counter mit Formatierung für große Zahlen aktualisieren."""
+        # Zahlenformatierung mit Tausendertrennzeichen (optional)
+        self.good_parts_counter.setText(f"{good_count:,}")
+        self.bad_parts_counter.setText(f"{bad_count:,}")
+        self.total_cycles_counter.setText(f"{total_count:,}")
+        
+        # Prozentanzeigen aktualisieren
+        if total_count > 0:
+            good_percent = round((good_count / total_count) * 100, 1)
+            bad_percent = round((bad_count / total_count) * 100, 1)
+            self.good_parts_percent.setText(f"{good_percent}%")
+            self.bad_parts_percent.setText(f"{bad_percent}%")
+        else:
+            self.good_parts_percent.setText("--")
+            self.bad_parts_percent.setText("--")
     
     # MODBUS UI-Update-Methoden
     def update_modbus_status(self, connected, ip_address):
@@ -787,17 +903,44 @@ class MainUI(QWidget):
     
     # Standard UI-Update-Methoden
     def reset_session_counter(self):
-        """Session-Counter zurücksetzen."""
-        self.session_good_parts = 0
-        self.session_bad_parts = 0
-        self.session_total_cycles = 0
-        self.update_counter_display()
+        """Session-Counter zurücksetzen - NEU: NUR FÜR ADMIN."""
+        # Prüfe Admin-Rechte
+        if not self.app.user_manager.can_reset_counter():
+            self.show_status("Admin-Rechte erforderlich für Counter-Reset", "error")
+            return
+        
+        # Bestätigung anfordern
+        reply = QMessageBox.question(
+            self,
+            "Counter zurücksetzen",
+            "Session-Counter auf Null zurücksetzen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.session_good_parts = 0
+            self.session_bad_parts = 0
+            self.session_total_cycles = 0
+            self.update_counter_display()
+            self.show_status("Session-Counter zurückgesetzt", "info")
+            logging.info("Session-Counter von Admin zurückgesetzt")
     
     def update_counter_display(self):
-        """Counter-Anzeige aktualisieren."""
+        """Counter-Anzeige aktualisieren - ERWEITERT mit Prozentangaben."""
         self.good_parts_counter.setText(str(self.session_good_parts))
         self.bad_parts_counter.setText(str(self.session_bad_parts))
         self.total_cycles_counter.setText(str(self.session_total_cycles))
+        
+        # Prozentangaben berechnen
+        if self.session_total_cycles > 0:
+            good_percent = (self.session_good_parts / self.session_total_cycles) * 100
+            bad_percent = (self.session_bad_parts / self.session_total_cycles) * 100
+            
+            self.good_parts_percent.setText(f"{good_percent:.1f}%")
+            self.bad_parts_percent.setText(f"{bad_percent:.1f}%")
+        else:
+            self.good_parts_percent.setText("--")
+            self.bad_parts_percent.setText("--")
     
     def increment_session_counters(self, bad_parts_detected):
         """Session-Counter nach Zyklus aktualisieren."""
@@ -828,23 +971,63 @@ class MainUI(QWidget):
     def update_user_interface(self):
         """UI basierend auf Benutzerlevel aktualisieren."""
         user_level = self.app.user_manager.get_user_level_text()
-        self.user_label.setText(f"Benutzer: {user_level}")
         
-        # Button-Text ändern
+        # NEU: Breiter Login-Status-Button aktualisieren
+        self.login_status_btn.setText(user_level)
+        
         if self.app.user_manager.is_admin():
-            self.login_btn.setText("Logout")
-            self.login_btn.setToolTip("Admin Logout")
-            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #27ae60; padding: 3px; border-radius: 3px; font-size: 11px;")
+            # Admin-Style: Grün
+            self.login_status_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #27ae60;
+                    color: white;
+                    border: 2px solid #229954;
+                    padding: 12px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background-color: #2ecc71;
+                    border-color: #27ae60;
+                }
+                QPushButton:pressed {
+                    background-color: #229954;
+                }
+            """)
+            self.login_status_btn.setToolTip("Admin eingeloggt - Klicken für Logout")
         else:
-            self.login_btn.setText("Login")
-            self.login_btn.setToolTip("Admin Login")
-            self.user_label.setStyleSheet("color: #ecf0f1; background-color: #34495e; padding: 3px; border-radius: 3px; font-size: 11px;")
+            # Operator-Style: Grau
+            self.login_status_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #34495e;
+                    color: white;
+                    border: 2px solid #5d6d7e;
+                    padding: 12px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background-color: #3498db;
+                    border-color: #2e86de;
+                }
+                QPushButton:pressed {
+                    background-color: #2980b9;
+                }
+            """)
+            self.login_status_btn.setToolTip("Operator-Modus - Klicken für Admin-Login")
         
         # Buttons aktivieren/deaktivieren
         can_admin = self.app.user_manager.is_admin()
         self.model_btn.setEnabled(can_admin)
         self.camera_btn.setEnabled(can_admin)
-        self.settings_btn.setEnabled(can_admin)
+        self.settings_btn.setEnabled(can_admin)  # NEU: Einstellungen-Button im Header
+        
+        # Reset-Button für Counter - NEU: NUR FÜR ADMIN
+        self.reset_counter_btn.setEnabled(can_admin)
         
         # Modbus-Buttons für Admin
         self.modbus_reset_btn.setEnabled(can_admin and self.app.modbus_manager.connected)
@@ -945,28 +1128,45 @@ class MainUI(QWidget):
         """Helligkeitswarnung ausblenden."""
         self.brightness_warning.setVisible(False)
     
-    def update_last_cycle_stats(self, last_cycle_stats, current_frame_detections):
-        """Letzte Erkennungen aktualisieren."""
-        # Aktuelle Frame-Erkennungen
-        current_count = len(current_frame_detections)
-        self.current_frame_label.setText(f"Aktuell: {current_count}")
-        
-        # Detaillierte Tabelle für LETZTEN Zyklus aktualisieren
+    def update_last_cycle_stats(self, last_cycle_stats):
+        """Letzte Erkennungen aktualisieren - ERWEITERT: Mit Img und Anz-Spalten."""
+        # Detaillierte Tabelle für LETZTEN Zyklus aktualisieren - ERWEITERT
         self.last_cycle_table.setRowCount(len(last_cycle_stats))
         
         for row, (class_name, stats) in enumerate(last_cycle_stats.items()):
             # Klasse
             self.last_cycle_table.setItem(row, 0, QTableWidgetItem(class_name))
             
-            # Anzahl im letzten Zyklus
-            count_item = QTableWidgetItem(str(stats['count']))
-            count_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.last_cycle_table.setItem(row, 1, count_item)
+            # Img (Gesamtanzahl Bilder im Zyklus)
+            cycle_image_count = self.app.cycle_image_count if hasattr(self.app, 'cycle_image_count') else 0
+            img_item = QTableWidgetItem(str(cycle_image_count))
+            img_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.last_cycle_table.setItem(row, 1, img_item)
+            
+            # Min Konfidenz im letzten Zyklus
+            min_conf = stats.get('min_confidence', 0.0)
+            if min_conf == 1.0:  # Kein Wert gesetzt
+                min_conf = 0.0
+            min_conf_item = QTableWidgetItem(f"{min_conf:.2f}")
+            min_conf_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.last_cycle_table.setItem(row, 2, min_conf_item)
             
             # Max Konfidenz im letzten Zyklus
             max_conf_item = QTableWidgetItem(f"{stats['max_confidence']:.2f}")
             max_conf_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.last_cycle_table.setItem(row, 2, max_conf_item)
+            self.last_cycle_table.setItem(row, 3, max_conf_item)
+            
+            # Anz (Durchschnittliche Anzahl pro Bild)
+            total_detections = stats.get('total_detections', 0)
+            if cycle_image_count > 0:
+                avg_detections_per_image = total_detections / cycle_image_count
+                avg_rounded = round(avg_detections_per_image)  # Auf Integer runden
+            else:
+                avg_rounded = 0
+            
+            anz_item = QTableWidgetItem(str(avg_rounded))
+            anz_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.last_cycle_table.setItem(row, 4, anz_item)
     
     def update_video(self, frame):
         """Video-Frame aktualisieren."""
@@ -1031,8 +1231,13 @@ class MainUI(QWidget):
         return None
     
     def open_settings_dialog(self, settings):
-        """Einstellungen-Dialog öffnen."""
-        dialog = SettingsDialog(settings, self)
+        """Einstellungen-Dialog öffnen - ANGEPASST: Mit class_names."""
+        # Hole die aktuellen Klassennamen vom detection_engine
+        class_names = {}
+        if hasattr(self.app, 'detection_engine') and hasattr(self.app.detection_engine, 'class_names'):
+            class_names = self.app.detection_engine.class_names
+        
+        dialog = SettingsDialog(settings, class_names, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Warnung wenn Erkennung läuft
             if self.app.running:
@@ -1042,6 +1247,10 @@ class MainUI(QWidget):
                     "Einstellungen wurden gespeichert.\n\nBitte stoppen Sie die Erkennung und starten Sie sie neu, damit die Änderungen wirksam werden."
                 )
 
-
-
-
+    def add_shadow_effect(self, widget):
+        """Schatten-Effekt zu Widget hinzufügen."""
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(0, 0, 0, 80))  # Schwarz mit 80% Transparenz
+        shadow.setOffset(0, 2)  # Versatz: x=0, y=2
+        widget.setGraphicsEffect(shadow)

@@ -84,23 +84,25 @@ class DetectionApp(QMainWindow):
         self.detection_start_time = None
         self.blow_off_start_time = None
         
-        # Erkennungsstatistiken - NUR für letzten Zyklus (nicht Session-Summen)
+        # ERWEITERTE Erkennungsstatistiken für bessere Durchschnittsberechnung
         self.last_cycle_detections = {}  # Erkennungen des letzten Capture-Zyklus
         self.current_frame_detections = []  # Aktuelle Frame-Erkennungen
+        self.cycle_image_count = 0  # Anzahl verarbeiteter Bilder im aktuellen Zyklus
+        self.cycle_class_image_counts = {}  # Pro Klasse: Anzahl Bilder mit dieser Klasse
         
         # Timer für Frame-Updates
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.process_frame)
         
-        # Robuste Bewegungserkennung (wie komplexe App, aber Threshold einstellbar)
+        # BESCHLEUNIGTE Bewegungserkennung (Motion-Drop schneller)
         self.bg_subtractor = None
         self.last_frame = None
-        self.motion_history = []  # Rolling window für stabilere Erkennung
+        self.motion_history = []  # VERKÜRZT: Rolling window für schnellere Motion-Erkennung
         self.motion_stable_count = 0  # Zähler für stabile Motion-States
         self.no_motion_stable_count = 0  # Zähler für stabile No-Motion-States
         
-        # Motion-Wert Tracking (für Anzeige)
-        self.motion_values = []  # Rolling window für geglättete Motion-Anzeige
+        # Motion-Wert Tracking (für Anzeige) - BESCHLEUNIGT
+        self.motion_values = []  # VERKÜRZT: Rolling window für schnellere Motion-Anzeige
         self.current_motion_value = 0.0  # Aktueller, geglätteter Motion-Wert
         
         # Helligkeitsüberwachung mit Auto-Stopp
@@ -278,7 +280,7 @@ class DetectionApp(QMainWindow):
         self.ui.camera_btn.clicked.connect(self.select_camera)
         self.ui.settings_btn.clicked.connect(self.open_settings)
         self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
-        self.ui.login_btn.clicked.connect(self.toggle_login)
+        self.ui.login_status_btn.clicked.connect(self.toggle_login)  # GEÄNDERT: neuer Button
         self.ui.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
         
         # BEENDEN Button verbinden
@@ -290,12 +292,12 @@ class DetectionApp(QMainWindow):
             # Logout
             self.user_manager.logout()
             self.ui.update_user_interface()
-            self.ui.show_status("Abgemeldet - Gastmodus", "info")
+            self.ui.show_status("Abgemeldet - Operator-Modus", "info")
         else:
             # Login versuchen
             if self.user_manager.login():
                 self.ui.update_user_interface()
-                self.ui.show_status("Angemeldet als Administrator", "success")
+                self.ui.show_status("Angemeldet als Admin / Dev", "success")
             else:
                 self.ui.show_status("Falsches Passwort", "error")
     
@@ -366,12 +368,14 @@ class DetectionApp(QMainWindow):
                 # Workflow-Status zurücksetzen
                 self.reset_workflow()
                 
-                # Erkennungsstatistiken zurücksetzen (nur letzter Zyklus)
+                # ERWEITERTE Erkennungsstatistiken zurücksetzen
                 self.last_cycle_detections = {}
                 self.current_frame_detections = []
+                self.cycle_image_count = 0
+                self.cycle_class_image_counts = {}
                 
-                # Robuste Bewegungserkennung initialisieren
-                self.init_robust_motion_detection()
+                # BESCHLEUNIGTE Bewegungserkennung initialisieren
+                self.init_accelerated_motion_detection()
                 
                 # Helligkeits-Auto-Stopp zurücksetzen
                 self.brightness_auto_stop_active = False
@@ -394,26 +398,26 @@ class DetectionApp(QMainWindow):
             logging.error(f"Fehler beim Starten: {e}")
             self.ui.show_status(f"Fehler: {e}", "error")
     
-    def init_robust_motion_detection(self):
-        """Robuste Bewegungserkennung initialisieren (Threshold weiterhin einstellbar)."""
-        # Background Subtractor mit festen Parametern (außer Threshold)
+    def init_accelerated_motion_detection(self):
+        """BESCHLEUNIGTE Bewegungserkennung initialisieren (Motion-Drop schneller)."""
+        # Background Subtractor mit optimierten Parametern für schnelleren Drop
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
             detectShadows=False,
             varThreshold=16,  # Fester Wert für Stabilität
-            history=500
+            history=200  # REDUZIERT: Kürzere History für schnelleren Drop (vorher 500)
         )
         
-        # Motion-Tracking zurücksetzen
+        # Motion-Tracking zurücksetzen - VERKÜRZT für schnelleren Drop
         self.motion_history = []
         self.motion_stable_count = 0
         self.no_motion_stable_count = 0
         self.last_frame = None
         
-        # Motion-Wert Tracking zurücksetzen
+        # Motion-Wert Tracking zurücksetzen - VERKÜRZT für schnellere Anzeige
         self.motion_values = []
         self.current_motion_value = 0.0
         
-        logging.info("Robuste Motion-Detection initialisiert - Threshold bleibt einstellbar")
+        logging.info("BESCHLEUNIGTE Motion-Detection initialisiert - Schnellerer Motion-Drop")
     
     def stop_detection(self):
         """Erkennung stoppen - SCHNELL und thread-safe."""
@@ -493,8 +497,8 @@ class DetectionApp(QMainWindow):
             if self.brightness_auto_stop_active:
                 return
             
-            # Motion-Wert berechnen und anzeigen (auch wenn kein Workflow läuft)
-            self.update_motion_display(frame)
+            # BESCHLEUNIGTES Motion-Wert berechnen und anzeigen
+            self.update_accelerated_motion_display(frame)
             
             # Industrieller Workflow verarbeiten
             self.process_industrial_workflow(frame)
@@ -505,8 +509,8 @@ class DetectionApp(QMainWindow):
                 detections = self.detection_engine.detect(frame)
                 self.current_frame_detections = detections
                 
-                # Erkennungen für aktuellen Zyklus sammeln
-                self.update_cycle_statistics(detections)
+                # ERWEITERTE Erkennungen für aktuellen Zyklus sammeln
+                self.update_enhanced_cycle_statistics(detections)
             
             # Frame mit Erkennungen zeichnen
             annotated_frame = self.detection_engine.draw_detections(frame, detections)
@@ -514,13 +518,13 @@ class DetectionApp(QMainWindow):
             # UI aktualisieren (nur wenn noch running)
             if self.running:
                 self.ui.update_video(annotated_frame)
-                self.ui.update_last_cycle_stats(self.last_cycle_detections, self.current_frame_detections)
+                self.ui.update_last_cycle_stats(self.last_cycle_detections)
                 
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
     
-    def update_motion_display(self, frame):
-        """Motion-Wert für Anzeige berechnen und UI aktualisieren."""
+    def update_accelerated_motion_display(self, frame):
+        """BESCHLEUNIGTES Motion-Wert für Anzeige berechnen (schnellerer Drop)."""
         if self.bg_subtractor is None:
             return
         
@@ -542,12 +546,11 @@ class DetectionApp(QMainWindow):
         motion_pixels = cv2.countNonZero(fg_mask)
         
         # Normalisiere auf sinnvollen Bereich (0-255)
-        # Basierend auf typischen Werten für 1280x720
-        motion_value = min(255, motion_pixels / 100)  # Grober Normalisierungsansatz
+        motion_value = min(255, motion_pixels / 100)
         
-        # Glättung über mehrere Frames für Anzeige
+        # VERKÜRZTE Glättung über weniger Frames für schnelleren Drop
         self.motion_values.append(motion_value)
-        if len(self.motion_values) > 10:  # Letzte 10 Frames
+        if len(self.motion_values) > 5:  # REDUZIERT: Nur 5 Frames statt 10
             self.motion_values.pop(0)
         
         # Geglätteter Motion-Wert für Anzeige
@@ -565,9 +568,9 @@ class DetectionApp(QMainWindow):
         capture_time = self.settings.get('capture_time', 3.0)
         blow_off_time = self.settings.get('blow_off_time', 5.0)
         
-        # 1. Robuste Bewegungserkennung (nur wenn nicht in spezieller Phase)
+        # 1. BESCHLEUNIGTE Bewegungserkennung (nur wenn nicht in spezieller Phase)
         if not self.motion_detected and not self.blow_off_active:
-            motion_now = self.detect_robust_motion(frame)
+            motion_now = self.detect_accelerated_motion(frame)
             
             if motion_now and not self.motion_detected:
                 # Bewegung erkannt - Förderband taktet
@@ -581,14 +584,14 @@ class DetectionApp(QMainWindow):
         
         # 2. Stabiles Ausschwingen nach Bewegung
         if self.motion_detected and not self.motion_cleared:
-            motion_now = self.detect_robust_motion(frame)
+            motion_now = self.detect_accelerated_motion(frame)
             
             if not motion_now:
                 # Stabile No-Motion Zeit akkumulieren
                 self.no_motion_stable_count += 1
                 
-                # Ausschwingzeit startet erst nach stabiler No-Motion Phase
-                if self.no_motion_stable_count >= 10:  # ~300ms stabile No-Motion
+                # REDUZIERTE Ausschwingzeit - schnellere Stabilisierung
+                if self.no_motion_stable_count >= 5:  # REDUZIERT: 5 statt 10 Frames (~150ms)
                     if self.motion_clear_time is None:
                         self.motion_clear_time = current_time
                         self.ui.show_status("Ausschwingzeit läuft...", "warning")
@@ -601,7 +604,12 @@ class DetectionApp(QMainWindow):
                         self.motion_cleared = True
                         self.detection_running = True
                         self.detection_start_time = current_time
-                        self.last_cycle_detections = {}  # Reset für neue Aufnahme-Session
+                        
+                        # ERWEITERTE Statistiken für neuen Zyklus zurücksetzen
+                        self.last_cycle_detections = {}
+                        self.cycle_image_count = 0
+                        self.cycle_class_image_counts = {}
+                        
                         self.ui.show_status("Aufnahme läuft - KI-Erkennung aktiv", "success")
                         self.ui.update_workflow_status("CAPTURING")
                         logging.info("Ausschwingzeit beendet - KI-Erkennung startet")
@@ -674,8 +682,8 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Fehler beim Speichern des Ergebnisbilds: {e}")
     
-    def detect_robust_motion(self, frame):
-        """Robuste Bewegungserkennung (Threshold weiterhin einstellbar!)."""
+    def detect_accelerated_motion(self, frame):
+        """BESCHLEUNIGTE Bewegungserkennung (Motion-Drop schneller)."""
         if self.bg_subtractor is None:
             return False
         
@@ -700,22 +708,22 @@ class DetectionApp(QMainWindow):
         motion_threshold = self.settings.get('motion_threshold', 110) * 100
         has_motion = motion_pixels > motion_threshold
         
-        # Rolling Window für Stabilität (wie komplexe App)
+        # VERKÜRZTE Rolling Window für schnellere Stabilität
         self.motion_history.append(has_motion)
-        if len(self.motion_history) > 5:  # Letzte 5 Frames
+        if len(self.motion_history) > 3:  # REDUZIERT: 3 statt 5 Frames
             self.motion_history.pop(0)
         
-        # Motion nur wenn mindestens 3 von 5 Frames Motion haben
-        stable_motion = sum(self.motion_history) >= 3
+        # Motion nur wenn mindestens 2 von 3 Frames Motion haben
+        stable_motion = sum(self.motion_history) >= 2  # REDUZIERT: 2 statt 3
         
-        # Zusätzliche Stabilität: Motion muss mindestens 3 Frames bestehen
+        # REDUZIERTE Stabilität: Motion muss nur 2 Frames bestehen
         if stable_motion:
             self.motion_stable_count += 1
         else:
             self.motion_stable_count = 0
         
-        # Endgültige Motion-Entscheidung
-        final_motion = self.motion_stable_count >= 3
+        # Endgültige Motion-Entscheidung - SCHNELLER
+        final_motion = self.motion_stable_count >= 2  # REDUZIERT: 2 statt 3 Frames
         
         return final_motion
     
@@ -731,31 +739,44 @@ class DetectionApp(QMainWindow):
         self.motion_stable_count = 0
         self.no_motion_stable_count = 0
     
-    def update_cycle_statistics(self, detections):
-        """Erkennungen für aktuellen Zyklus sammeln (NICHT Session-Summen!)."""
+    def update_enhanced_cycle_statistics(self, detections):
+        """ERWEITERTE Erkennungen für aktuellen Zyklus sammeln mit Bildanzahl-Tracking."""
+        # Bildanzahl für aktuellen Zyklus erhöhen
+        self.cycle_image_count += 1
+        
+        # Klassen in diesem Frame sammeln
+        classes_in_this_frame = set()
+        
         for detection in detections:
             _, _, _, _, confidence, class_id = detection
             class_name = self.detection_engine.class_names.get(class_id, f"Class {class_id}")
             
+            classes_in_this_frame.add(class_name)
+            
             # Nur für aktuellen Zyklus (nicht Session-Gesamtstatistik)
             if class_name not in self.last_cycle_detections:
                 self.last_cycle_detections[class_name] = {
-                    'count': 0,
+                    'total_detections': 0,  # Gesamtanzahl aller Erkennungen dieser Klasse
                     'max_confidence': 0.0,
-                    'avg_confidence': 0.0,
+                    'min_confidence': 1.0,
                     'confidences': [],
                     'class_id': class_id
                 }
+                self.cycle_class_image_counts[class_name] = 0
             
-            self.last_cycle_detections[class_name]['count'] += 1
+            self.last_cycle_detections[class_name]['total_detections'] += 1
             self.last_cycle_detections[class_name]['confidences'].append(confidence)
             self.last_cycle_detections[class_name]['max_confidence'] = max(
                 self.last_cycle_detections[class_name]['max_confidence'], confidence
             )
-            
-            # Durchschnitt berechnen
-            confidences = self.last_cycle_detections[class_name]['confidences']
-            self.last_cycle_detections[class_name]['avg_confidence'] = sum(confidences) / len(confidences)
+            self.last_cycle_detections[class_name]['min_confidence'] = min(
+                self.last_cycle_detections[class_name]['min_confidence'], confidence
+            )
+        
+        # Für jede Klasse in diesem Frame: Bildanzahl erhöhen
+        for class_name in classes_in_this_frame:
+            if class_name in self.cycle_class_image_counts:
+                self.cycle_class_image_counts[class_name] += 1
     
     def evaluate_detection_results(self):
         """Erkennungsergebnisse auswerten mit Priorisierung: Schlecht > Gut > Standard."""
@@ -770,24 +791,28 @@ class DetectionApp(QMainWindow):
         for class_name, stats in self.last_cycle_detections.items():
             class_id = stats.get('class_id', 0)
             max_conf = stats.get('max_confidence', 0.0)
-            count = stats.get('count', 0)
+            
+            # Verwende total_detections statt count
+            total_detections = stats.get('total_detections', 0)
             
             # Prüfe: Klasse in bad_part_classes UND Anzahl >= red_threshold UND Konfidenz >= min_confidence
             if (class_id in bad_part_classes and 
-                count >= red_threshold and 
+                total_detections >= red_threshold and 
                 max_conf >= min_confidence):
-                logging.info(f"Schlechtes Teil erkannt: {class_name} (Anzahl: {count}, Konfidenz: {max_conf:.2f})")
+                logging.info(f"Schlechtes Teil erkannt: {class_name} (Anzahl: {total_detections}, Konfidenz: {max_conf:.2f})")
                 return True
         
         # 2. PRIORITÄT: Prüfe auf gute Teile (Grüne Rahmen) - nur wenn keine schlechten Teile
         for class_name, stats in self.last_cycle_detections.items():
             class_id = stats.get('class_id', 0)
-            count = stats.get('count', 0)
+            
+            # Verwende total_detections statt count
+            total_detections = stats.get('total_detections', 0)
             
             # Prüfe: Klasse in good_part_classes UND Anzahl >= green_threshold
             if (class_id in good_part_classes and 
-                count >= green_threshold):
-                logging.info(f"Gutes Teil erkannt: {class_name} (Anzahl: {count})")
+                total_detections >= green_threshold):
+                logging.info(f"Gutes Teil erkannt: {class_name} (Anzahl: {total_detections})")
                 return False  # Kein Abblasen erforderlich
         
         # 3. STANDARD: Weder schlechte noch gute Teile erfüllen Kriterien
@@ -838,7 +863,7 @@ class DetectionApp(QMainWindow):
         else:
             self.high_brightness_start = None
         
-        # Normale Helligkeit - kein Auto-Stopp erforderlich
+        #  Normale Helligkeit - kein Auto-Stopp erforderlich
         self.ui.hide_brightness_warning()
         
         # Helligkeit in UI anzeigen

@@ -17,6 +17,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 # Eigene Module
 from detection_engine import DetectionEngine
 from camera_manager import CameraManager  
+from camera_config_manager import CameraConfigManager
 from settings import Settings
 from ui.main_ui import MainUI  # Direkter Import aus main_ui
 from user_manager import UserManager
@@ -44,7 +45,13 @@ class DetectionApp(QMainWindow):
         # Komponenten initialisieren
         self.settings = Settings()
         self.user_manager = UserManager()
-        self.camera_manager = CameraManager()
+        
+        # Kamera-Konfigurationsmanager initialisieren
+        self.camera_config_manager = CameraConfigManager()
+        
+        # Kamera-Manager mit Konfigurationsmanager initialisieren
+        self.camera_manager = CameraManager(self.camera_config_manager)
+        
         self.detection_engine = DetectionEngine()
         
         # MODBUS-Manager initialisieren
@@ -208,8 +215,16 @@ class DetectionApp(QMainWindow):
             sys.exit(0)
     
     def auto_load_on_startup(self):
-        """Automatisches Laden von Modell und Kamera beim Start."""
+        """Automatisches Laden von Modell, Kamera und Konfiguration beim Start."""
         try:
+            # Kamera-Konfiguration laden
+            camera_config_path = self.settings.get('camera_config_path', '')
+            if camera_config_path and os.path.exists(camera_config_path):
+                if self.camera_config_manager.load_config(camera_config_path):
+                    logging.info(f"Auto-loaded camera config: {camera_config_path}")
+                else:
+                    logging.warning(f"Failed to auto-load camera config: {camera_config_path}")
+            
             # Letztes Modell laden
             last_model = self.settings.get('last_model', '')
             if last_model and os.path.exists(last_model):
@@ -304,6 +319,16 @@ class DetectionApp(QMainWindow):
                     
                     # Update Image Saver mit neuen Einstellungen
                     self.image_saver.update_settings(self.settings.data)
+                    
+                    # Update Camera Config Manager falls Pfad geändert
+                    new_camera_config_path = self.settings.get('camera_config_path', '')
+                    if new_camera_config_path != old_settings.get('camera_config_path', ''):
+                        if new_camera_config_path and os.path.exists(new_camera_config_path):
+                            if self.camera_config_manager.load_config(new_camera_config_path):
+                                logging.info(f"Kamera-Konfiguration neu geladen: {new_camera_config_path}")
+                        else:
+                            self.camera_config_manager.clear_config()
+                            logging.info("Kamera-Konfiguration geleert")
                     
                     # Prüfe ob Modbus-Einstellungen geändert wurden
                     modbus_changed = self.modbus_manager.update_settings(self.settings.data)

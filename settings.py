@@ -74,8 +74,7 @@ class Settings:
             # Kamera-Einstellungen  
             'last_source': None,                 # Auto-Loading: Letzte Kamera/Video
             'last_mode_was_video': False,        # Auto-Loading: War es Video oder Kamera?
-            'video_width': 1280,
-            'video_height': 720,
+            'camera_config_path': '',            # Pfad zur IDS Peak Kamera-Konfigurationsdatei
             
             # Industrieller Workflow - Zeiteinstellungen
             'motion_threshold': 110,      # Schwellwert für Bewegungserkennung

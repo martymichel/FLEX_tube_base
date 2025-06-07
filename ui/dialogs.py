@@ -1,6 +1,6 @@
 """
 Dialog-Komponenten für Kamera-Auswahl und Einstellungen
-Alle Dialog-Fenster der Anwendung mit Emojis und ohne Video/Anzeige-Einstellungen
+Alle Dialog-Fenster der Anwendung mit Emojis und IDS Peak Kamera-Konfiguration
 """
 
 import os
@@ -100,7 +100,7 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Erweiterte Einstellungen-Dialog für industriellen Workflow mit Emojis und ohne Video/Anzeige-Optionen."""
+    """Erweiterte Einstellungen-Dialog für industriellen Workflow mit Emojis und IDS Peak Kamera-Konfiguration."""
     
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -133,6 +133,10 @@ class SettingsDialog(QDialog):
         
         # Gut-Teil Konfiguration
         self._create_good_parts_section(form_layout)
+        self._add_separator(form_layout)
+        
+        # Kamera-Konfiguration
+        self._create_camera_config_section(form_layout)
         self._add_separator(form_layout)
         
         # Bilderspeicherung
@@ -262,6 +266,38 @@ class SettingsDialog(QDialog):
         
         form_layout.addRow("Klassen-ID hinzufügen:", good_class_input_layout)
     
+    def _create_camera_config_section(self, form_layout):
+        """📷 Kamera-Konfiguration erstellen."""
+        camera_label = QLabel("📷 IDS Peak Kamera-Konfiguration")
+        camera_label.setFont(QFont("", 12, QFont.Weight.Bold))
+        form_layout.addRow(camera_label)
+        
+        # Info-Text
+        info_label = QLabel(
+            "Wählen Sie eine IDS Peak Kamera-Konfigurationsdatei (.toml), um erweiterte "
+            "Kameraeinstellungen wie Belichtung, Gamma und Weißabgleich zu verwenden."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #7f8c8d; font-style: italic; margin-bottom: 10px;")
+        form_layout.addRow(info_label)
+        
+        # Konfigurationspfad anzeigen und durchsuchen
+        config_path_layout = QHBoxLayout()
+        self.camera_config_path_label = QLabel("Keine Konfiguration ausgewählt")
+        self.camera_config_path_label.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        self.camera_config_path_label.setWordWrap(True)
+        config_path_layout.addWidget(self.camera_config_path_label, 1)
+        
+        camera_config_browse_btn = QPushButton("📁 Durchsuchen")
+        camera_config_browse_btn.clicked.connect(self.browse_camera_config_file)
+        config_path_layout.addWidget(camera_config_browse_btn)
+        
+        clear_config_btn = QPushButton("❌ Löschen")
+        clear_config_btn.clicked.connect(self.clear_camera_config)
+        config_path_layout.addWidget(clear_config_btn)
+        
+        form_layout.addRow("Konfigurationsdatei:", config_path_layout)
+    
     def _create_image_saving_section(self, form_layout):
         """📸 Bilderspeicherung-Einstellungen erstellen."""
         image_label = QLabel("📸 Bilderspeicherung")
@@ -368,6 +404,48 @@ class SettingsDialog(QDialog):
         
         layout.addLayout(button_layout)
     
+    def browse_camera_config_file(self):
+        """IDS Peak Kamera-Konfigurationsdatei auswählen."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "IDS Peak Kamera-Konfigurationsdatei auswählen",
+            "",
+            "TOML-Dateien (*.toml);;Alle Dateien (*)"
+        )
+        
+        if file_path:
+            # Validiere die Datei kurz
+            try:
+                if file_path.lower().endswith('.toml'):
+                    self.camera_config_path_label.setText(file_path)
+                    QMessageBox.information(
+                        self,
+                        "Konfiguration ausgewählt",
+                        f"IDS Peak Konfigurationsdatei ausgewählt:\n{os.path.basename(file_path)}\n\n"
+                        "Die Konfiguration wird beim nächsten Kamera-Start angewendet."
+                    )
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Ungültige Datei",
+                        "Bitte wählen Sie eine .toml Datei aus."
+                    )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Fehler",
+                    f"Fehler beim Laden der Konfigurationsdatei:\n{str(e)}"
+                )
+    
+    def clear_camera_config(self):
+        """Kamera-Konfiguration löschen."""
+        self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
+        QMessageBox.information(
+            self,
+            "Konfiguration gelöscht",
+            "Die Kamera-Konfiguration wurde entfernt.\nStandard-Kameraeinstellungen werden verwendet."
+        )
+    
     def browse_bad_images_directory(self):
         """Verzeichnis für Schlechtbilder auswählen."""
         directory = QFileDialog.getExistingDirectory(
@@ -458,6 +536,13 @@ class SettingsDialog(QDialog):
         
         self.bad_part_confidence_spin.setValue(self.settings.get('bad_part_min_confidence', 0.5))
         
+        # Kamera-Konfiguration
+        camera_config_path = self.settings.get('camera_config_path', '')
+        if camera_config_path:
+            self.camera_config_path_label.setText(camera_config_path)
+        else:
+            self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
+        
         # Bilderspeicherung
         self.save_bad_images_check.setChecked(self.settings.get('save_bad_images', False))
         self.save_good_images_check.setChecked(self.settings.get('save_good_images', False))
@@ -498,6 +583,13 @@ class SettingsDialog(QDialog):
         self.settings.set('good_part_classes', good_classes)
         
         self.settings.set('bad_part_min_confidence', self.bad_part_confidence_spin.value())
+        
+        # Kamera-Konfiguration
+        camera_config_text = self.camera_config_path_label.text()
+        if camera_config_text == "Keine Konfiguration ausgewählt":
+            self.settings.set('camera_config_path', '')
+        else:
+            self.settings.set('camera_config_path', camera_config_text)
         
         # Bilderspeicherung
         self.settings.set('save_bad_images', self.save_bad_images_check.isChecked())

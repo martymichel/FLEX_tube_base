@@ -1,6 +1,6 @@
 """
 Kamera-Manager - einfach und zuverlässig
-Verwaltet Kamera-/Video-Eingabe mit Zeitstempel-Support
+Verwaltet Kamera-/Video-Eingabe mit Zeitstempel-Support und IDS Peak Konfiguration
 """
 
 import cv2
@@ -18,9 +18,9 @@ except ImportError:
     logging.warning("IDS Peak nicht verfügbar - nur Standard-Kameras")
 
 class CameraManager:
-    """Einfacher Kamera-Manager mit Zeitstempel-Support."""
+    """Einfacher Kamera-Manager mit Zeitstempel-Support und IDS Peak Konfiguration."""
     
-    def __init__(self):
+    def __init__(self, camera_config_manager=None):
         self.camera = None
         self.camera_ready = False
         self.source_type = None  # 'webcam', 'ids', 'video'
@@ -31,6 +31,9 @@ class CameraManager:
         # IDS Kamera Setup
         self.ids_device = None
         self.ids_datastream = None
+        
+        # Kamera-Konfigurationsmanager
+        self.camera_config_manager = camera_config_manager
     
     def set_source(self, source):
         """Kamera/Video-Quelle setzen.
@@ -172,6 +175,18 @@ class CameraManager:
                 return False
                 
             self.ids_datastream = datastreams[0].OpenDataStream()
+            
+            # Kamera-Konfiguration anwenden (falls verfügbar)
+            if self.camera_config_manager and self.camera_config_manager.is_loaded:
+                try:
+                    remote_device_nodemap = self.ids_device.RemoteDevice().NodeMaps()[0]
+                    config_applied = self.camera_config_manager.apply_to_camera_nodemap(remote_device_nodemap)
+                    if config_applied:
+                        logging.info("IDS Peak Konfiguration erfolgreich angewendet")
+                    else:
+                        logging.warning("IDS Peak Konfiguration konnte nicht angewendet werden")
+                except Exception as config_error:
+                    logging.error(f"Fehler beim Anwenden der IDS Peak Konfiguration: {config_error}")
             
             # Acquisition starten
             self.ids_device.RemoteDevice().NodeMaps()[0].FindNode("AcquisitionStart").Execute()

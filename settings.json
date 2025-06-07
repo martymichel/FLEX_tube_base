@@ -34,5 +34,5 @@
   "max_image_files": 1000,
   "modbus_enabled": true,
   "modbus_ip": "192.168.1.100",
-  "reject_coil_duration_seconds": 2.6
+  "reject_coil_duration_seconds": 0.5
 }

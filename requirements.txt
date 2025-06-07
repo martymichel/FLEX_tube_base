@@ -11,12 +11,14 @@ ultralytics>=8.3.89
 # WAGO Modbus-Kommunikation
 pymodbus==2.5.3
 
+# Kamera-Konfiguration
+tomli>=2.2.1
+
 # Optionale Pakete (je nach Verwendung)
 # ids-peak  # Für IDS Kameras (falls verfügbar)
 pillow>=9.0.0  # Für erweiterte Bildverarbeitung
 pyarrow>=14.0.1
 pandas>=2.0.0
-tomli>=2.2.1
 pymodbus-asyncio>=2.5.3
 wmi>=1.5.1
 psutil>=5.9.5

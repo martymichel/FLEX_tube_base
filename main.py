@@ -117,30 +117,30 @@ class DetectionApp(QMainWindow):
         self.modbus_check_timer.timeout.connect(self.check_modbus_status)
         self.modbus_check_timer.start(5000)  # Alle 5 Sekunden
         
-        # EINFACHE MODBUS-Initialisierung
-        self.simple_modbus_init()
+        # INTELLIGENTE MODBUS-Initialisierung mit Reset-Fallback
+        self.intelligent_modbus_init()
         
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
         logging.info("DetectionApp VEREINFACHT gestartet")
     
-    def simple_modbus_init(self):
-        """EINFACHE Modbus-Initialisierung ohne komplexe Logik."""
+    def intelligent_modbus_init(self):
+        """INTELLIGENTE Modbus-Initialisierung: Erst direkt versuchen, dann Reset-Fallback."""
         try:
-            if self.modbus_manager.connect():
+            if self.modbus_manager.startup_connect_with_reset_fallback():
                 self.modbus_manager.start_watchdog()
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
                 logging.info("WAGO Modbus erfolgreich initialisiert")
             else:
                 self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
-                logging.warning("WAGO Modbus Verbindung fehlgeschlagen")
+                logging.warning("WAGO Modbus Verbindung endgültig fehlgeschlagen")
         except Exception as e:
             logging.error(f"Modbus-Initialisierung fehlgeschlagen: {e}")
             self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
     
     def check_modbus_status(self):
-        """EINFACHE Modbus-Status-Überprüfung im Hauptthread."""
+        """VERBESSERTE Modbus-Status-Überprüfung mit sofortigem Detection-Stopp."""
         try:
             # Prüfe Verbindung
             was_connected = self.modbus_manager.connected
@@ -148,13 +148,14 @@ class DetectionApp(QMainWindow):
             
             if was_connected and not is_connected:
                 # Verbindung verloren - SOFORTIGER STOPP DER DETECTION
-                logging.warning("Modbus-Verbindung verloren - stoppe Detection SOFORT")
+                logging.error("Modbus-Verbindung verloren - stoppe Detection SOFORT")
                 self.modbus_manager.connected = False
                 
                 # Detection sofort stoppen falls läuft
                 if self.running:
                     self.stop_detection()
-                    self.ui.show_status("Modbus getrennt - Detection gestoppt", "error")
+                    self.ui.show_status("MODBUS GETRENNT - Detection gestoppt", "error")
+                    logging.warning("Detection aufgrund Modbus-Verlust gestoppt")
                 
                 # UI aktualisieren
                 self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
@@ -165,12 +166,18 @@ class DetectionApp(QMainWindow):
                 logging.info("Modbus-Verbindung wiederhergestellt")
                 self.modbus_manager.connected = True
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
+                self.ui.show_status("Modbus wiederhergestellt", "success")
                 
             # Update UI Status
             self.ui.update_modbus_status(is_connected, self.modbus_manager.ip_address)
             
         except Exception as e:
             logging.error(f"Fehler bei Modbus-Status-Check: {e}")
+            # Bei kritischen Fehlern im Status-Check auch Detection stoppen
+            if self.running and ("Connection" in str(e) or "timed out" in str(e).lower()):
+                logging.error("Kritischer Modbus-Fehler - stoppe Detection")
+                self.stop_detection()
+                self.ui.show_status("Modbus-Fehler - Detection gestoppt", "error")
     
     def setup_exit_shortcuts(self):
         """ESC-Taste für schnelles Beenden."""
@@ -273,25 +280,28 @@ class DetectionApp(QMainWindow):
         self.ui.quit_btn.clicked.connect(self.quit_application)
     
     def check_settings_changes(self):
-        """Einstellungsänderungen prüfen."""
+        """Einstellungsänderungen prüfen - OPTIMIERT: Weniger Logging."""
         try:
             # Einfache Datei-Änderungsprüfung
             if os.path.exists(self.settings.filename):
                 old_settings = self.settings.data.copy()
-                self.settings.load()
+                self.settings.load_quietly()  # Verwende quiet loading
                 
-                # Update Image Saver
-                self.image_saver.update_settings(self.settings.data)
-                
-                # Update Kamera-Konfiguration
-                camera_config_path = self.settings.get('camera_config_path', '')
-                if camera_config_path and os.path.exists(camera_config_path):
-                    self.camera_config_manager.load_config(camera_config_path)
-                
-                # Update Klassen-Farben
-                class_colors = self.settings.get('class_colors', {})
-                if class_colors and hasattr(self.detection_engine, 'set_class_colors'):
-                    self.detection_engine.set_class_colors(class_colors)
+                # Update Image Saver nur bei Änderungen
+                if old_settings != self.settings.data:
+                    self.image_saver.update_settings(self.settings.data)
+                    
+                    # Update Kamera-Konfiguration nur bei Pfad-Änderung
+                    old_camera_config = old_settings.get('camera_config_path', '')
+                    new_camera_config = self.settings.get('camera_config_path', '')
+                    if old_camera_config != new_camera_config and new_camera_config and os.path.exists(new_camera_config):
+                        self.camera_config_manager.load_config(new_camera_config)
+                    
+                    # Update Klassen-Farben nur bei Änderung
+                    old_colors = old_settings.get('class_colors', {})
+                    new_colors = self.settings.get('class_colors', {})
+                    if old_colors != new_colors and new_colors and hasattr(self.detection_engine, 'set_class_colors'):
+                        self.detection_engine.set_class_colors_quietly(new_colors)
         except:
             pass
     

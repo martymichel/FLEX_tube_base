@@ -29,6 +29,19 @@ class Settings:
             logging.error(f"Fehler beim Laden der Einstellungen: {e}")
             self.data = self.get_defaults()
     
+    def load_quietly(self):
+        """Einstellungen aus Datei laden OHNE Logging (für regelmäßige Checks)."""
+        try:
+            if self.filename.exists():
+                with open(self.filename, 'r', encoding='utf-8') as f:
+                    self.data = json.load(f)
+            else:
+                self.data = self.get_defaults()
+        except Exception as e:
+            # Nur bei echten Fehlern loggen
+            logging.error(f"Fehler beim stillen Laden der Einstellungen: {e}")
+            self.data = self.get_defaults()
+    
     def save(self):
         """Einstellungen in Datei speichern."""
         try:

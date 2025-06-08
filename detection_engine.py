@@ -106,6 +106,32 @@ class DetectionEngine:
         
         logging.info(f"Benutzerdefinierte Farben für {len(self.custom_colors)} Klassen gesetzt")
     
+    def set_class_colors_quietly(self, class_colors_dict):
+        """Setze benutzerdefinierte Farben für Klassen OHNE Logging (für regelmäßige Updates).
+        
+        Args:
+            class_colors_dict (dict): Dictionary mit {class_id: color_hex_string}
+        """
+        self.custom_colors = {}
+        for class_id, color_hex in class_colors_dict.items():
+            try:
+                # Konvertiere Hex-String zu BGR-Tupel (OpenCV Format)
+                if color_hex.startswith('#'):
+                    color_hex = color_hex[1:]
+                
+                # Hex zu RGB
+                r = int(color_hex[0:2], 16)
+                g = int(color_hex[2:4], 16)
+                b = int(color_hex[4:6], 16)
+                
+                # RGB zu BGR (OpenCV)
+                bgr_color = (b, g, r)
+                self.custom_colors[int(class_id)] = bgr_color
+                
+            except Exception:
+                # Fehler still ignorieren bei quiet update
+                pass
+    
     def get_color_for_class(self, class_id):
         """Hole Farbe für eine bestimmte Klasse.
         

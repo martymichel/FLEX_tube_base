@@ -1,6 +1,7 @@
 """
 WAGO Modbus Manager - SIMPLE und zuverlässig
 Verwaltet Watchdog und Coil-Ausgänge für die KI-Objekterkennung
+ROBUST: Basierend auf bewährter alter Version mit intelligenter Startup-Logik
 """
 
 import time
@@ -45,27 +46,15 @@ class ModbusManager:
         logging.info(f"ModbusManager initialisiert - IP: {self.ip_address}")
     
     def is_connected(self):
-        """Prüfe Modbus-Verbindungsstatus mit einfachem Test.
+        """EINFACHE Verbindungsprüfung - nur Status zurückgeben.
         
         Returns:
-            bool: True wenn verbunden und funktionsfähig
+            bool: True wenn verbunden (basiert auf letztem connect() Ergebnis)
         """
-        if not MODBUS_AVAILABLE:
-            return False
-        
-        if not self.client or not self.connected:
-            return False
-        
-        try:
-            # Einfacher Test: Versuche ein Register zu lesen
-            with self._lock:
-                result = self.client.read_holding_registers(0, 1)
-                return not result.isError()
-        except Exception:
-            return False
+        return self.connected and self.client is not None
     
     def connect(self):
-        """Einfache Verbindung zur WAGO herstellen."""
+        """ROBUSTE Verbindung zur WAGO herstellen (wie alte Version)."""
         if not MODBUS_AVAILABLE:
             logging.warning("pymodbus nicht verfügbar")
             return False
@@ -82,17 +71,7 @@ class ModbusManager:
             
             # Neue Verbindung - OHNE unit Parameter für pymodbus 2.5.3
             self.client = ModbusTcpClient(self.ip_address, port=self.port)
-            connection_result = self.client.connect()
-            
-            if connection_result:
-                # Zusätzlicher Test ob wirklich funktionsfähig
-                try:
-                    test_result = self.client.read_holding_registers(0, 1)
-                    self.connected = not test_result.isError()
-                except:
-                    self.connected = False
-            else:
-                self.connected = False
+            self.connected = self.client.connect()
             
             if self.connected:
                 logging.info("WAGO Modbus-Verbindung erfolgreich")
@@ -106,25 +85,31 @@ class ModbusManager:
             self.connected = False
             return False
     
-    def startup_reconnect(self):
-        """Neuverbindung bei App-Start mit Controller-Reset."""
-        logging.info("Starte WAGO Neuverbindung bei App-Start...")
+    def startup_connect_with_reset_fallback(self):
+        """Intelligente Verbindung bei App-Start mit automatischem Controller-Reset als Fallback."""
+        logging.info("Starte WAGO Verbindung bei App-Start...")
         
-        # Schritt 1: Controller-Reset durchführen
+        # Schritt 1: Versuche direkte Verbindung
+        if self.connect():
+            logging.info("WAGO direkte Verbindung bei Start erfolgreich")
+            return True
+        
+        # Schritt 2: Direkte Verbindung fehlgeschlagen - Controller-Reset durchführen
+        logging.warning("Direkte Verbindung fehlgeschlagen - führe Controller-Reset durch...")
+        
         if self.restart_controller():
-            logging.info("Controller-Reset erfolgreich")
+            logging.info("Controller-Reset erfolgreich - warte 4 Sekunden...")
+            time.sleep(4)  # 4 Sekunden warten nach Hardware-Reset
         else:
             logging.warning("Controller-Reset fehlgeschlagen - versuche trotzdem Verbindung...")
+            time.sleep(2)  # Kurz warten auch bei fehlgeschlagenem Reset
         
-        # Schritt 2: Kurz warten nach Reset
-        time.sleep(3)
-        
-        # Schritt 3: Verbindung herstellen
+        # Schritt 3: Verbindung nach Reset herstellen
         if self.connect():
-            logging.info("WAGO Neuverbindung bei Start erfolgreich")
+            logging.info("WAGO Verbindung nach Controller-Reset erfolgreich")
             return True
         else:
-            logging.error("WAGO Neuverbindung bei Start fehlgeschlagen")
+            logging.error("WAGO Verbindung auch nach Controller-Reset fehlgeschlagen")
             return False
     
     def restart_controller(self):
@@ -217,7 +202,10 @@ class ModbusManager:
             logging.info("Watchdog gestoppt")
     
     def _watchdog_loop(self):
-        """SIMPLE Watchdog-Schleife."""
+        """ROBUSTE Watchdog-Schleife mit Verbindungsüberwachung."""
+        consecutive_failures = 0
+        max_failures = 3  # Nach 3 aufeinanderfolgenden Fehlern Verbindung als verloren betrachten
+        
         while self.watchdog_running:
             try:
                 with self._lock:
@@ -226,15 +214,32 @@ class ModbusManager:
                         result = self.client.write_register(0x1003, self.watchdog_value)
                         
                         if result.isError():
-                            logging.warning("Watchdog-Trigger fehlgeschlagen")
-                            # Verbindungsstatus aktualisieren
-                            self.connected = False
+                            consecutive_failures += 1
+                            logging.warning(f"Watchdog-Trigger fehlgeschlagen ({consecutive_failures}/{max_failures})")
+                            
+                            if consecutive_failures >= max_failures:
+                                logging.error("Modbus-Verbindung verloren - zu viele Watchdog-Fehler")
+                                self.connected = False
+                                # Watchdog beenden da Verbindung verloren
+                                self.watchdog_running = False
+                                break
+                        else:
+                            # Erfolgreicher Watchdog-Trigger - Fehleranzahl zurücksetzen
+                            consecutive_failures = 0
                 
                 time.sleep(self.watchdog_interval)
                 
             except Exception as e:
-                logging.error(f"Watchdog-Fehler: {e}")
-                self.connected = False
+                consecutive_failures += 1
+                logging.error(f"Watchdog-Fehler: {e} ({consecutive_failures}/{max_failures})")
+                
+                if consecutive_failures >= max_failures:
+                    logging.error("Modbus-Verbindung verloren - zu viele Verbindungsfehler")
+                    self.connected = False
+                    # Watchdog beenden da Verbindung verloren
+                    self.watchdog_running = False
+                    break
+                
                 time.sleep(1.0)
     
     def start_coil_refresh(self):
@@ -248,7 +253,7 @@ class ModbusManager:
         pass
     
     def set_coil(self, address, state):
-        """SIMPLE Coil setzen."""
+        """ROBUSTE Coil setzen mit Verbindungsüberwachung."""
         if not self.connected or not self.client:
             return False
         
@@ -260,12 +265,13 @@ class ModbusManager:
                     logging.debug(f"Coil {address} = {state}")
                 else:
                     logging.warning(f"Coil {address} setzen fehlgeschlagen")
-                    # Bei Fehlern Verbindungsstatus prüfen
-                    self.connected = False
                 return success
         except Exception as e:
-            logging.error(f"Fehler bei Coil {address}: {e}")
-            self.connected = False
+            logging.error(f"Kritischer Fehler bei Coil {address}: {e}")
+            # Bei kritischen Verbindungsfehlern Verbindung als verloren markieren
+            if "Connection" in str(e) or "timed out" in str(e).lower():
+                logging.error("Modbus-Verbindung verloren - Coil-Kommunikation fehlgeschlagen")
+                self.connected = False
             return False
     
     def set_reject_coil(self):

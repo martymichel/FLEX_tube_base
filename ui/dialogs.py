@@ -1,7 +1,7 @@
 """
 Dialog-Komponenten für Kamera-Auswahl und Einstellungen
-Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout und Klassennamen-Support
-KORRIGIERT: Doppelte Konfidenz-Einstellungen zusammengelegt, Tab-Namen angepasst, Info-Texte hinzugefügt
+Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout, Klassennamen-Support und Farbauswahl
+ERWEITERT: Farbauswahl für jede Klasse mit 20 vordefinierten Farben
 """
 
 import os
@@ -9,10 +9,11 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QFrame, QFileDialog, QSpinBox, QDoubleSpinBox, QCheckBox, 
     QFormLayout, QMessageBox, QListWidget, QTabWidget, QWidget,
-    QScrollArea, QSizePolicy, QComboBox, QApplication
+    QScrollArea, QSizePolicy, QComboBox, QApplication, QColorDialog,
+    QGridLayout
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QColor
 
 class CameraSelectionDialog(QDialog):
     """Dialog zur Kamera/Video-Auswahl."""
@@ -102,7 +103,7 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Tab-basierter Einstellungen-Dialog mit korrigierten Konfidenz-Einstellungen und Info-Texten."""
+    """Tab-basierter Einstellungen-Dialog mit Farbauswahl für Klassen."""
     
     def __init__(self, settings, class_names=None, parent=None):
         super().__init__(parent)
@@ -114,6 +115,33 @@ class SettingsDialog(QDialog):
         self.resize(800, 800) 
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
+        # 20 vordefinierte Farben für Klassen
+        self.predefined_colors = [
+            "#FF0000",  # Rot
+            "#00FF00",  # Grün
+            "#0000FF",  # Blau
+            "#FFFF00",  # Gelb
+            "#FF00FF",  # Magenta
+            "#00FFFF",  # Cyan
+            "#FFA500",  # Orange
+            "#800080",  # Lila
+            "#FFC0CB",  # Pink
+            "#A52A2A",  # Braun
+            "#808080",  # Grau
+            "#000000",  # Schwarz
+            "#FFFFFF",  # Weiß
+            "#008000",  # Dunkelgrün
+            "#000080",  # Dunkelblau
+            "#800000",  # Bordeaux
+            "#808000",  # Olive
+            "#008080",  # Türkis
+            "#C0C0C0",  # Silber
+            "#FFD700"   # Gold
+        ]
+        
+        # Speichere ausgewählte Farben für jede Klasse
+        self.class_colors = {}
+        
         self.setup_ui()
         self.load_settings()
     
@@ -132,6 +160,7 @@ class SettingsDialog(QDialog):
         # Tabs erstellen
         self._create_general_tab()
         self._create_classes_assignment_tab()
+        self._create_color_assignment_tab()  # NEU: Farbzuteilung-Tab
         self._create_interfaces_tab()
         self._create_storage_monitoring_tab()
         
@@ -160,7 +189,7 @@ class SettingsDialog(QDialog):
         
         self.motion_threshold_spin = QSpinBox()
         self.motion_threshold_spin.setRange(1, 255)
-        layout.addRow("Motion Threshold (1-255):", self.motion_threshold_spin)
+        layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
         self._add_spacer(layout)
 
         # Roter Rahmen Schwellwert - MIT INFO
@@ -362,8 +391,130 @@ class SettingsDialog(QDialog):
         
         self.tab_widget.addTab(scroll, "🔍 Klassen-Zuteilung")
     
+    def _create_color_assignment_tab(self):
+        """Tab 3: 🎨 Farbzuteilung - NEU: Farbauswahl für jede Klasse"""
+        tab = QWidget()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(tab)
+        
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(20)
+        
+        # Farbzuteilung-Gruppe
+        color_group = QFrame()
+        color_group.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
+        color_layout = QVBoxLayout(color_group)
+        
+        color_title = QLabel("🎨 Bounding Box Farben")
+        color_title.setFont(QFont("", 14, QFont.Weight.Bold))
+        color_layout.addWidget(color_title)
+        
+        # Info-Text
+        color_info = self._create_info_label(
+            "Wählen Sie für jede Klasse eine individuelle Farbe für die Bounding Boxes im Live-Stream. "
+            "Die Farben werden in der Erkennung zur besseren Unterscheidung der Klassen verwendet."
+        )
+        color_layout.addWidget(color_info)
+        
+        # Farbraster für jede Klasse
+        if self.class_names:
+            # Grid für Klassenfarben
+            grid_widget = QWidget()
+            grid_layout = QGridLayout(grid_widget)
+            grid_layout.setSpacing(10)
+            
+            row = 0
+            col = 0
+            
+            for class_id, class_name in self.class_names.items():
+                # Klassen-Label
+                class_label = QLabel(f"{class_name} (ID: {class_id})")
+                class_label.setMinimumWidth(150)
+                grid_layout.addWidget(class_label, row, col * 3)
+                
+                # Farb-Vorschau-Button
+                color_preview = QPushButton()
+                color_preview.setFixedSize(40, 30)
+                default_color = self.predefined_colors[class_id % len(self.predefined_colors)]
+                self.class_colors[class_id] = QColor(default_color)
+                color_preview.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {default_color};
+                        border: 2px solid #000000;
+                        border-radius: 4px;
+                    }}
+                """)
+                
+                # Event-Handler für Farbauswahl
+                def make_color_picker(class_id, preview_btn):
+                    def pick_color():
+                        color = QColorDialog.getColor(
+                            self.class_colors[class_id], 
+                            self, 
+                            f"Farbe für {self.class_names[class_id]} auswählen",
+                            QColorDialog.ColorDialogOption.ShowAlphaChannel
+                        )
+                        if color.isValid():
+                            self.class_colors[class_id] = color
+                            preview_btn.setStyleSheet(f"""
+                                QPushButton {{
+                                    background-color: {color.name()};
+                                    border: 2px solid #000000;
+                                    border-radius: 4px;
+                                }}
+                            """)
+                    return pick_color
+                
+                color_preview.clicked.connect(make_color_picker(class_id, color_preview))
+                grid_layout.addWidget(color_preview, row, col * 3 + 1)
+                
+                # Vordefinierte Farben-Dropdown
+                color_preset_combo = QComboBox()
+                color_preset_combo.addItem("Vordefiniert...", "")
+                for i, preset_color in enumerate(self.predefined_colors):
+                    color_preset_combo.addItem("", preset_color)
+                    # Setze Farbe als Hintergrund für das Item
+                    color_preset_combo.setItemData(i + 1, QColor(preset_color), Qt.ItemDataRole.BackgroundRole)
+                
+                def make_preset_selector(class_id, preview_btn, combo):
+                    def select_preset():
+                        preset_color = combo.currentData()
+                        if preset_color:
+                            self.class_colors[class_id] = QColor(preset_color)
+                            preview_btn.setStyleSheet(f"""
+                                QPushButton {{
+                                    background-color: {preset_color};
+                                    border: 2px solid #000000;
+                                    border-radius: 4px;
+                                }}
+                            """)
+                    return select_preset
+                
+                color_preset_combo.currentTextChanged.connect(make_preset_selector(class_id, color_preview, color_preset_combo))
+                grid_layout.addWidget(color_preset_combo, row, col * 3 + 2)
+                
+                # Layout: 2 Spalten à 3 Felder
+                col += 1
+                if col >= 2:
+                    col = 0
+                    row += 1
+            
+            color_layout.addWidget(grid_widget)
+        else:
+            # Fallback wenn keine Klassen geladen
+            no_classes_label = QLabel("Keine Klassen verfügbar. Bitte zuerst ein Modell laden.")
+            no_classes_label.setStyleSheet("color: #888888; font-style: italic; text-align: center;")
+            no_classes_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            color_layout.addWidget(no_classes_label)
+        
+        layout.addWidget(color_group)
+        layout.addStretch()
+        
+        self.tab_widget.addTab(scroll, "🎨 Farbzuteilung")
+    
     def _create_interfaces_tab(self):
-        """Tab 3: 🔌 Schnittstellen (ehemals Hardware)"""
+        """Tab 4: 🔌 Schnittstellen (ehemals Hardware)"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -503,7 +654,7 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(scroll, "🔌 Schnittstellen")
     
     def _create_storage_monitoring_tab(self):
-        """Tab 4: 💾 Speicherung & Überwachung"""
+        """Tab 5: 💾 Speicherung & Überwachung"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -824,7 +975,7 @@ class SettingsDialog(QDialog):
         high_value = self.brightness_high_spin.value()
         
         if low_value >= high_value:
-            if self.sender() == self.brightness_low_spin:
+            if self.sender() == self.brightness_low_skip:
                 self.brightness_high_spin.setValue(low_value + 1)
             else:
                 self.brightness_low_spin.setValue(high_value - 1)
@@ -861,7 +1012,7 @@ class SettingsDialog(QDialog):
             return
         
         class_name = self.class_names.get(selected_id, f"Class {selected_id}")
-        display_text = f"{class_name} (ID: {selected_id})"
+        display_text = f"{class_name} (ID: {class_id})"
         
         # Prüfe ob bereits vorhanden
         for i in range(self.good_part_classes_list.count()):
@@ -916,6 +1067,16 @@ class SettingsDialog(QDialog):
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, class_id)
             self.good_part_classes_list.addItem(item)
+        
+        # Farbzuteilung: Lade gespeicherte Klassenfarben
+        saved_colors = self.settings.get('class_colors', {})
+        for class_id in self.class_names.keys():
+            if str(class_id) in saved_colors:
+                self.class_colors[class_id] = QColor(saved_colors[str(class_id)])
+            else:
+                # Verwende vordefinierte Farbe als Standard
+                default_color = self.predefined_colors[class_id % len(self.predefined_colors)]
+                self.class_colors[class_id] = QColor(default_color)
         
         # Schnittstellen (ehemals Hardware)
         camera_config_path = self.settings.get('camera_config_path', '')
@@ -974,6 +1135,12 @@ class SettingsDialog(QDialog):
             class_id = item.data(Qt.ItemDataRole.UserRole)
             good_classes.append(class_id)
         self.settings.set('good_part_classes', good_classes)
+        
+        # Farbzuteilung: Speichere Klassenfarben
+        color_dict = {}
+        for class_id, color in self.class_colors.items():
+            color_dict[str(class_id)] = color.name()
+        self.settings.set('class_colors', color_dict)
         
         # Schnittstellen (ehemals Hardware)
         camera_config_text = self.camera_config_path_label.text()

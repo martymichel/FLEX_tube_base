@@ -3,7 +3,7 @@
 Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
 Mit Counter, Motion-Anzeige, WAGO Modbus-Schnittstelle, Bilderspeicherung und Helligkeits-basiertem Stopp
 OPTIMIERT: Intelligente Modbus-Initialisierung ohne redundante Aktionen
-ERWEITERT: Status-Button Updates für Modell und Kamera
+ERWEITERT: Status-Button Updates für Modell und Kamera, rotes Blinken bei Schlechtteilen, Farbunterstützung
 """
 
 import sys
@@ -235,9 +235,7 @@ class DetectionApp(QMainWindow):
         # Ctrl+Q als alternative (Standard unter Linux/Windows)
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
         self.quit_shortcut.activated.connect(self.quit_application)
-        
-        logging.info("Exit shortcuts eingerichtet: ESC und Ctrl+Q")
-    
+            
     def quit_application(self):
         """Anwendung schnell und sauber beenden."""
         logging.info("Schnelles Beenden der Anwendung eingeleitet...")
@@ -290,6 +288,13 @@ class DetectionApp(QMainWindow):
                 if self.detection_engine.load_model(last_model):
                     # STATUS-BUTTON aktualisieren
                     self.ui.update_model_status(last_model)
+                    
+                    # NEU: Lade Klassenfarben aus Settings
+                    class_colors = self.settings.get('class_colors', {})
+                    if class_colors:
+                        self.detection_engine.set_class_colors(class_colors)
+                        logging.info(f"Klassenfarben geladen: {len(class_colors)} Farben")
+                    
                     logging.info(f"Auto-loaded model: {last_model}")
                 else:
                     logging.warning(f"Failed to auto-load model: {last_model}")
@@ -389,6 +394,12 @@ class DetectionApp(QMainWindow):
                     
                     # Update Image Saver mit neuen Einstellungen
                     self.image_saver.update_settings(self.settings.data)
+                    
+                    # NEU: Update Detection Engine mit neuen Klassenfarben
+                    class_colors = self.settings.get('class_colors', {})
+                    if class_colors and self.detection_engine.model_loaded:
+                        self.detection_engine.set_class_colors(class_colors)
+                        logging.info("Klassenfarben aus Einstellungen aktualisiert")
                     
                     # Update Kamera-Konfiguration
                     camera_config_path = self.settings.get('camera_config_path', '')
@@ -553,7 +564,7 @@ class DetectionApp(QMainWindow):
             logging.warning(f"Fehler beim Stoppen der Kamera: {e}")
         
         # 5. UI sofort aktualisieren
-        self.ui.start_btn.setText("Starten")
+        self.ui.start_btn.setText("Live Detection STARTEN")
         if not self.modbus_critical_failure:
             self.ui.show_status("Bereit", "ready")
         else:
@@ -678,7 +689,7 @@ class DetectionApp(QMainWindow):
         self.ui.update_motion(self.current_motion_value)
     
     def process_industrial_workflow(self, frame):
-        """Industrieller Workflow mit robuster Motion-Detection, MODBUS-Integration und Bilderspeicherung."""
+        """Workflow mit robuster Motion-Detection, MODBUS-Integration und Bilderspeicherung."""
         current_time = time.time()
         
         # Einstellungen (Threshold weiterhin einstellbar!)
@@ -697,7 +708,7 @@ class DetectionApp(QMainWindow):
                 self.motion_clear_time = None
                 self.no_motion_stable_count = 0  # Reset
                 self.ui.show_status("Förderband taktet - Warte auf Stillstand", "warning")
-                self.ui.update_workflow_status("MOTION")
+                self.ui.update_workflow_status("BANDTAKT")
                 logging.info("Bewegung erkannt - Förderband startet")
         
         # 2. Stabiles Ausschwingen nach Bewegung
@@ -713,7 +724,7 @@ class DetectionApp(QMainWindow):
                     if self.motion_clear_time is None:
                         self.motion_clear_time = current_time
                         self.ui.show_status("Ausschwingzeit läuft...", "warning")
-                        self.ui.update_workflow_status("SETTLING")
+                        self.ui.update_workflow_status("AUSCHWINGEN")
                         logging.info("Stabile No-Motion erreicht - Ausschwingzeit startet")
                     
                     # Prüfe ob Ausschwingzeit abgelaufen
@@ -725,7 +736,7 @@ class DetectionApp(QMainWindow):
                         self.last_cycle_detections = {}  # Reset für neue Aufnahme-Session
                         self.cycle_image_count = 0  # Reset Frame-Counter
                         self.ui.show_status("Aufnahme läuft - KI-Erkennung aktiv", "success")
-                        self.ui.update_workflow_status("CAPTURING")
+                        self.ui.update_workflow_status("DETECTION")
                         logging.info("Ausschwingzeit beendet - KI-Erkennung startet")
             else:
                 # Wieder Bewegung - alles zurücksetzen
@@ -757,13 +768,13 @@ class DetectionApp(QMainWindow):
                         self.ui.update_coil_status(reject_active=True, detection_active=True)
                     
                     self.ui.show_status("Schlechte Teile erkannt - Abblasen aktiv", "error")
-                    self.ui.update_workflow_status("BLOWING")
+                    self.ui.update_workflow_status("ABBLASEN")
                     logging.info(f"Schlechte Teile erkannt - Abblas-Wartezeit: {blow_off_time}s")
                 else:
                     # Alles gut - zurück zum Anfang
                     self.reset_workflow()
                     self.ui.show_status("Prüfung abgeschlossen - Bereit für nächsten Zyklus", "ready")
-                    self.ui.update_workflow_status("READY")
+                    self.ui.update_workflow_status("BEREIT")
                     logging.info("Keine schlechten Teile - Zyklus beendet")
         
         # 4. Abblas-Wartezeit
@@ -984,6 +995,12 @@ class DetectionApp(QMainWindow):
         model_path = self.ui.select_model_file()
         if model_path:
             if self.detection_engine.load_model(model_path):
+                # NEU: Lade Klassenfarben aus Settings nach Modell-Laden
+                class_colors = self.settings.get('class_colors', {})
+                if class_colors:
+                    self.detection_engine.set_class_colors(class_colors)
+                    logging.info(f"Klassenfarben nach Modell-Laden gesetzt: {len(class_colors)} Farben")
+                
                 self.ui.show_status(f"Modell geladen: {os.path.basename(model_path)}", "success")
                 self.settings.set('last_model', model_path)
                 self.settings.save()

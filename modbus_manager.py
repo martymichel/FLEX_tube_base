@@ -1,7 +1,8 @@
 """
-WAGO Modbus Manager - OPTIMIERT für intelligente Verbindungsversuche
+WAGO Modbus Manager - OPTIMIERT für intelligente Verbindungsversuche mit Disconnect-Detection
 Verwaltet Watchdog und Coil-Ausgänge für die KI-Objekterkennung
 VERBESSERT: Vermeidet redundante Aktionen und Watchdog-Frühfehler
+ERWEITERT: Automatische Erkennung von Verbindungsabbrüchen mit Callback-System
 """
 
 import time
@@ -16,7 +17,7 @@ except ImportError:
     logging.warning("pymodbus nicht verfügbar - Modbus-Funktionen deaktiviert")
 
 class ModbusManager:
-    """OPTIMIERTER WAGO Modbus-Manager mit intelligenter Verbindungslogik."""
+    """OPTIMIERTER WAGO Modbus-Manager mit intelligenter Verbindungslogik und Disconnect-Detection."""
     
     def __init__(self, settings):
         self.settings = settings
@@ -32,6 +33,11 @@ class ModbusManager:
         self.watchdog_value = 0
         self.watchdog_initialized = False  # NEU: Verhindert Frühfehler
         
+        # NEU: Disconnect-Detection
+        self.consecutive_failures = 0
+        self.max_failures_before_disconnect = 3  # Nach 3 fehlgeschlagenen Versuchen = Disconnect
+        self.disconnect_callback = None  # Callback für Verbindungsabbruch
+        
         # Coil-Status
         self.detection_active = False
         
@@ -45,6 +51,15 @@ class ModbusManager:
         self.reject_coil_duration = self.settings.get('reject_coil_duration_seconds', 1.0)
         
         logging.info(f"ModbusManager optimiert initialisiert - IP: {self.ip_address}")
+    
+    def register_disconnect_callback(self, callback_func):
+        """Registriere Callback für Verbindungsabbrüche.
+        
+        Args:
+            callback_func: Funktion die bei Verbindungsabbruch aufgerufen wird
+        """
+        self.disconnect_callback = callback_func
+        logging.info("Disconnect-Callback registriert für Modbus-Überwachung")
     
     def connect(self):
         """OPTIMIERTE Verbindung zur WAGO - direkt ohne Reset."""
@@ -68,6 +83,8 @@ class ModbusManager:
             
             if self.connected:
                 logging.info("WAGO Modbus-Direktverbindung erfolgreich")
+                # NEU: Reset failure counter bei erfolgreicher Verbindung
+                self.consecutive_failures = 0
             else:
                 logging.error("WAGO Modbus-Direktverbindung fehlgeschlagen")
             
@@ -128,6 +145,7 @@ class ModbusManager:
         
         self.connected = False
         self.client = None
+        self.consecutive_failures = 0  # Reset failure counter
     
     def start_watchdog(self):
         """OPTIMIERTER Watchdog-Start mit Initialisierungsverzögerung."""
@@ -153,6 +171,7 @@ class ModbusManager:
         # Thread starten mit Initialisierungsflag
         self.watchdog_running = True
         self.watchdog_initialized = False  # Erstmal nicht initialisiert
+        self.consecutive_failures = 0  # Reset failure counter
         self.watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
         self.watchdog_thread.start()
         
@@ -169,7 +188,7 @@ class ModbusManager:
             logging.info("Watchdog gestoppt")
     
     def _watchdog_loop(self):
-        """OPTIMIERTE Watchdog-Schleife mit Startverzögerung."""
+        """OPTIMIERTE Watchdog-Schleife mit Startverzögerung und Disconnect-Detection."""
         try:
             # STARTVERZÖGERUNG: Warte erst 3 Sekunden vor erstem Trigger
             logging.info("Watchdog wartet 3 Sekunden vor erstem Trigger...")
@@ -185,7 +204,7 @@ class ModbusManager:
             logging.error(f"Fehler in Watchdog-Startverzögerung: {e}")
             return
         
-        # Reguläre Watchdog-Schleife
+        # Reguläre Watchdog-Schleife mit Disconnect-Detection
         while self.watchdog_running:
             try:
                 with self._lock:
@@ -193,15 +212,64 @@ class ModbusManager:
                     result = self.client.write_register(0x1003, self.watchdog_value)
                     
                     if result.isError():
-                        logging.warning(f"Watchdog-Trigger fehlgeschlagen (Wert: {self.watchdog_value})")
+                        # NEU: Fehler-Zähler erhöhen
+                        self.consecutive_failures += 1
+                        logging.warning(f"Watchdog-Trigger fehlgeschlagen (Wert: {self.watchdog_value}) - Fehler #{self.consecutive_failures}")
+                        
+                        # NEU: Bei zu vielen Fehlern -> Disconnect erkannt
+                        if self.consecutive_failures >= self.max_failures_before_disconnect:
+                            logging.error(f"MODBUS DISCONNECT ERKANNT: {self.consecutive_failures} aufeinanderfolgende Fehler")
+                            self._handle_disconnect()
+                            break  # Beende Watchdog-Loop
                     else:
+                        # NEU: Bei erfolgreichem Trigger -> Reset failure counter
+                        if self.consecutive_failures > 0:
+                            logging.info(f"Watchdog-Trigger wieder erfolgreich - Reset failure counter (war {self.consecutive_failures})")
+                            self.consecutive_failures = 0
                         logging.debug(f"Watchdog-Trigger erfolgreich (Wert: {self.watchdog_value})")
                 
                 time.sleep(self.watchdog_interval)
                 
             except Exception as e:
-                logging.error(f"Watchdog-Fehler: {e}")
+                # NEU: Exception auch als Fehler zählen
+                self.consecutive_failures += 1
+                logging.error(f"Watchdog-Exception: {e} - Fehler #{self.consecutive_failures}")
+                
+                # NEU: Bei zu vielen Exceptions -> Disconnect erkannt
+                if self.consecutive_failures >= self.max_failures_before_disconnect:
+                    logging.error(f"MODBUS DISCONNECT ERKANNT: {self.consecutive_failures} aufeinanderfolgende Exceptions")
+                    self._handle_disconnect()
+                    break  # Beende Watchdog-Loop
+                
                 time.sleep(1.0)
+    
+    def _handle_disconnect(self):
+        """Behandle erkannten Modbus-Disconnect."""
+        logging.critical("WAGO Modbus-Verbindung unterbrochen - führe Notfall-Aktionen durch")
+        
+        # Status sofort auf disconnected setzen
+        self.connected = False
+        
+        # Watchdog stoppen
+        self.watchdog_running = False
+        
+        # Client schließen
+        if self.client:
+            try:
+                self.client.close()
+            except:
+                pass
+            self.client = None
+        
+        # Callback an Hauptanwendung senden (falls registriert)
+        if self.disconnect_callback:
+            try:
+                logging.info("Rufe Disconnect-Callback auf...")
+                self.disconnect_callback()
+            except Exception as e:
+                logging.error(f"Fehler im Disconnect-Callback: {e}")
+        
+        logging.critical("Modbus-Disconnect-Behandlung abgeschlossen")
     
     def start_coil_refresh(self):
         """SIMPLE Coil-Refresh für Detection-Active."""
@@ -214,7 +282,7 @@ class ModbusManager:
         pass
     
     def set_coil(self, address, state):
-        """SIMPLE Coil setzen."""
+        """SIMPLE Coil setzen mit Disconnect-Detection."""
         if not self.connected:
             return False
         
@@ -224,11 +292,18 @@ class ModbusManager:
                 success = not result.isError()
                 if success:
                     logging.debug(f"Coil {address} = {state}")
+                    # Reset failure counter bei erfolgreicher Operation
+                    if self.consecutive_failures > 0:
+                        self.consecutive_failures = 0
                 else:
                     logging.warning(f"Coil {address} setzen fehlgeschlagen")
+                    # Erhöhe failure counter
+                    self.consecutive_failures += 1
                 return success
         except Exception as e:
             logging.error(f"Fehler bei Coil {address}: {e}")
+            # Exception zählt auch als Fehler
+            self.consecutive_failures += 1
             return False
     
     def set_reject_coil(self):
@@ -302,7 +377,8 @@ class ModbusManager:
             'ip_address': self.ip_address,
             'watchdog_running': self.watchdog_running,
             'watchdog_initialized': self.watchdog_initialized,  # NEU
-            'detection_active': self.detection_active
+            'detection_active': self.detection_active,
+            'consecutive_failures': self.consecutive_failures  # NEU: Für Debugging
         }
     
     def update_settings(self, new_settings):

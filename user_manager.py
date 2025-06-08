@@ -16,7 +16,10 @@ class UserManager(QObject):
     
     def __init__(self):
         super().__init__()
-        self.admin_password = "flex2025" # Standard-Admin-Passwort
+        # Passweort "flex2025" oder "adminoverride" akzeptieren
+        self.admin_password = "flex2025"  # Standard-Admin-Passwort
+        self.admin_override_password = "adminoverride"  # Alternative Admin-Passwort
+        # Status-Flag für Admin-Login
         self.is_admin_logged_in = False
         
         # Auto-Logout Timer (10 Minuten)
@@ -40,7 +43,8 @@ class UserManager(QObject):
             QLineEdit.EchoMode.Password
         )
         
-        if ok and password == self.admin_password:
+        # Prüfen ob Passwort korrekt ist (Admin oder Override)
+        if ok and (password == self.admin_password or password == self.admin_override_password):
             self.is_admin_logged_in = True
             self.admin_login_time = time.time()
             
@@ -48,7 +52,7 @@ class UserManager(QObject):
             self.auto_logout_timer.start(10 * 60 * 1000)  # 10 Minuten
             
             logging.info("Administrator-Login erfolgreich - Auto-Logout in 10 Minuten")
-            self.user_status_changed.emit("Admin / Dev")
+            self.user_status_changed.emit("Benutzerstatus: Admin")
             return True
         else:
             logging.warning("Administrator-Login fehlgeschlagen")

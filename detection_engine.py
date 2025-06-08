@@ -1,6 +1,7 @@
 """
 KI-Erkennungsmodul - einfach und robust
-Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Statistiken
+Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Statistiken und Farbunterstützung
+ERWEITERT: Verwendung von benutzerdefinierten Farben für Bounding Boxes
 """
 
 import cv2
@@ -17,14 +18,16 @@ except ImportError:
     logging.warning("ultralytics nicht verfügbar - KI-Erkennung deaktiviert")
 
 class DetectionEngine:
-    """Einfache KI-Erkennungsengine mit erweiterten Statistiken."""
+    """Einfache KI-Erkennungsengine mit erweiterten Statistiken und benutzerdefinierten Farben."""
     
     def __init__(self):
         self.model = None
         self.model_loaded = False
         self.class_names = {}
         self.confidence_threshold = 0.5
-        self.colors = [
+        
+        # Standard-Farben (falls keine benutzerdefinierten Farben gesetzt sind)
+        self.default_colors = [
             (0, 255, 0),    # Grün
             (255, 0, 0),    # Rot  
             (0, 0, 255),    # Blau
@@ -34,6 +37,9 @@ class DetectionEngine:
             (128, 0, 128),  # Lila
             (255, 165, 0),  # Orange
         ]
+        
+        # Benutzerdefinierte Farben (werden aus Settings geladen)
+        self.custom_colors = {}
     
     def load_model(self, model_path):
         """YOLO-Modell laden.
@@ -72,6 +78,49 @@ class DetectionEngine:
         except Exception as e:
             logging.error(f"Fehler beim Laden des Modells: {e}")
             return False
+    
+    def set_class_colors(self, class_colors_dict):
+        """Setze benutzerdefinierte Farben für Klassen.
+        
+        Args:
+            class_colors_dict (dict): Dictionary mit {class_id: color_hex_string}
+        """
+        self.custom_colors = {}
+        for class_id, color_hex in class_colors_dict.items():
+            try:
+                # Konvertiere Hex-String zu BGR-Tupel (OpenCV Format)
+                if color_hex.startswith('#'):
+                    color_hex = color_hex[1:]
+                
+                # Hex zu RGB
+                r = int(color_hex[0:2], 16)
+                g = int(color_hex[2:4], 16)
+                b = int(color_hex[4:6], 16)
+                
+                # RGB zu BGR (OpenCV)
+                bgr_color = (b, g, r)
+                self.custom_colors[int(class_id)] = bgr_color
+                
+            except Exception as e:
+                logging.warning(f"Ungültige Farbe für Klasse {class_id}: {color_hex} - {e}")
+        
+        logging.info(f"Benutzerdefinierte Farben für {len(self.custom_colors)} Klassen gesetzt")
+    
+    def get_color_for_class(self, class_id):
+        """Hole Farbe für eine bestimmte Klasse.
+        
+        Args:
+            class_id (int): Klassen-ID
+            
+        Returns:
+            tuple: BGR-Farbtupel für OpenCV
+        """
+        # Prüfe ob benutzerdefinierte Farbe vorhanden
+        if class_id in self.custom_colors:
+            return self.custom_colors[class_id]
+        
+        # Fallback auf Standard-Farben
+        return self.default_colors[class_id % len(self.default_colors)]
     
     def detect(self, frame):
         """Objekterkennung durchführen.
@@ -121,7 +170,7 @@ class DetectionEngine:
             return []
     
     def draw_detections(self, frame, detections):
-        """Erkennungen auf Frame zeichnen.
+        """Erkennungen auf Frame zeichnen mit benutzerdefinierten Farben.
         
         Args:
             frame: Original-Frame
@@ -139,8 +188,8 @@ class DetectionEngine:
         for detection in detections:
             x1, y1, x2, y2, confidence, class_id = detection
             
-            # Farbe wählen
-            color = self.colors[class_id % len(self.colors)]
+            # Benutzerdefinierte oder Standard-Farbe wählen
+            color = self.get_color_for_class(class_id)
             
             # Bounding Box zeichnen
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)

@@ -1,14 +1,15 @@
 """
-Hauptbenutzeroberfläche - FINALE Version mit umgestalteter Sidebar
-Neue Reihenfolge, Status-Buttons für Modell/Kamera, kleinere Radien, größere Abstände
-ERWEITERT: Modell/Kamera-Buttons zeigen Status an wie Login-Button
+Hauptbenutzeroberfläche - FINALE Version ohne Rahmen und vereinte Status-Ausgaben
+Entfernt: Alle QGroupBox-Rahmen und Titel
+Vereint: Status Grenzwerte + WAGO Modbus
+Verbessert: ESC ganz unten, größere Tabelle
 """
 
 import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QSplitter, QFrame, QTableWidget, QTableWidgetItem, QHeaderView, 
-    QToolButton, QGroupBox, QScrollArea, QMessageBox, QDialog
+    QToolButton, QScrollArea, QMessageBox, QDialog
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QFont
@@ -20,7 +21,7 @@ import logging
 from .dialogs import CameraSelectionDialog, SettingsDialog
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche mit umgestalteter Sidebar und Status-Buttons."""
+    """Hauptbenutzeroberfläche ohne Rahmen und mit vereinten Status-Ausgaben."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -62,7 +63,7 @@ class MainUI(QWidget):
         self.splitter.setSizes([350, 1000])
     
     def create_sidebar(self):
-        """Kompakte Sidebar mit NEUER Reihenfolge und verbessertem Design erstellen."""
+        """Kompakte Sidebar OHNE Rahmen und mit vereinten Status-Ausgaben erstellen."""
         self.sidebar = QFrame()
         self.sidebar.setStyleSheet("""
             QFrame {
@@ -94,21 +95,6 @@ class MainUI(QWidget):
                 color: white;
                 font-size: 13px;
             }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #34495e;
-                border-radius: 4px;
-                margin-top: 8px;
-                padding-top: 12px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 8px;
-                background-color: #34495e;
-                border-radius: 3px;
-                font-size: 12px;
-            }
         """)
         self.sidebar.setMinimumWidth(300)
         self.sidebar.setMaximumWidth(380)
@@ -121,36 +107,33 @@ class MainUI(QWidget):
         
         sidebar_content = QWidget()
         layout = QVBoxLayout(sidebar_content)
-        layout.setSpacing(20)  # Größere Abstände zwischen Sektionen
+        layout.setSpacing(25)  # Größere Abstände zwischen Sektionen
         layout.setContentsMargins(20, 20, 20, 20)  # Größere Ränder
         
-        # NEUE REIHENFOLGE:
+        # NEUE REIHENFOLGE OHNE RAHMEN:
         # 1. Benutzer-Status
         self._create_login_status_section(layout)
         
-        # 2. Aktionen (OHNE Einstellungen-Button)
+        # 2. Aktionen
         self._create_actions_section(layout)
         
-        # 3. KI-Modell (STATUS-BUTTON)
+        # 3. KI-Modell
         self._create_model_status_section(layout)
         
-        # 4. Kamera-Video (STATUS-BUTTON)
+        # 4. Kamera-Video
         self._create_camera_status_section(layout)
         
-        # 5. Letzte Erkennung - ERWEITERT
+        # 5. Letzte Erkennung - HÖHERE Tabelle
         self._create_stats_section(layout)
         
-        # 6. Status Grenzwerte (ehemals "Status-Sensoren")
-        self._create_sensors_section(layout)
+        # 6. VEREINT: Status Grenzwerte + WAGO Modbus
+        self._create_united_status_section(layout)
         
-        # 7. WAGO Modbus Status
-        self._create_modbus_section(layout)
-        
-        # 8. Anwendung (OHNE Rahmen und Überschrift)
-        self._create_quit_section(layout)
-        
-        # Stretch am Ende
+        # Stretch für Platz
         layout.addStretch()
+        
+        # 7. ESC Hinweis ganz unten (OHNE Rahmen, nur Text)
+        self._create_esc_hint(layout)
         
         # Sidebar-Content zu Scroll hinzufügen
         scroll.setWidget(sidebar_content)
@@ -163,15 +146,10 @@ class MainUI(QWidget):
         return self.sidebar
     
     def _create_login_status_section(self, layout):
-        """NEUER: Breiter Login-Status-Button (ersetzt separates Label + Button)."""
-        login_group = QGroupBox("Benutzer-Status")
-        login_layout = QVBoxLayout(login_group)
-        login_layout.setSpacing(8)
-        login_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
-        
+        """Login-Status-Button OHNE Rahmen."""
         # Breiter Status-Button der gleichzeitig Login/Logout macht
         self.login_status_btn = QPushButton("Operator")
-        self.login_status_btn.setMinimumHeight(45)  # Deutlich höher
+        self.login_status_btn.setMinimumHeight(45)
         self.login_status_btn.setStyleSheet("""
             QPushButton {
                 background-color: #34495e;
@@ -192,16 +170,12 @@ class MainUI(QWidget):
             }
         """)
         self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
-        login_layout.addWidget(self.login_status_btn)
-        
-        layout.addWidget(login_group)
+        layout.addWidget(self.login_status_btn)
     
     def _create_actions_section(self, layout):
-        """Aktionen-Sektion erstellen (OHNE Einstellungen-Button)."""
-        actions_group = QGroupBox("Aktionen")
-        actions_layout = QVBoxLayout(actions_group)
+        """Aktionen OHNE Rahmen."""
+        actions_layout = QVBoxLayout()
         actions_layout.setSpacing(12)
-        actions_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
         
         self.start_btn = QPushButton("Starten")
         self.start_btn.setStyleSheet("""
@@ -227,18 +201,12 @@ class MainUI(QWidget):
         """)
         actions_layout.addWidget(self.snapshot_btn)
         
-        layout.addWidget(actions_group)
+        layout.addLayout(actions_layout)
     
     def _create_model_status_section(self, layout):
-        """KI-Modell als STATUS-BUTTON (wie Login-Button)."""
-        model_group = QGroupBox("KI-Modell")
-        model_layout = QVBoxLayout(model_group)
-        model_layout.setSpacing(8)
-        model_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
-        
-        # Status-Button für Modell
+        """KI-Modell Status-Button OHNE Rahmen."""
         self.model_btn = QPushButton("Kein Modell geladen")
-        self.model_btn.setMinimumHeight(45)  # Gleiche Höhe wie Login-Button
+        self.model_btn.setMinimumHeight(45)
         self.model_btn.setStyleSheet("""
             QPushButton {
                 background-color: #34495e;
@@ -265,20 +233,12 @@ class MainUI(QWidget):
             }
         """)
         self.model_btn.setToolTip("Klicken um Modell zu laden")
-        model_layout.addWidget(self.model_btn)
-        
-        layout.addWidget(model_group)
+        layout.addWidget(self.model_btn)
     
     def _create_camera_status_section(self, layout):
-        """Kamera-Video als STATUS-BUTTON (wie Login-Button)."""
-        camera_group = QGroupBox("Kamera/Video")
-        camera_layout = QVBoxLayout(camera_group)
-        camera_layout.setSpacing(8)
-        camera_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
-        
-        # Status-Button für Kamera
+        """Kamera-Video Status-Button OHNE Rahmen."""
         self.camera_btn = QPushButton("Modus wählen")
-        self.camera_btn.setMinimumHeight(45)  # Gleiche Höhe wie Login-Button
+        self.camera_btn.setMinimumHeight(45)
         self.camera_btn.setStyleSheet("""
             QPushButton {
                 background-color: #34495e;
@@ -305,23 +265,17 @@ class MainUI(QWidget):
             }
         """)
         self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
-        camera_layout.addWidget(self.camera_btn)
-        
-        layout.addWidget(camera_group)
+        layout.addWidget(self.camera_btn)
     
     def _create_stats_section(self, layout):
-        """Statistiken-Sektion erstellen - ERWEITERT: 5 Spalten mit Durchschnitt."""
-        stats_group = QGroupBox("Letzte Erkennung")
-        stats_layout = QVBoxLayout(stats_group)
-        stats_layout.setSpacing(8)
-        stats_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
-        
-        # ERWEITERTE Tabelle für LETZTEN Zyklus - 5 Spalten
-        self.last_cycle_table = QTableWidget(0, 5)  # 5 Spalten: Klasse, Img, Min, Max, Anz
+        """Statistiken OHNE Rahmen - HÖHERE Tabelle."""
+        # ERWEITERTE Tabelle für LETZTEN Zyklus - 5 Spalten - HÖHER
+        self.last_cycle_table = QTableWidget(0, 5)
         self.last_cycle_table.setHorizontalHeaderLabels(["Klasse", "Img", "Min", "Max", "Anz"])
         self.last_cycle_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.last_cycle_table.verticalHeader().hide()
-        self.last_cycle_table.setMaximumHeight(150)  # Kompakter
+        self.last_cycle_table.setMaximumHeight(220)  # ERHÖHT: Von 150 auf 220
+        self.last_cycle_table.setMinimumHeight(180)  # NEU: Minimum gesetzt
         self.last_cycle_table.setStyleSheet("""
             QTableWidget {
                 background: rgba(255, 255, 255, 0.05);
@@ -349,16 +303,14 @@ class MainUI(QWidget):
                 background: rgba(255, 255, 255, 0.1);
             }
         """)
-        stats_layout.addWidget(self.last_cycle_table)
-        
-        layout.addWidget(stats_group)
+        layout.addWidget(self.last_cycle_table)
     
-    def _create_sensors_section(self, layout):
-        """Status Grenzwerte (ehemals 'Workflow-Status mit Motion und Helligkeit')."""
-        workflow_group = QGroupBox("Status Grenzwerte")  # GEÄNDERT: Neuer Name
-        workflow_layout = QVBoxLayout(workflow_group)
-        workflow_layout.setSpacing(8)
-        workflow_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
+    def _create_united_status_section(self, layout):
+        """VEREINT: Status Grenzwerte + WAGO Modbus OHNE Rahmen."""
+        status_layout = QVBoxLayout()
+        status_layout.setSpacing(12)
+        
+        # --- STATUS GRENZWERTE TEIL ---
         
         # Workflow-Status
         workflow_info_layout = QHBoxLayout()
@@ -373,7 +325,7 @@ class MainUI(QWidget):
             font-weight: bold;
         """)
         workflow_info_layout.addWidget(self.workflow_info, 1)
-        workflow_layout.addLayout(workflow_info_layout)
+        status_layout.addLayout(workflow_info_layout)
         
         # Motion-Wert Anzeige
         motion_layout = QHBoxLayout()
@@ -388,7 +340,7 @@ class MainUI(QWidget):
             min-width: 60px;
         """)
         motion_layout.addWidget(self.motion_info)
-        workflow_layout.addLayout(motion_layout)
+        status_layout.addLayout(motion_layout)
         
         # Helligkeitsanzeige
         brightness_layout = QHBoxLayout()
@@ -403,7 +355,7 @@ class MainUI(QWidget):
             min-width: 60px;
         """)
         brightness_layout.addWidget(self.brightness_info)
-        workflow_layout.addLayout(brightness_layout)
+        status_layout.addLayout(brightness_layout)
         
         # Helligkeitswarnung
         self.brightness_warning = QLabel("Beleuchtung prüfen!")
@@ -417,20 +369,13 @@ class MainUI(QWidget):
             font-size: 11px;
         """)
         self.brightness_warning.setVisible(False)
-        workflow_layout.addWidget(self.brightness_warning)
+        status_layout.addWidget(self.brightness_warning)
         
-        layout.addWidget(workflow_group)
-    
-    def _create_modbus_section(self, layout):
-        """WAGO Modbus Status-Sektion erstellen - OHNE Reset/Reconnect Buttons."""
-        modbus_group = QGroupBox("WAGO Modbus")
-        modbus_layout = QVBoxLayout(modbus_group)
-        modbus_layout.setSpacing(8)
-        modbus_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
+        # --- WAGO MODBUS TEIL ---
         
         # Verbindungsstatus
         connection_layout = QHBoxLayout()
-        connection_layout.addWidget(QLabel("Status:"))
+        connection_layout.addWidget(QLabel("WAGO Status:"))
         self.modbus_status = QLabel("Getrennt")
         self.modbus_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.modbus_status.setStyleSheet("""
@@ -442,7 +387,7 @@ class MainUI(QWidget):
             font-size: 11px;
         """)
         connection_layout.addWidget(self.modbus_status, 1)
-        modbus_layout.addLayout(connection_layout)
+        status_layout.addLayout(connection_layout)
         
         # IP-Adresse
         ip_layout = QHBoxLayout()
@@ -456,7 +401,7 @@ class MainUI(QWidget):
             font-size: 11px;
         """)
         ip_layout.addWidget(self.modbus_ip, 1)
-        modbus_layout.addLayout(ip_layout)
+        status_layout.addLayout(ip_layout)
         
         # Coil-Status (kompakt)
         coils_layout = QHBoxLayout()
@@ -465,7 +410,7 @@ class MainUI(QWidget):
         # Reject Coil (Ausschuss)
         self.reject_coil_indicator = QLabel("R")
         self.reject_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.reject_coil_indicator.setFixedSize(22, 22)  # Etwas größer
+        self.reject_coil_indicator.setFixedSize(22, 22)
         self.reject_coil_indicator.setStyleSheet("""
             background-color: #7f8c8d;
             color: white;
@@ -479,7 +424,7 @@ class MainUI(QWidget):
         # Detection Active Coil
         self.detection_coil_indicator = QLabel("D")
         self.detection_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.detection_coil_indicator.setFixedSize(22, 22)  # Etwas größer
+        self.detection_coil_indicator.setFixedSize(22, 22)
         self.detection_coil_indicator.setStyleSheet("""
             background-color: #7f8c8d;
             color: white;
@@ -490,27 +435,24 @@ class MainUI(QWidget):
         self.detection_coil_indicator.setToolTip("Detection Active Coil")
         coils_layout.addWidget(self.detection_coil_indicator)
         
-        modbus_layout.addLayout(coils_layout)
+        status_layout.addLayout(coils_layout)
         
-        layout.addWidget(modbus_group)
+        layout.addLayout(status_layout)
     
-    def _create_quit_section(self, layout):
-        """BEENDEN-Sektion erstellen - OHNE Rahmen und Überschrift."""
-        # ESC-Hinweis (direkt ohne Gruppe)
+    def _create_esc_hint(self, layout):
+        """ESC-Hinweis ganz unten OHNE Rahmen - nur Text, mittig."""
         esc_hint = QLabel("ESC = Schnelles Beenden")
         esc_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         esc_hint.setStyleSheet("""
-            color: #bdc3c7; 
+            color: #7f8c8d; 
             font-style: italic; 
-            font-size: 10px;
-            background-color: #34495e;
-            padding: 8px 15px;
-            border-radius: 4px;
+            font-size: 11px;
+            padding: 10px;
             margin: 10px 0;
         """)
         layout.addWidget(esc_hint)
         
-        # BEENDEN Button (direkt ohne Gruppe)
+        # BEENDEN Button (direkt darunter)
         self.quit_btn = QPushButton("BEENDEN")
         self.quit_btn.setStyleSheet("""
             QPushButton {
@@ -1107,7 +1049,7 @@ class MainUI(QWidget):
         """Model-Status-Button aktualisieren."""
         if model_path and os.path.exists(model_path):
             model_name = os.path.basename(model_path)
-            self.model_btn.setText(f"Geladen: {model_name}")
+            self.model_btn.setText(f"Modell: {model_name}")
             self.model_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #27ae60;
@@ -1169,7 +1111,7 @@ class MainUI(QWidget):
                 display_text = f"Webcam: {source_info}"
             elif source_type == 'video':
                 video_name = os.path.basename(source_info)
-                display_text = f"Aktuell: {video_name}"
+                display_text = f"Video: {video_name}"
             elif source_type == 'ids':
                 display_text = f"IDS Kamera: {source_info}"
             else:

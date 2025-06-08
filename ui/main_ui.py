@@ -1,7 +1,7 @@
 """
-Hauptbenutzeroberfläche - FINALE Version mit Einstellungen-Button, Admin-Reset, und Login-Status-Button
-Kompakt und fokussiert mit erweiterter Statistik-Tabelle und kompaktem Session Counter
-ERWEITERT: Modbus-Reset/Reconnect Buttons aus Sidebar entfernt
+Hauptbenutzeroberfläche - FINALE Version mit umgestalteter Sidebar
+Neue Reihenfolge, Status-Buttons für Modell/Kamera, kleinere Radien, größere Abstände
+ERWEITERT: Modell/Kamera-Buttons zeigen Status an wie Login-Button
 """
 
 import os
@@ -20,7 +20,7 @@ import logging
 from .dialogs import CameraSelectionDialog, SettingsDialog
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche mit kompakter Sidebar, erweiterter Statistik-Tabelle und kompaktem Session Counter."""
+    """Hauptbenutzeroberfläche mit umgestalteter Sidebar und Status-Buttons."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -62,20 +62,20 @@ class MainUI(QWidget):
         self.splitter.setSizes([350, 1000])
     
     def create_sidebar(self):
-        """Kompakte Sidebar mit Steuerelementen erstellen."""
+        """Kompakte Sidebar mit NEUER Reihenfolge und verbessertem Design erstellen."""
         self.sidebar = QFrame()
         self.sidebar.setStyleSheet("""
             QFrame {
                 background-color: #2c3e50;
                 color: white;
-                border-radius: 8px;
+                border-radius: 4px;
             }
             QPushButton {
                 background-color: #34495e;
                 color: white;
                 border: none;
-                padding: 10px;
-                border-radius: 6px;
+                padding: 15px 20px;
+                border-radius: 4px;
                 font-size: 13px;
                 font-weight: bold;
                 min-height: 15px;
@@ -97,14 +97,14 @@ class MainUI(QWidget):
             QGroupBox {
                 font-weight: bold;
                 border: 1px solid #34495e;
-                border-radius: 6px;
+                border-radius: 4px;
                 margin-top: 8px;
-                padding-top: 8px;
+                padding-top: 12px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 0 4px;
+                padding: 0 8px;
                 background-color: #34495e;
                 border-radius: 3px;
                 font-size: 12px;
@@ -121,31 +121,32 @@ class MainUI(QWidget):
         
         sidebar_content = QWidget()
         layout = QVBoxLayout(sidebar_content)
-        layout.setSpacing(10)  # Kompakter Abstand
-        layout.setContentsMargins(15, 15, 15, 15)  # Kompakte Ränder
+        layout.setSpacing(20)  # Größere Abstände zwischen Sektionen
+        layout.setContentsMargins(20, 20, 20, 20)  # Größere Ränder
         
-        # Breiter Login-Status-Button (kein separates Label mehr)
+        # NEUE REIHENFOLGE:
+        # 1. Benutzer-Status
         self._create_login_status_section(layout)
         
-        # WAGO Modbus Status (OHNE Reset/Reconnect Buttons)
-        self._create_modbus_section(layout)
-        
-        # Workflow-Status mit Motion und Helligkeit
-        self._create_sensors_section(layout)
-        
-        # Modell-Sektion
-        self._create_model_section(layout)
-        
-        # Kamera-Sektion
-        self._create_camera_section(layout)
-        
-        # Letzte Erkennung - ERWEITERT
-        self._create_stats_section(layout)
-        
-        # Aktionen (OHNE Einstellungen-Button)
+        # 2. Aktionen (OHNE Einstellungen-Button)
         self._create_actions_section(layout)
         
-        # BEENDEN Button (eigene Sektion am Ende)
+        # 3. KI-Modell (STATUS-BUTTON)
+        self._create_model_status_section(layout)
+        
+        # 4. Kamera-Video (STATUS-BUTTON)
+        self._create_camera_status_section(layout)
+        
+        # 5. Letzte Erkennung - ERWEITERT
+        self._create_stats_section(layout)
+        
+        # 6. Status Grenzwerte (ehemals "Status-Sensoren")
+        self._create_sensors_section(layout)
+        
+        # 7. WAGO Modbus Status
+        self._create_modbus_section(layout)
+        
+        # 8. Anwendung (OHNE Rahmen und Überschrift)
         self._create_quit_section(layout)
         
         # Stretch am Ende
@@ -165,7 +166,8 @@ class MainUI(QWidget):
         """NEUER: Breiter Login-Status-Button (ersetzt separates Label + Button)."""
         login_group = QGroupBox("Benutzer-Status")
         login_layout = QVBoxLayout(login_group)
-        login_layout.setSpacing(5)
+        login_layout.setSpacing(8)
+        login_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
         
         # Breiter Status-Button der gleichzeitig Login/Logout macht
         self.login_status_btn = QPushButton("Operator")
@@ -175,8 +177,8 @@ class MainUI(QWidget):
                 background-color: #34495e;
                 color: white;
                 border: 2px solid #5d6d7e;
-                padding: 12px;
-                border-radius: 8px;
+                padding: 15px 25px;
+                border-radius: 4px;
                 font-size: 16px;
                 font-weight: bold;
                 text-align: center;
@@ -194,179 +196,115 @@ class MainUI(QWidget):
         
         layout.addWidget(login_group)
     
-    def on_user_status_changed(self, new_status):
-        """Callback für User-Status-Änderungen (Auto-Logout etc.)."""
-        self.update_user_interface()
-        if new_status == "Operator":
-            self.app.ui.show_status("Automatischer Logout - Operator-Modus", "warning")
+    def _create_actions_section(self, layout):
+        """Aktionen-Sektion erstellen (OHNE Einstellungen-Button)."""
+        actions_group = QGroupBox("Aktionen")
+        actions_layout = QVBoxLayout(actions_group)
+        actions_layout.setSpacing(12)
+        actions_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
+        
+        self.start_btn = QPushButton("Starten")
+        self.start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                font-size: 14px;
+                min-height: 35px;
+                padding: 15px 25px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #2ecc71;
+            }
+        """)
+        actions_layout.addWidget(self.start_btn)
+        
+        self.snapshot_btn = QPushButton("Schnappschuss")
+        self.snapshot_btn.setStyleSheet("""
+            QPushButton {
+                padding: 15px 25px;
+                border-radius: 4px;
+            }
+        """)
+        actions_layout.addWidget(self.snapshot_btn)
+        
+        layout.addWidget(actions_group)
     
-    def _create_modbus_section(self, layout):
-        """WAGO Modbus Status-Sektion erstellen - OHNE Reset/Reconnect Buttons."""
-        modbus_group = QGroupBox("WAGO Modbus")
-        modbus_layout = QVBoxLayout(modbus_group)
-        modbus_layout.setSpacing(5)
-        
-        # Verbindungsstatus
-        connection_layout = QHBoxLayout()
-        connection_layout.addWidget(QLabel("Status:"))
-        self.modbus_status = QLabel("Getrennt")
-        self.modbus_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.modbus_status.setStyleSheet("""
-            background-color: #e74c3c;
-            color: white;
-            padding: 3px;
-            border-radius: 3px;
-            font-weight: bold;
-            font-size: 11px;
-        """)
-        connection_layout.addWidget(self.modbus_status, 1)
-        modbus_layout.addLayout(connection_layout)
-        
-        # IP-Adresse
-        ip_layout = QHBoxLayout()
-        ip_layout.addWidget(QLabel("IP:"))
-        self.modbus_ip = QLabel("192.168.1.100")
-        self.modbus_ip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.modbus_ip.setStyleSheet("""
-            background-color: #34495e;
-            padding: 3px;
-            border-radius: 3px;
-            font-size: 11px;
-        """)
-        ip_layout.addWidget(self.modbus_ip, 1)
-        modbus_layout.addLayout(ip_layout)
-        
-        # Coil-Status (kompakt)
-        coils_layout = QHBoxLayout()
-        coils_layout.addWidget(QLabel("Coils:"))
-        
-        # Reject Coil (Ausschuss)
-        self.reject_coil_indicator = QLabel("R")
-        self.reject_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.reject_coil_indicator.setFixedSize(20, 20)
-        self.reject_coil_indicator.setStyleSheet("""
-            background-color: #7f8c8d;
-            color: white;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 9px;
-        """)
-        self.reject_coil_indicator.setToolTip("Reject/Ausschuss Coil")
-        coils_layout.addWidget(self.reject_coil_indicator)
-        
-        # Detection Active Coil
-        self.detection_coil_indicator = QLabel("D")
-        self.detection_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.detection_coil_indicator.setFixedSize(20, 20)
-        self.detection_coil_indicator.setStyleSheet("""
-            background-color: #7f8c8d;
-            color: white;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 9px;
-        """)
-        self.detection_coil_indicator.setToolTip("Detection Active Coil")
-        coils_layout.addWidget(self.detection_coil_indicator)
-        
-        modbus_layout.addLayout(coils_layout)
-        
-        layout.addWidget(modbus_group)
-    
-    def _create_sensors_section(self, layout):
-        """Workflow-Status mit Motion und Helligkeit."""
-        workflow_group = QGroupBox("Status & Sensoren")
-        workflow_layout = QVBoxLayout(workflow_group)
-        workflow_layout.setSpacing(5)
-        
-        # Workflow-Status
-        workflow_info_layout = QHBoxLayout()
-        workflow_info_layout.addWidget(QLabel("Workflow:"))
-        self.workflow_info = QLabel("READY")
-        self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.workflow_info.setStyleSheet("""
-            background-color: #34495e;
-            color: white;
-            padding: 5px;
-            border-radius: 4px;
-            font-weight: bold;
-        """)
-        workflow_info_layout.addWidget(self.workflow_info, 1)
-        workflow_layout.addLayout(workflow_info_layout)
-        
-        # Motion-Wert Anzeige
-        motion_layout = QHBoxLayout()
-        motion_layout.addWidget(QLabel("Motion:"))
-        self.motion_info = QLabel("--")
-        self.motion_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.motion_info.setStyleSheet("""
-            background-color: #34495e;
-            padding: 5px;
-            border-radius: 4px;
-            font-weight: bold;
-            min-width: 60px;
-        """)
-        motion_layout.addWidget(self.motion_info)
-        workflow_layout.addLayout(motion_layout)
-        
-        # Helligkeitsanzeige
-        brightness_layout = QHBoxLayout()
-        brightness_layout.addWidget(QLabel("Helligkeit:"))
-        self.brightness_info = QLabel("--")
-        self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.brightness_info.setStyleSheet("""
-            background-color: #34495e;
-            padding: 5px;
-            border-radius: 4px;
-            font-weight: bold;
-            min-width: 60px;
-        """)
-        brightness_layout.addWidget(self.brightness_info)
-        workflow_layout.addLayout(brightness_layout)
-        
-        # Helligkeitswarnung
-        self.brightness_warning = QLabel("Beleuchtung prüfen!")
-        self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.brightness_warning.setStyleSheet("""
-            background-color: #e74c3c;
-            color: white;
-            padding: 5px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 11px;
-        """)
-        self.brightness_warning.setVisible(False)
-        workflow_layout.addWidget(self.brightness_warning)
-        
-        layout.addWidget(workflow_group)
-    
-    def _create_model_section(self, layout):
-        """Modell-Sektion erstellen."""
+    def _create_model_status_section(self, layout):
+        """KI-Modell als STATUS-BUTTON (wie Login-Button)."""
         model_group = QGroupBox("KI-Modell")
         model_layout = QVBoxLayout(model_group)
-        model_layout.setSpacing(5)
+        model_layout.setSpacing(8)
+        model_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
         
-        self.model_info = QLabel("Kein Modell geladen")
-        self.model_info.setWordWrap(True)
-        self.model_info.setStyleSheet("color: #bdc3c7; font-style: italic; font-size: 11px;")
-        model_layout.addWidget(self.model_info)
-        
-        self.model_btn = QPushButton("Modell laden")
+        # Status-Button für Modell
+        self.model_btn = QPushButton("Kein Modell geladen")
+        self.model_btn.setMinimumHeight(45)  # Gleiche Höhe wie Login-Button
+        self.model_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #34495e;
+                color: #bdc3c7;
+                border: 2px solid #5d6d7e;
+                padding: 15px 25px;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+                border-color: #2e86de;
+                color: white;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                border-color: #95a5a6;
+            }
+        """)
+        self.model_btn.setToolTip("Klicken um Modell zu laden")
         model_layout.addWidget(self.model_btn)
         
         layout.addWidget(model_group)
     
-    def _create_camera_section(self, layout):
-        """Kamera-Sektion erstellen."""
+    def _create_camera_status_section(self, layout):
+        """Kamera-Video als STATUS-BUTTON (wie Login-Button)."""
         camera_group = QGroupBox("Kamera/Video")
         camera_layout = QVBoxLayout(camera_group)
-        camera_layout.setSpacing(5)
+        camera_layout.setSpacing(8)
+        camera_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
         
-        self.camera_info = QLabel("Keine Quelle ausgewählt")
-        self.camera_info.setWordWrap(True)
-        self.camera_info.setStyleSheet("color: #bdc3c7; font-style: italic; font-size: 11px;")
-        camera_layout.addWidget(self.camera_info)
-        
-        self.camera_btn = QPushButton("Quelle wählen")
+        # Status-Button für Kamera
+        self.camera_btn = QPushButton("Modus wählen")
+        self.camera_btn.setMinimumHeight(45)  # Gleiche Höhe wie Login-Button
+        self.camera_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #34495e;
+                color: #bdc3c7;
+                border: 2px solid #5d6d7e;
+                padding: 15px 25px;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+                border-color: #2e86de;
+                color: white;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                border-color: #95a5a6;
+            }
+        """)
+        self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
         camera_layout.addWidget(self.camera_btn)
         
         layout.addWidget(camera_group)
@@ -375,7 +313,8 @@ class MainUI(QWidget):
         """Statistiken-Sektion erstellen - ERWEITERT: 5 Spalten mit Durchschnitt."""
         stats_group = QGroupBox("Letzte Erkennung")
         stats_layout = QVBoxLayout(stats_group)
-        stats_layout.setSpacing(5)
+        stats_layout.setSpacing(8)
+        stats_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
         
         # ERWEITERTE Tabelle für LETZTEN Zyklus - 5 Spalten
         self.last_cycle_table = QTableWidget(0, 5)  # 5 Spalten: Klasse, Img, Min, Max, Anz
@@ -388,7 +327,7 @@ class MainUI(QWidget):
                 background: rgba(255, 255, 255, 0.05);
                 color: #e2e8f0;
                 border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 8px;
+                border-radius: 4px;
                 font-size: 10px;
                 gridline-color: rgba(255, 255, 255, 0.1);
             }
@@ -414,39 +353,150 @@ class MainUI(QWidget):
         
         layout.addWidget(stats_group)
     
-    def _create_actions_section(self, layout):
-        """Aktionen-Sektion erstellen (OHNE Einstellungen-Button)."""
-        actions_group = QGroupBox("Aktionen")
-        actions_layout = QVBoxLayout(actions_group)
-        actions_layout.setSpacing(5)
+    def _create_sensors_section(self, layout):
+        """Status Grenzwerte (ehemals 'Workflow-Status mit Motion und Helligkeit')."""
+        workflow_group = QGroupBox("Status Grenzwerte")  # GEÄNDERT: Neuer Name
+        workflow_layout = QVBoxLayout(workflow_group)
+        workflow_layout.setSpacing(8)
+        workflow_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
         
-        self.start_btn = QPushButton("Starten")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                font-size: 14px;
-                min-height: 35px;
-            }
-            QPushButton:hover {
-                background-color: #2ecc71;
-            }
+        # Workflow-Status
+        workflow_info_layout = QHBoxLayout()
+        workflow_info_layout.addWidget(QLabel("Workflow:"))
+        self.workflow_info = QLabel("READY")
+        self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.workflow_info.setStyleSheet("""
+            background-color: #34495e;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
         """)
-        actions_layout.addWidget(self.start_btn)
+        workflow_info_layout.addWidget(self.workflow_info, 1)
+        workflow_layout.addLayout(workflow_info_layout)
         
-        self.snapshot_btn = QPushButton("Schnappschuss")
-        actions_layout.addWidget(self.snapshot_btn)
+        # Motion-Wert Anzeige
+        motion_layout = QHBoxLayout()
+        motion_layout.addWidget(QLabel("Motion:"))
+        self.motion_info = QLabel("--")
+        self.motion_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_info.setStyleSheet("""
+            background-color: #34495e;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            min-width: 60px;
+        """)
+        motion_layout.addWidget(self.motion_info)
+        workflow_layout.addLayout(motion_layout)
         
-        # KEIN Einstellungen-Button mehr hier - wird in Header verschoben
+        # Helligkeitsanzeige
+        brightness_layout = QHBoxLayout()
+        brightness_layout.addWidget(QLabel("Helligkeit:"))
+        self.brightness_info = QLabel("--")
+        self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.brightness_info.setStyleSheet("""
+            background-color: #34495e;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            min-width: 60px;
+        """)
+        brightness_layout.addWidget(self.brightness_info)
+        workflow_layout.addLayout(brightness_layout)
         
-        layout.addWidget(actions_group)
+        # Helligkeitswarnung
+        self.brightness_warning = QLabel("Beleuchtung prüfen!")
+        self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.brightness_warning.setStyleSheet("""
+            background-color: #e74c3c;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+        """)
+        self.brightness_warning.setVisible(False)
+        workflow_layout.addWidget(self.brightness_warning)
+        
+        layout.addWidget(workflow_group)
+    
+    def _create_modbus_section(self, layout):
+        """WAGO Modbus Status-Sektion erstellen - OHNE Reset/Reconnect Buttons."""
+        modbus_group = QGroupBox("WAGO Modbus")
+        modbus_layout = QVBoxLayout(modbus_group)
+        modbus_layout.setSpacing(8)
+        modbus_layout.setContentsMargins(15, 15, 15, 15)  # Größere Innenabstände
+        
+        # Verbindungsstatus
+        connection_layout = QHBoxLayout()
+        connection_layout.addWidget(QLabel("Status:"))
+        self.modbus_status = QLabel("Getrennt")
+        self.modbus_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.modbus_status.setStyleSheet("""
+            background-color: #e74c3c;
+            color: white;
+            padding: 6px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 11px;
+        """)
+        connection_layout.addWidget(self.modbus_status, 1)
+        modbus_layout.addLayout(connection_layout)
+        
+        # IP-Adresse
+        ip_layout = QHBoxLayout()
+        ip_layout.addWidget(QLabel("IP:"))
+        self.modbus_ip = QLabel("192.168.1.100")
+        self.modbus_ip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.modbus_ip.setStyleSheet("""
+            background-color: #34495e;
+            padding: 6px 15px;
+            border-radius: 4px;
+            font-size: 11px;
+        """)
+        ip_layout.addWidget(self.modbus_ip, 1)
+        modbus_layout.addLayout(ip_layout)
+        
+        # Coil-Status (kompakt)
+        coils_layout = QHBoxLayout()
+        coils_layout.addWidget(QLabel("Coils:"))
+        
+        # Reject Coil (Ausschuss)
+        self.reject_coil_indicator = QLabel("R")
+        self.reject_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.reject_coil_indicator.setFixedSize(22, 22)  # Etwas größer
+        self.reject_coil_indicator.setStyleSheet("""
+            background-color: #7f8c8d;
+            color: white;
+            border-radius: 11px;
+            font-weight: bold;
+            font-size: 9px;
+        """)
+        self.reject_coil_indicator.setToolTip("Reject/Ausschuss Coil")
+        coils_layout.addWidget(self.reject_coil_indicator)
+        
+        # Detection Active Coil
+        self.detection_coil_indicator = QLabel("D")
+        self.detection_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.detection_coil_indicator.setFixedSize(22, 22)  # Etwas größer
+        self.detection_coil_indicator.setStyleSheet("""
+            background-color: #7f8c8d;
+            color: white;
+            border-radius: 11px;
+            font-weight: bold;
+            font-size: 9px;
+        """)
+        self.detection_coil_indicator.setToolTip("Detection Active Coil")
+        coils_layout.addWidget(self.detection_coil_indicator)
+        
+        modbus_layout.addLayout(coils_layout)
+        
+        layout.addWidget(modbus_group)
     
     def _create_quit_section(self, layout):
-        """BEENDEN-Sektion erstellen."""
-        quit_group = QGroupBox("Anwendung")
-        quit_layout = QVBoxLayout(quit_group)
-        quit_layout.setSpacing(5)
-        
-        # ESC-Hinweis
+        """BEENDEN-Sektion erstellen - OHNE Rahmen und Überschrift."""
+        # ESC-Hinweis (direkt ohne Gruppe)
         esc_hint = QLabel("ESC = Schnelles Beenden")
         esc_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         esc_hint.setStyleSheet("""
@@ -454,12 +504,13 @@ class MainUI(QWidget):
             font-style: italic; 
             font-size: 10px;
             background-color: #34495e;
-            padding: 3px;
-            border-radius: 3px;
+            padding: 8px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
         """)
-        quit_layout.addWidget(esc_hint)
+        layout.addWidget(esc_hint)
         
-        # BEENDEN Button
+        # BEENDEN Button (direkt ohne Gruppe)
         self.quit_btn = QPushButton("BEENDEN")
         self.quit_btn.setStyleSheet("""
             QPushButton {
@@ -469,6 +520,8 @@ class MainUI(QWidget):
                 font-weight: bold;
                 min-height: 35px;
                 border: 2px solid #c0392b;
+                padding: 15px 25px;
+                border-radius: 4px;
             }
             QPushButton:hover {
                 background-color: #c0392b;
@@ -479,9 +532,13 @@ class MainUI(QWidget):
             }
         """)
         self.quit_btn.setToolTip("Anwendung sofort beenden (ESC)")
-        quit_layout.addWidget(self.quit_btn)
-        
-        layout.addWidget(quit_group)
+        layout.addWidget(self.quit_btn)
+    
+    def on_user_status_changed(self, new_status):
+        """Callback für User-Status-Änderungen (Auto-Logout etc.)."""
+        self.update_user_interface()
+        if new_status == "Operator":
+            self.app.ui.show_status("Automatischer Logout - Operator-Modus", "warning")
     
     def create_main_area(self):
         """Hauptbereich mit optimiertem Header-Layout erstellen."""
@@ -686,8 +743,6 @@ class MainUI(QWidget):
         self.counter_frame.setMaximumHeight(140)
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
 
-
-
     def update_counters_with_formatting(self, good_count, bad_count, total_count):
         """Counter mit Formatierung für große Zahlen aktualisieren."""
         # Zahlenformatierung mit Tausendertrennzeichen (optional)
@@ -713,8 +768,8 @@ class MainUI(QWidget):
             self.modbus_status.setStyleSheet("""
                 background-color: #27ae60;
                 color: white;
-                padding: 3px;
-                border-radius: 3px;
+                padding: 6px 15px;
+                border-radius: 4px;
                 font-weight: bold;
                 font-size: 11px;
             """)
@@ -723,8 +778,8 @@ class MainUI(QWidget):
             self.modbus_status.setStyleSheet("""
                 background-color: #e74c3c;
                 color: white;
-                padding: 3px;
-                border-radius: 3px;
+                padding: 6px 15px;
+                border-radius: 4px;
                 font-weight: bold;
                 font-size: 11px;
             """)
@@ -738,7 +793,7 @@ class MainUI(QWidget):
             self.reject_coil_indicator.setStyleSheet("""
                 background-color: #e74c3c;
                 color: white;
-                border-radius: 10px;
+                border-radius: 11px;
                 font-weight: bold;
                 font-size: 9px;
             """)
@@ -746,7 +801,7 @@ class MainUI(QWidget):
             self.reject_coil_indicator.setStyleSheet("""
                 background-color: #7f8c8d;
                 color: white;
-                border-radius: 10px;
+                border-radius: 11px;
                 font-weight: bold;
                 font-size: 9px;
             """)
@@ -756,7 +811,7 @@ class MainUI(QWidget):
             self.detection_coil_indicator.setStyleSheet("""
                 background-color: #27ae60;
                 color: white;
-                border-radius: 10px;
+                border-radius: 11px;
                 font-weight: bold;
                 font-size: 9px;
             """)
@@ -764,7 +819,7 @@ class MainUI(QWidget):
             self.detection_coil_indicator.setStyleSheet("""
                 background-color: #7f8c8d;
                 color: white;
-                border-radius: 10px;
+                border-radius: 11px;
                 font-weight: bold;
                 font-size: 9px;
             """)
@@ -850,8 +905,8 @@ class MainUI(QWidget):
                     background-color: #27ae60;
                     color: white;
                     border: 2px solid #229954;
-                    padding: 12px;
-                    border-radius: 8px;
+                    padding: 15px 25px;
+                    border-radius: 4px;
                     font-size: 16px;
                     font-weight: bold;
                     text-align: center;
@@ -872,8 +927,8 @@ class MainUI(QWidget):
                     background-color: #34495e;
                     color: white;
                     border: 2px solid #5d6d7e;
-                    padding: 12px;
-                    border-radius: 8px;
+                    padding: 15px 25px;
+                    border-radius: 4px;
                     font-size: 16px;
                     font-weight: bold;
                     text-align: center;
@@ -906,7 +961,7 @@ class MainUI(QWidget):
             'READY': "#757575",      # Grau
             'MOTION': '#757575',     # Grau  
             'SETTLING': "#757575",   # Grau
-            'CAPTURING': "#757575",  # Grau
+            'CAPTURING': "#23aeff",  # Blau
             'BLOWING': '#e74c3c'     # Rot
         }
         
@@ -914,7 +969,7 @@ class MainUI(QWidget):
         self.workflow_info.setStyleSheet(f"""
             background-color: {color};
             color: white;
-            padding: 5px;
+            padding: 8px 15px;
             border-radius: 4px;
             font-weight: bold;
         """)
@@ -927,8 +982,8 @@ class MainUI(QWidget):
             'info': "#757575",      # Grau
             'success': "#757575",      # Grau
             'error': '#e74c3c',     # Rot
-            'ready': "#757575",     # Grau
-            'warning': "#e74c3c"    # Rot
+            'ready': "#18929b",     # Türkis
+            'warning': '#f39c12'    # Orange
         }
         
         color = colors.get(status_type, '#95a5a6')
@@ -951,7 +1006,7 @@ class MainUI(QWidget):
         self.motion_info.setStyleSheet(f"""
             background-color: {color};
             color: white;
-            padding: 5px;
+            padding: 8px 15px;
             border-radius: 4px;
             font-weight: bold;
             min-width: 60px;
@@ -967,7 +1022,7 @@ class MainUI(QWidget):
         self.brightness_info.setStyleSheet(f"""
             background-color: {color};
             color: white;
-            padding: 5px;
+            padding: 8px 15px;
             border-radius: 4px;
             font-weight: bold;
             min-width: 60px;
@@ -1047,6 +1102,134 @@ class MainUI(QWidget):
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")
     
+    # STATUS-BUTTON UPDATE-METHODEN (NEU)
+    def update_model_status(self, model_path):
+        """Model-Status-Button aktualisieren."""
+        if model_path and os.path.exists(model_path):
+            model_name = os.path.basename(model_path)
+            self.model_btn.setText(f"Geladen: {model_name}")
+            self.model_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #27ae60;
+                    color: white;
+                    border: 2px solid #229954;
+                    padding: 15px 25px;
+                    border-radius: 4px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #2ecc71;
+                    border-color: #27ae60;
+                }
+                QPushButton:pressed {
+                    background-color: #229954;
+                }
+                QPushButton:disabled {
+                    background-color: #7f8c8d;
+                    color: #bdc3c7;
+                    border-color: #95a5a6;
+                }
+            """)
+            self.model_btn.setToolTip(f"Modell geladen: {model_name}\nKlicken um zu ändern")
+        else:
+            self.model_btn.setText("Kein Modell geladen")
+            self.model_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #34495e;
+                    color: #bdc3c7;
+                    border: 2px solid #5d6d7e;
+                    padding: 15px 25px;
+                    border-radius: 4px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #3498db;
+                    border-color: #2e86de;
+                    color: white;
+                }
+                QPushButton:pressed {
+                    background-color: #2980b9;
+                }
+                QPushButton:disabled {
+                    background-color: #7f8c8d;
+                    color: #bdc3c7;
+                    border-color: #95a5a6;
+                }
+            """)
+            self.model_btn.setToolTip("Klicken um Modell zu laden")
+    
+    def update_camera_status(self, source_info, source_type):
+        """Camera-Status-Button aktualisieren."""
+        if source_info is not None:
+            if source_type == 'webcam':
+                display_text = f"Webcam: {source_info}"
+            elif source_type == 'video':
+                video_name = os.path.basename(source_info)
+                display_text = f"Aktuell: {video_name}"
+            elif source_type == 'ids':
+                display_text = f"IDS Kamera: {source_info}"
+            else:
+                display_text = f"Quelle: {source_info}"
+                
+            self.camera_btn.setText(display_text)
+            self.camera_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #27ae60;
+                    color: white;
+                    border: 2px solid #229954;
+                    padding: 15px 25px;
+                    border-radius: 4px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #2ecc71;
+                    border-color: #27ae60;
+                }
+                QPushButton:pressed {
+                    background-color: #229954;
+                }
+                QPushButton:disabled {
+                    background-color: #7f8c8d;
+                    color: #bdc3c7;
+                    border-color: #95a5a6;
+                }
+            """)
+            self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu ändern")
+        else:
+            self.camera_btn.setText("Modus wählen")
+            self.camera_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #34495e;
+                    color: #bdc3c7;
+                    border: 2px solid #5d6d7e;
+                    padding: 15px 25px;
+                    border-radius: 4px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    text-align: left;
+                }
+                QPushButton:hover {
+                    background-color: #3498db;
+                    border-color: #2e86de;
+                    color: white;
+                }
+                QPushButton:pressed {
+                    background-color: #2980b9;
+                }
+                QPushButton:disabled {
+                    background-color: #7f8c8d;
+                    color: #bdc3c7;
+                    border-color: #95a5a6;
+                }
+            """)
+            self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
+    
     # Dialog-Handler
     def select_model_file(self):
         """Modell-Datei auswählen Dialog."""
@@ -1060,8 +1243,7 @@ class MainUI(QWidget):
         )
         
         if file_path:
-            self.model_info.setText(f"Modell: {os.path.basename(file_path)}")
-            self.model_info.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 11px;")
+            self.update_model_status(file_path)
             
         return file_path
     
@@ -1071,15 +1253,14 @@ class MainUI(QWidget):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             source = dialog.get_selected_source()
             if source:
-                # Info aktualisieren
+                # Status-Button aktualisieren basierend auf Quelle
                 if isinstance(source, int):
-                    self.camera_info.setText(f"Webcam: {source}")
+                    self.update_camera_status(source, 'webcam')
                 elif isinstance(source, str):
-                    self.camera_info.setText(f"Video: {os.path.basename(source)}")
+                    self.update_camera_status(source, 'video')
                 elif isinstance(source, tuple):
-                    self.camera_info.setText(f"IDS Kamera: {source[1]}")
+                    self.update_camera_status(source[1], 'ids')
                 
-                self.camera_info.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 11px;")
                 return source
         
         return None

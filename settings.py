@@ -34,7 +34,7 @@ class Settings:
         try:
             with open(self.filename, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, indent=2, ensure_ascii=False)
-            logging.info("Einstellungen gespeichert")
+            logging.info("Einstellungen gespeichert settings.py -> def save(self)")
         except Exception as e:
             logging.error(f"Fehler beim Speichern der Einstellungen: {e}")
     

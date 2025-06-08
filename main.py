@@ -3,6 +3,7 @@
 Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
 Mit Counter, Motion-Anzeige, WAGO Modbus-Schnittstelle, Bilderspeicherung und Helligkeits-basiertem Stopp
 OPTIMIERT: Intelligente Modbus-Initialisierung ohne redundante Aktionen
+ERWEITERT: Status-Button Updates für Modell und Kamera
 """
 
 import sys
@@ -267,7 +268,7 @@ class DetectionApp(QMainWindow):
             # 5. Einstellungen speichern (schnell)
             try:
                 self.settings.save()
-                logging.info("Einstellungen gespeichert")
+                logging.info("Einstellungen gespeichert: main.py -> def quit_application(self)")
             except Exception as e:
                 logging.warning(f"Einstellungen konnten nicht gespeichert werden: {e}")
             
@@ -287,8 +288,8 @@ class DetectionApp(QMainWindow):
             last_model = self.settings.get('last_model', '')
             if last_model and os.path.exists(last_model):
                 if self.detection_engine.load_model(last_model):
-                    self.ui.model_info.setText(f"Modell: {os.path.basename(last_model)}")
-                    self.ui.model_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                    # STATUS-BUTTON aktualisieren
+                    self.ui.update_model_status(last_model)
                     logging.info(f"Auto-loaded model: {last_model}")
                 else:
                     logging.warning(f"Failed to auto-load model: {last_model}")
@@ -310,16 +311,16 @@ class DetectionApp(QMainWindow):
                     # Video-Datei
                     if os.path.exists(last_source):
                         if self.camera_manager.set_source(last_source):
-                            self.ui.camera_info.setText(f"Video: {os.path.basename(last_source)}")
-                            self.ui.camera_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                            # STATUS-BUTTON aktualisieren
+                            self.ui.update_camera_status(last_source, 'video')
                             logging.info(f"Auto-loaded video: {last_source}")
                         else:
                             logging.warning(f"Failed to auto-load video: {last_source}")
                 elif not last_mode_was_video and isinstance(last_source, int):
                     # Webcam
                     if self.camera_manager.set_source(last_source):
-                        self.ui.camera_info.setText(f"Webcam: {last_source}")
-                        self.ui.camera_info.setStyleSheet("color: #27ae60; font-weight: bold;")
+                        # STATUS-BUTTON aktualisieren
+                        self.ui.update_camera_status(last_source, 'webcam')
                         logging.info(f"Auto-loaded webcam: {last_source}")
                     else:
                         logging.warning(f"Failed to auto-load webcam: {last_source}")
@@ -343,8 +344,8 @@ class DetectionApp(QMainWindow):
     def setup_connections(self):
         """Signale und Slots verbinden."""
         self.ui.start_btn.clicked.connect(self.toggle_detection)
-        self.ui.model_btn.clicked.connect(self.load_model)
-        self.ui.camera_btn.clicked.connect(self.select_camera)
+        self.ui.model_btn.clicked.connect(self.load_model)  # STATUS-BUTTON
+        self.ui.camera_btn.clicked.connect(self.select_camera)  # STATUS-BUTTON
         self.ui.settings_btn.clicked.connect(self.open_settings)
         self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
         self.ui.login_status_btn.clicked.connect(self.toggle_login)  # GEÄNDERT: Neuer Button

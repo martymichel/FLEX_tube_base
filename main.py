@@ -17,14 +17,14 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 
 # Eigene Module
-from detection_engine import DetectionEngine
-from camera_manager import CameraManager  
 from camera_config_manager import CameraConfigManager
-from settings import Settings
-from ui.main_ui import MainUI  # Direkter Import aus main_ui
-from user_manager import UserManager
-from modbus_manager import ModbusManager
+from camera_manager import CameraManager
+from detection_engine import DetectionEngine
 from image_saver import ImageSaver
+from modbus_manager import ModbusManager
+from settings import Settings
+from user_manager import UserManager
+from ui.main_ui import MainUI  # Direkter Import aus main_ui
 
 # Logging konfigurieren - OHNE Unicode-Emojis für Windows-Kompatibilität
 logging.basicConfig(

@@ -789,12 +789,12 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Erweiterte Einstellungen-Dialog für industriellen Workflow ohne Helligkeits-Limits."""
+    """Erweiterte Einstellungen-Dialog für Workflow ohne Helligkeits-Limits."""
     
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("Industrielle Workflow-Einstellungen")
+        self.setWindowTitle("Workflow-Einstellungen")
         self.setModal(True)
         self.resize(600, 800)
         
@@ -819,8 +819,8 @@ class SettingsDialog(QDialog):
         self.confidence_spin.setDecimals(2)
         form_layout.addRow("Konfidenz-Schwellwert:", self.confidence_spin)
         
-        # Industrieller Workflow
-        workflow_label = QLabel("Industrieller Workflow")
+        # Workflow
+        workflow_label = QLabel("Workflow")
         workflow_label.setFont(QFont("", 12, QFont.Weight.Bold))
         form_layout.addRow(workflow_label)
         

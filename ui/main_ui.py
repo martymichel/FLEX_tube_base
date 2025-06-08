@@ -1,17 +1,17 @@
 """
 Hauptbenutzeroberfläche - FINALE Version mit Einstellungen-Button, Admin-Reset, und Login-Status-Button
 Kompakt und fokussiert mit erweiterter Statistik-Tabelle und kompaktem Session Counter
+ERWEITERT: Modbus-Reset/Reconnect Buttons aus Sidebar entfernt
 """
 
 import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QSplitter, QFrame, QTableWidget, QTableWidgetItem, QHeaderView, 
-    QToolButton, QGroupBox, QScrollArea, QMessageBox, QDialog,
-    QGraphicsDropShadowEffect, 
+    QToolButton, QGroupBox, QScrollArea, QMessageBox, QDialog
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPixmap, QFont, QColor
+from PyQt6.QtGui import QPixmap, QFont
 import cv2
 import numpy as np
 import logging
@@ -127,7 +127,7 @@ class MainUI(QWidget):
         # NEUER Breiter Login-Status-Button (kein separates Label mehr)
         self._create_login_status_section(layout)
         
-        # WAGO Modbus Status
+        # WAGO Modbus Status (OHNE Reset/Reconnect Buttons)
         self._create_modbus_section(layout)
         
         # Workflow-Status mit Motion und Helligkeit
@@ -201,7 +201,7 @@ class MainUI(QWidget):
             self.app.ui.show_status("Automatischer Logout - Operator-Modus", "warning")
     
     def _create_modbus_section(self, layout):
-        """WAGO Modbus Status-Sektion erstellen."""
+        """WAGO Modbus Status-Sektion erstellen - OHNE Reset/Reconnect Buttons."""
         modbus_group = QGroupBox("WAGO Modbus")
         modbus_layout = QVBoxLayout(modbus_group)
         modbus_layout.setSpacing(5)
@@ -270,99 +270,7 @@ class MainUI(QWidget):
         
         modbus_layout.addLayout(coils_layout)
         
-        # Erweiterte Modbus-Aktionen (nur für Admin)
-        actions_layout = QHBoxLayout()
-        
-        # Reset Button
-        self.modbus_reset_btn = QPushButton("Reset")
-        self.modbus_reset_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e67e22;
-                font-size: 11px;
-                min-height: 25px;
-            }
-            QPushButton:hover {
-                background-color: #d35400;
-            }
-        """)
-        self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen")
-        self.modbus_reset_btn.clicked.connect(self.reset_modbus_controller)
-        actions_layout.addWidget(self.modbus_reset_btn)
-        
-        # Reconnect Button
-        self.modbus_reconnect_btn = QPushButton("Neuverbindung")
-        self.modbus_reconnect_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                font-size: 11px;
-                min-height: 25px;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
-        self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden")
-        self.modbus_reconnect_btn.clicked.connect(self.reconnect_modbus)
-        actions_layout.addWidget(self.modbus_reconnect_btn)
-        
-        modbus_layout.addLayout(actions_layout)
-        
         layout.addWidget(modbus_group)
-    
-    def reset_modbus_controller(self):
-        """WAGO Controller zurücksetzen."""
-        if not self.app.user_manager.is_admin():
-            self.show_status("Admin-Rechte erforderlich für Controller-Reset", "error")
-            return
-        
-        reply = QMessageBox.question(
-            self,
-            "Controller Reset",
-            "WAGO Controller zurücksetzen?\n\nDies kann Verbindungsprobleme beheben.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            self.show_status("Führe Controller-Reset durch...", "warning")
-            
-            if self.app.modbus_manager.restart_controller():
-                self.show_status("Controller-Reset erfolgreich", "success")
-                QMessageBox.information(
-                    self,
-                    "Reset erfolgreich",
-                    "WAGO Controller wurde zurückgesetzt.\nVerbindung wird neu aufgebaut..."
-                )
-                # Neuverbindung nach Reset
-                self.reconnect_modbus()
-            else:
-                self.show_status("Controller-Reset fehlgeschlagen", "error")
-                QMessageBox.critical(
-                    self,
-                    "Reset fehlgeschlagen",
-                    "Controller-Reset konnte nicht durchgeführt werden.\nPrüfen Sie die Verbindung."
-                )
-    
-    def reconnect_modbus(self):
-        """Modbus neu verbinden."""
-        if not self.app.user_manager.is_admin():
-            self.show_status("Admin-Rechte erforderlich für Neuverbindung", "error")
-            return
-        
-        self.show_status("Verbinde Modbus neu...", "warning")
-        
-        if self.app.modbus_manager.force_reconnect():
-            # Watchdog und Coil-Refresh neu starten
-            if self.app.modbus_manager.start_watchdog():
-                logging.info("Watchdog nach Neuverbindung gestartet")
-            
-            if self.app.modbus_manager.start_coil_refresh():
-                logging.info("Coil-Refresh nach Neuverbindung gestartet")
-            
-            self.update_modbus_status(True, self.app.modbus_manager.ip_address)
-            self.show_status("Modbus erfolgreich neu verbunden", "success")
-        else:
-            self.update_modbus_status(False, self.app.modbus_manager.ip_address)
-            self.show_status("Modbus-Neuverbindung fehlgeschlagen", "error")
     
     def _create_sensors_section(self, layout):
         """Workflow-Status mit Motion und Helligkeit."""
@@ -676,120 +584,82 @@ class MainUI(QWidget):
         return main_area
     
     def _create_compact_counter_section(self, header_layout):
-        """KOMPAKTER Counter-Sektion im Header erstellen - ÜBERARBEITET für große Zahlen."""
-        from PyQt6.QtWidgets import QGraphicsDropShadowEffect
+        """KOMPAKTER Counter-Sektion im Header erstellen"""
+        from PyQt6.QtWidgets import QGraphicsDropShadowEffect, QWidget, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QPushButton
         from PyQt6.QtCore import Qt
         from PyQt6.QtGui import QColor, QFont
-        
+
+        # Frame mit Schatten und Hintergrund
         self.counter_frame = QFrame()
         self.counter_frame.setStyleSheet("""
             QFrame {
                 background-color: #34495e;
                 border-radius: 8px;
-                padding: 8px;
+                padding: 4px 8px;
             }
             QLabel {
                 color: white;
                 font-weight: bold;
+                background: transparent;
             }
         """)
-        
-        # Schatten-Effekt hinzufügen
-        self.add_shadow_effect(self.counter_frame)
-        
-        # BREITER Layout für große Zahlen
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(10)
+        shadow.setColor(QColor(80, 80, 80, 80))
+        shadow.setOffset(0, 2)
+        self.counter_frame.setGraphicsEffect(shadow)
+
+        # Hauptlayout ohne Ränder, Platz zwischen Sektionen
         counter_layout = QHBoxLayout(self.counter_frame)
-        counter_layout.setSpacing(50)  # Mehr Abstand für breitere Counter
-        counter_layout.setContentsMargins(20, 8, 20, 8)
-        
-        # Monospace-Font für einheitliche Ziffernbreite
+        counter_layout.setContentsMargins(0, 0, 0, 0)
+        counter_layout.setSpacing(30)
+
+        # Monospace-Font für Zahlen
         counter_font = QFont("Consolas", 28, QFont.Weight.Bold)
         if not counter_font.exactMatch():
             counter_font = QFont("Courier New", 28, QFont.Weight.Bold)
-        
-        # OK (Good Parts) - GROSSE ZAHLEN mit fester Breite
-        good_section = QVBoxLayout()
-        good_section.setSpacing(2)
-        good_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        good_label = QLabel("OK")
-        good_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        good_label.setFont(QFont("", 10, QFont.Weight.Bold))
-        good_label.setStyleSheet("color: #27ae60;")
-        good_section.addWidget(good_label)
-        
-        self.good_parts_counter = QLabel("0")
-        self.good_parts_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.good_parts_counter.setFont(counter_font)
-        self.good_parts_counter.setStyleSheet("color: #27ae60;")
-        self.good_parts_counter.setMinimumWidth(120)  # Feste Mindestbreite für 6-stellig
-        good_section.addWidget(self.good_parts_counter)
-        
-        # Prozentanzeige für OK
-        self.good_parts_percent = QLabel("--")
-        self.good_parts_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.good_parts_percent.setFont(QFont("", 16, QFont.Weight.Bold))
-        self.good_parts_percent.setStyleSheet("color: #27ae60;")
-        good_section.addWidget(self.good_parts_percent)
-        
-        counter_layout.addLayout(good_section)
-        
-        # Nicht OK (Bad Parts) - GROSSE ZAHLEN mit fester Breite
-        bad_section = QVBoxLayout()
-        bad_section.setSpacing(2)
-        bad_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        bad_label = QLabel("Nicht OK")
-        bad_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        bad_label.setFont(QFont("", 10, QFont.Weight.Bold))
-        bad_label.setStyleSheet("color: #e74c3c;")
-        bad_section.addWidget(bad_label)
-        
-        self.bad_parts_counter = QLabel("0")
-        self.bad_parts_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.bad_parts_counter.setFont(counter_font)
-        self.bad_parts_counter.setStyleSheet("color: #e74c3c;")
-        self.bad_parts_counter.setMinimumWidth(120)  # Feste Mindestbreite für 6-stellig
-        bad_section.addWidget(self.bad_parts_counter)
-        
-        # Prozentanzeige für Nicht OK
-        self.bad_parts_percent = QLabel("--")
-        self.bad_parts_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.bad_parts_percent.setFont(QFont("", 16, QFont.Weight.Bold))
-        self.bad_parts_percent.setStyleSheet("color: #e74c3c;")
-        bad_section.addWidget(self.bad_parts_percent)
-        
-        counter_layout.addLayout(bad_section)
-        
-        # Gesamtzyklen - GROSSE ZAHLEN mit fester Breite
-        total_section = QVBoxLayout()
-        total_section.setSpacing(2)
-        total_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        total_label = QLabel("Zyklen")
-        total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        total_label.setFont(QFont("", 10, QFont.Weight.Bold))
-        total_label.setStyleSheet("color: #3498db;")
-        total_section.addWidget(total_label)
-        
-        self.total_cycles_counter = QLabel("0")
-        self.total_cycles_counter.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.total_cycles_counter.setFont(counter_font)
-        self.total_cycles_counter.setStyleSheet("color: #3498db;")
-        self.total_cycles_counter.setMinimumWidth(120)  # Feste Mindestbreite für 6-stellig
-        total_section.addWidget(self.total_cycles_counter)
-        
-        # Spacer für einheitliche Höhe
-        total_spacer = QLabel("")
-        total_spacer.setFont(QFont("", 10))
-        total_section.addWidget(total_spacer)
-        
-        counter_layout.addLayout(total_section)
-        
-        # Reset Button (kleiner, am Ende) - NEU: NUR FÜR ADMIN
-        reset_section = QVBoxLayout()
-        reset_section.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
+
+        def _add_spaced_section(title, count_attr, percent_attr, color):
+            # Vertikales Layout mit minimalem Abstand
+            container = QWidget()
+            vbox = QVBoxLayout(container)
+            vbox.setContentsMargins(0, 0, 0, 0)
+            vbox.setSpacing(2)  # minimaler Abstand
+            vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+            lbl_title = QLabel(title)
+            lbl_title.setFont(QFont("", 10, QFont.Weight.Bold))
+            lbl_title.setStyleSheet(f"color: {color};")
+            lbl_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            setattr(self, count_attr, QLabel("0"))
+            lbl_count = getattr(self, count_attr)
+            lbl_count.setFont(counter_font)
+            lbl_count.setStyleSheet(f"color: {color};")
+            lbl_count.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_count.setMinimumWidth(120)
+
+            setattr(self, percent_attr, QLabel("--"))
+            lbl_percent = getattr(self, percent_attr)
+            lbl_percent.setFont(QFont("", 16, QFont.Weight.Bold))
+            lbl_percent.setStyleSheet(f"color: {color};")
+            lbl_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Widgets hinzufügen mit minimalem Abstand
+            vbox.addWidget(lbl_title)
+            vbox.addWidget(lbl_count)
+            vbox.addWidget(lbl_percent)
+
+            counter_layout.addWidget(container)
+
+        # Gesamtzyklen
+        _add_spaced_section("Zyklen", "total_cycles_counter", "total_cycles_percent", "#7dcbff")
+        # OK-Teile
+        _add_spaced_section("OK", "good_parts_counter", "good_parts_percent", "#4fff98")
+        # Nicht OK
+        _add_spaced_section("Nicht OK", "bad_parts_counter", "bad_parts_percent", "#ff7e70")
+
+        # Reset-Button nur für Admin
         self.reset_counter_btn = QPushButton("Reset")
         self.reset_counter_btn.setStyleSheet("""
             QPushButton {
@@ -809,12 +679,14 @@ class MainUI(QWidget):
             }
         """)
         self.reset_counter_btn.clicked.connect(self.reset_session_counter)
-        self.reset_counter_btn.setToolTip("Counter zurücksetzen (Admin-Rechte erforderlich)")
-        reset_section.addWidget(self.reset_counter_btn)
-        
-        counter_layout.addLayout(reset_section)
-        
+        self.reset_counter_btn.setToolTip("Counter zuruecksetzen (Admin-Rechte erforderlich)")
+        counter_layout.addWidget(self.reset_counter_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # Hohe begrenzen
+        self.counter_frame.setMaximumHeight(140)
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
+
+
 
     def update_counters_with_formatting(self, good_count, bad_count, total_count):
         """Counter mit Formatierung für große Zahlen aktualisieren."""
@@ -858,10 +730,6 @@ class MainUI(QWidget):
             """)
         
         self.modbus_ip.setText(ip_address)
-        
-        # Admin-Buttons je nach Verbindungsstatus aktivieren/deaktivieren
-        self.modbus_reset_btn.setEnabled(connected and self.app.user_manager.is_admin())
-        self.modbus_reconnect_btn.setEnabled(self.app.user_manager.is_admin())
     
     def update_coil_status(self, reject_active=False, detection_active=False):
         """Coil-Status-Indikatoren aktualisieren."""
@@ -1028,10 +896,6 @@ class MainUI(QWidget):
         
         # Reset-Button für Counter - NEU: NUR FÜR ADMIN
         self.reset_counter_btn.setEnabled(can_admin)
-        
-        # Modbus-Buttons für Admin
-        self.modbus_reset_btn.setEnabled(can_admin and self.app.modbus_manager.connected)
-        self.modbus_reconnect_btn.setEnabled(can_admin)
     
     def update_workflow_status(self, status):
         """Workflow-Status aktualisieren."""
@@ -1039,10 +903,10 @@ class MainUI(QWidget):
         
         # Farbe je nach Status
         colors = {
-            'READY': '#95a5a6',      # Grau
-            'MOTION': '#f39c12',     # Orange  
-            'SETTLING': '#e67e22',   # Dunkelorange
-            'CAPTURING': '#27ae60',  # Grün
+            'READY': "#757575",      # Grau
+            'MOTION': '#757575',     # Grau  
+            'SETTLING': "#757575",   # Grau
+            'CAPTURING': "#23aeff",  # Blau
             'BLOWING': '#e74c3c'     # Rot
         }
         
@@ -1060,10 +924,10 @@ class MainUI(QWidget):
         self.status_label.setText(message)
         
         colors = {
-            'info': '#3498db',      # Blau
-            'success': '#27ae60',   # Grün
+            'info': "#757575",      # Grau
+            'success': "#757575",      # Grau
             'error': '#e74c3c',     # Rot
-            'ready': '#95a5a6',     # Grau
+            'ready': "#18929b",     # Türkis
             'warning': '#f39c12'    # Orange
         }
         
@@ -1102,13 +966,8 @@ class MainUI(QWidget):
         """Helligkeitsanzeige aktualisieren."""
         self.brightness_info.setText(f"{brightness:.0f}")
         
-        # Farbe je nach Helligkeit
-        if brightness < 50:
-            color = "#e74c3c"  # Rot (zu dunkel)
-        elif brightness > 200:
-            color = "#e74c3c"  # Rot (zu hell)
-        else:
-            color = "#27ae60"  # Grün (gut)
+        # Farbe des Hintergrunds immer gleich
+        color = "#878787"
         
         self.brightness_info.setStyleSheet(f"""
             background-color: {color};
@@ -1246,11 +1105,3 @@ class MainUI(QWidget):
                     "Einstellungen geändert",
                     "Einstellungen wurden gespeichert.\n\nBitte stoppen Sie die Erkennung und starten Sie sie neu, damit die Änderungen wirksam werden."
                 )
-
-    def add_shadow_effect(self, widget):
-        """Schatten-Effekt zu Widget hinzufügen."""
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(10)
-        shadow.setColor(QColor(0, 0, 0, 80))  # Schwarz mit 80% Transparenz
-        shadow.setOffset(0, 2)  # Versatz: x=0, y=2
-        widget.setGraphicsEffect(shadow)

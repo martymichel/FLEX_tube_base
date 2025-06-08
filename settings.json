@@ -10,12 +10,12 @@
   "auto_save_snapshots": false,
   "log_level": "INFO",
   "motion_threshold": 45,
-  "settling_time": 1.0,
-  "capture_time": 1.5,
+  "settling_time": 0.7,
+  "capture_time": 1.0,
   "clearing_time": 1.0,
   "brightness_low_threshold": 124,
   "brightness_high_threshold": 140,
-  "brightness_duration_threshold": 1.0,
+  "brightness_duration_threshold": 3.0,
   "blow_off_time": 1.0,
   "bad_part_classes": [
     1

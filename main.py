@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Einfache KI-Objekterkennungs-Anwendung - Industrieller Workflow
+Einfache KI-Objekterkennungs-Anwendung
 Mit Counter, Motion-Anzeige, WAGO Modbus-Schnittstelle, Bilderspeicherung und Helligkeits-basiertem Stopp
+ERWEITERT: Modbus-Fehler-Dialog-System mit App-Sperrung
 """
 
 import sys
@@ -10,7 +11,7 @@ import logging
 import time
 import cv2
 import numpy as np
-from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QMessageBox
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 
@@ -35,13 +36,15 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung für industrielle KI-Objekterkennung mit Bilderspeicherung und Helligkeits-basiertem Stopp."""
+    """Hauptanwendung für KI-Objekterkennung mit Modbus-Fehler-Behandlung."""
     
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("KI-Objekterkennung - Industriell mit WAGO Modbus")
-        self.setWindowState(Qt.WindowState.WindowFullScreen)
-        
+        self.setWindowTitle("INSPECTUBE - Defect Detection App")
+        # Kombiniert Frameless + Maximized = Kiosk-Stil
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        self.showMaximized()
+
         # Komponenten initialisieren
         self.settings = Settings()
         self.user_manager = UserManager()
@@ -73,7 +76,11 @@ class DetectionApp(QMainWindow):
         # Status
         self.running = False
         
-        # Industrieller Workflow-Status
+        # MODBUS-FEHLER-BEHANDLUNG: App-Sperrung bei kritischen Fehlern
+        self.modbus_critical_failure = False
+        self.modbus_failure_dialog_shown = False
+        
+        # Workflow-Status
         self.motion_detected = False
         self.motion_cleared = False
         self.detection_running = False
@@ -123,11 +130,12 @@ class DetectionApp(QMainWindow):
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
-        logging.info("DetectionApp gestartet - Industrieller Workflow mit WAGO Modbus und Bilderspeicherung")
+        logging.info("DetectionApp gestartet - Workflow mit WAGO Modbus und Bilderspeicherung")
     
     def initialize_modbus_with_startup_reconnect(self):
         """WAGO Modbus mit automatischer Neuverbindung bei Start initialisieren."""
-        if not self.settings.get('modbus_enabled', True):
+        modbus_enabled = self.settings.get('modbus_enabled', True)
+        if not modbus_enabled:
             logging.info("Modbus deaktiviert in den Einstellungen")
             return
         
@@ -153,13 +161,191 @@ class DetectionApp(QMainWindow):
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
                 logging.info("WAGO Modbus vollständig initialisiert")
                 
+                # Modbus erfolgreich - kritischer Fehler-Status zurücksetzen
+                self.modbus_critical_failure = False
+                
             else:
                 logging.error("WAGO Modbus-Neuverbindung bei Start fehlgeschlagen")
                 self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
                 
+                # KRITISCHER MODBUS-FEHLER: App sperren
+                self.handle_critical_modbus_failure()
+                
         except Exception as e:
             logging.error(f"Fehler bei WAGO Modbus-Initialisierung: {e}")
             self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+            
+            # KRITISCHER MODBUS-FEHLER: App sperren
+            self.handle_critical_modbus_failure()
+    
+    def handle_critical_modbus_failure(self):
+        """Behandlung kritischer Modbus-Fehler - App sperren."""
+        self.modbus_critical_failure = True
+        
+        # Start-Button deaktivieren
+        self.ui.start_btn.setEnabled(False)
+        self.ui.start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                font-size: 14px;
+                min-height: 35px;
+            }
+        """)
+        self.ui.start_btn.setToolTip("Start gesperrt - Modbus-Verbindung erforderlich")
+        
+        # Status-Meldung
+        self.ui.show_status("MODBUS-FEHLER: Start gesperrt", "error")
+        
+        logging.critical("Kritischer Modbus-Fehler - Anwendung gesperrt")
+        
+        # Dialog nach kurzer Verzögerung anzeigen (damit UI initialisiert ist)
+        QTimer.singleShot(1000, self.show_modbus_failure_dialog)
+    
+    def show_modbus_failure_dialog(self):
+        """Dialog für Modbus-Verbindungsfehler anzeigen."""
+        if self.modbus_failure_dialog_shown:
+            return  # Dialog bereits angezeigt
+        
+        self.modbus_failure_dialog_shown = True
+        
+        # Erstelle Fehler-Dialog
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("🔌 WAGO Modbus-Verbindungsfehler")
+        msg_box.setIcon(QMessageBox.Icon.Critical)
+        
+        msg_box.setText(
+            "Die WAGO Modbus-Verbindung konnte nicht hergestellt werden!\n\n"
+            "Die Objekterkennung ist gesperrt, bis die Verbindung wiederhergestellt ist."
+        )
+        
+        msg_box.setDetailedText(
+            f"IP-Adresse: {self.modbus_manager.ip_address}\n"
+            f"Port: {self.modbus_manager.port}\n\n"
+            "Mögliche Ursachen:\n"
+            "• WAGO-Controller ist nicht erreichbar\n"
+            "• Falsche IP-Adresse oder Port\n"
+            "• Netzwerkverbindung unterbrochen\n"
+            "• Controller-Fehler oder Neustart erforderlich"
+        )
+        
+        # Buttons hinzufügen
+        reset_btn = msg_box.addButton("🔄 Controller Reset", QMessageBox.ButtonRole.ActionRole)
+        reconnect_btn = msg_box.addButton("🔌 Neuverbindung", QMessageBox.ButtonRole.ActionRole)
+        ignore_btn = msg_box.addButton("⚠️ Ignorieren", QMessageBox.ButtonRole.RejectRole)
+        
+        # Styling für bessere Sichtbarkeit
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                font-size: 14px;
+            }
+            QPushButton {
+                min-width: 120px;
+                min-height: 35px;
+                font-size: 12px;
+                padding: 8px;
+            }
+        """)
+        
+        # Dialog anzeigen und Aktion basierend auf Button behandeln
+        msg_box.exec()
+        clicked_button = msg_box.clickedButton()
+        
+        if clicked_button == reset_btn:
+            self.handle_modbus_reset_from_dialog()
+        elif clicked_button == reconnect_btn:
+            self.handle_modbus_reconnect_from_dialog()
+        elif clicked_button == ignore_btn:
+            self.handle_modbus_ignore_from_dialog()
+        
+        # Dialog kann wieder angezeigt werden
+        self.modbus_failure_dialog_shown = False
+    
+    def handle_modbus_reset_from_dialog(self):
+        """Controller-Reset aus Fehler-Dialog."""
+        logging.info("Controller-Reset aus Fehler-Dialog initiiert")
+        self.ui.show_status("Führe Controller-Reset durch...", "warning")
+        
+        try:
+            if self.modbus_manager.restart_controller():
+                self.ui.show_status("Controller-Reset erfolgreich - Verbinde neu...", "info")
+                QTimer.singleShot(3000, self.handle_modbus_reconnect_from_dialog)  # 3 Sekunden warten
+            else:
+                self.ui.show_status("Controller-Reset fehlgeschlagen", "error")
+                QTimer.singleShot(2000, self.show_modbus_failure_dialog)  # Dialog erneut anzeigen
+        except Exception as e:
+            logging.error(f"Fehler beim Controller-Reset: {e}")
+            self.ui.show_status("Controller-Reset-Fehler", "error")
+            QTimer.singleShot(2000, self.show_modbus_failure_dialog)
+    
+    def handle_modbus_reconnect_from_dialog(self):
+        """Neuverbindung aus Fehler-Dialog."""
+        logging.info("Neuverbindung aus Fehler-Dialog initiiert")
+        self.ui.show_status("Verbinde Modbus neu...", "warning")
+        
+        try:
+            if self.modbus_manager.force_reconnect():
+                # Watchdog und Services neu starten
+                self.modbus_manager.start_watchdog()
+                self.modbus_manager.start_coil_refresh()
+                
+                # UI Status aktualisieren
+                self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
+                self.ui.show_status("Modbus erfolgreich verbunden", "success")
+                
+                # App entsperren
+                self.unlock_app_after_modbus_recovery()
+                
+            else:
+                self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+                self.ui.show_status("Neuverbindung fehlgeschlagen", "error")
+                QTimer.singleShot(2000, self.show_modbus_failure_dialog)  # Dialog erneut anzeigen
+                
+        except Exception as e:
+            logging.error(f"Fehler bei Neuverbindung: {e}")
+            self.ui.show_status("Neuverbindungs-Fehler", "error")
+            QTimer.singleShot(2000, self.show_modbus_failure_dialog)
+    
+    def handle_modbus_ignore_from_dialog(self):
+        """Modbus-Fehler ignorieren (für Testing/Debug)."""
+        logging.warning("Modbus-Fehler vom Benutzer ignoriert - App entsperrt")
+        
+        # Warnung anzeigen
+        QMessageBox.warning(
+            self,
+            "⚠️ Modbus ignoriert",
+            "Die Anwendung läuft OHNE Modbus-Verbindung!\n\n"
+            "WARNUNG:\n"
+            "• Keine Ausschuss-Signale an die WAGO\n"
+            "• Kein Watchdog-System\n"
+            "• Workflow eingeschränkt\n\n"
+            "Nur für Test- und Debug-Zwecke verwenden!"
+        )
+        
+        # App entsperren aber Modbus als kritisch markiert lassen
+        self.unlock_app_after_modbus_recovery(force_unlock=True)
+        self.ui.show_status("Modbus IGNORIERT - Testmodus aktiv", "warning")
+    
+    def unlock_app_after_modbus_recovery(self, force_unlock=False):
+        """App nach Modbus-Wiederherstellung entsperren."""
+        if force_unlock or self.modbus_manager.connected:
+            self.modbus_critical_failure = False
+            
+            # Start-Button wieder aktivieren
+            self.ui.start_btn.setEnabled(True)
+            self.ui.start_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #27ae60;
+                    font-size: 14px;
+                    min-height: 35px;
+                }
+                QPushButton:hover {
+                    background-color: #2ecc71;
+                }
+            """)
+            self.ui.start_btn.setToolTip("")
+            
+            logging.info("Anwendung nach Modbus-Wiederherstellung entsperrt")
     
     def setup_exit_shortcuts(self):
         """ESC-Taste und andere Exit-Shortcuts einrichten."""
@@ -262,7 +448,10 @@ class DetectionApp(QMainWindow):
             
             # Status aktualisieren
             if self.detection_engine.model_loaded and self.camera_manager.camera_ready:
-                self.ui.show_status("Bereit - Alle Komponenten geladen", "ready")
+                if not self.modbus_critical_failure:
+                    self.ui.show_status("Bereit - Alle Komponenten geladen", "ready")
+                else:
+                    self.ui.show_status("MODBUS-FEHLER: Start gesperrt", "error")
             elif self.detection_engine.model_loaded:
                 self.ui.show_status("Modell geladen - Kamera/Video auswählen", "warning")
             elif self.camera_manager.camera_ready:
@@ -352,6 +541,12 @@ class DetectionApp(QMainWindow):
     def start_detection(self):
         """Erkennung starten."""
         try:
+            # KRITISCHER MODBUS-CHECK: Start-Sperre bei Modbus-Fehlern
+            if self.modbus_critical_failure:
+                self.ui.show_status("Start gesperrt - Modbus-Verbindung erforderlich", "error")
+                QTimer.singleShot(500, self.show_modbus_failure_dialog)  # Dialog anzeigen
+                return
+            
             # Prüfe ob alles bereit ist
             if not self.detection_engine.model_loaded:
                 self.ui.show_status("Bitte zuerst ein Modell laden", "error")
@@ -368,7 +563,7 @@ class DetectionApp(QMainWindow):
                 # Workflow-Status zurücksetzen
                 self.reset_workflow()
                 
-                # ERWEITERTE Erkennungsstatistiken zurücksetzen
+                # ERWEITERTE Statistiken für neuen Zyklus zurücksetzen
                 self.last_cycle_detections = {}
                 self.current_frame_detections = []
                 self.cycle_image_count = 0
@@ -442,7 +637,10 @@ class DetectionApp(QMainWindow):
         
         # 5. UI sofort aktualisieren
         self.ui.start_btn.setText("Starten")
-        self.ui.show_status("Bereit", "ready")
+        if not self.modbus_critical_failure:
+            self.ui.show_status("Bereit", "ready")
+        else:
+            self.ui.show_status("MODBUS-FEHLER: Start gesperrt", "error")
         self.ui.update_workflow_status("READY")
         
         # 6. Workflow-Status zurücksetzen
@@ -471,7 +669,6 @@ class DetectionApp(QMainWindow):
         self.ui.show_status(f"Erkennung gestoppt: {reason}", "error")
         
         # Optional: Benutzer benachrichtigen
-        from PyQt6.QtWidgets import QMessageBox
         QMessageBox.warning(
             self,
             "Erkennung gestoppt",
@@ -500,7 +697,7 @@ class DetectionApp(QMainWindow):
             # BESCHLEUNIGTES Motion-Wert berechnen und anzeigen
             self.update_accelerated_motion_display(frame)
             
-            # Industrieller Workflow verarbeiten
+            # Workflow verarbeiten
             self.process_industrial_workflow(frame)
             
             # KI-Erkennung nur während Aufnahme-Phase
@@ -560,7 +757,7 @@ class DetectionApp(QMainWindow):
         self.ui.update_motion(self.current_motion_value)
     
     def process_industrial_workflow(self, frame):
-        """Industrieller Workflow mit robuster Motion-Detection, MODBUS-Integration und Bilderspeicherung."""
+        """ Workflow mit robuster Motion-Detection, MODBUS-Integration und Bilderspeicherung."""
         current_time = time.time()
         
         # Einstellungen (Threshold weiterhin einstellbar!)

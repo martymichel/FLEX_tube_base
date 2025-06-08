@@ -1,6 +1,7 @@
 """
 Dialog-Komponenten für Kamera-Auswahl und Einstellungen
 Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout und Klassennamen-Support
+KORRIGIERT: Doppelte Konfidenz-Einstellungen zusammengelegt, Tab-Namen angepasst, Info-Texte hinzugefügt
 """
 
 import os
@@ -8,7 +9,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, 
     QFrame, QFileDialog, QSpinBox, QDoubleSpinBox, QCheckBox, 
     QFormLayout, QMessageBox, QListWidget, QTabWidget, QWidget,
-    QScrollArea, QSizePolicy, QComboBox
+    QScrollArea, QSizePolicy, QComboBox, QApplication
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
@@ -101,16 +102,18 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Tab-basierter Einstellungen-Dialog mit Klassennamen-Support."""
+    """Tab-basierter Einstellungen-Dialog mit korrigierten Konfidenz-Einstellungen und Info-Texten."""
     
     def __init__(self, settings, class_names=None, parent=None):
         super().__init__(parent)
         self.settings = settings
         self.class_names = class_names or {}  # Dictionary {id: name}
-        self.setWindowTitle("⚙️ Industrielle Workflow-Einstellungen")
+        self.parent_app = parent  # Referenz zur Hauptanwendung für Modbus-Funktionen
+        self.setWindowTitle("⚙️ Einstellungen")
         self.setModal(True)
-        self.resize(800, 600)  # Breiteres Layout für Tabs
-        
+        self.resize(800, 800) 
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
+
         self.setup_ui()
         self.load_settings()
     
@@ -120,19 +123,23 @@ class SettingsDialog(QDialog):
         
         # Tab-Widget erstellen
         self.tab_widget = QTabWidget()
+        # — doppelte Tabhöhe —
+        tabbar = self.tab_widget.tabBar()
+        tabbar.setStyleSheet("QTabBar::tab { min-height: 44px; }")
+
         layout.addWidget(self.tab_widget)
         
         # Tabs erstellen
-        self._create_ai_workflow_tab()
-        self._create_parts_config_tab()
-        self._create_hardware_tab()
+        self._create_general_tab()
+        self._create_classes_assignment_tab()
+        self._create_interfaces_tab()
         self._create_storage_monitoring_tab()
         
         # Button-Sektion
         self._create_button_section(layout)
     
-    def _create_ai_workflow_tab(self):
-        """Tab 1: 🤖 KI & Workflow"""
+    def _create_general_tab(self):
+        """Tab 1: ⚙️ Allgemein - MIT INFO-TEXTEN"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -141,51 +148,88 @@ class SettingsDialog(QDialog):
         layout = QFormLayout(tab)
         layout.setSpacing(15)
         
-        # KI-Einstellungen
-        self._add_section_header(layout, "🤖 KI-Einstellungen")
+        # Workflow
+        self._add_section_header(layout, "🏭 Workflow")
         
-        self.confidence_spin = QDoubleSpinBox()
-        self.confidence_spin.setRange(0.1, 1.0)
-        self.confidence_spin.setSingleStep(0.1)
-        self.confidence_spin.setDecimals(2)
-        layout.addRow("Konfidenz-Schwellwert:", self.confidence_spin)
-        
-        self._add_spacer(layout)
-        
-        # Workflow-Einstellungen
-        self._add_section_header(layout, "🏭 Industrieller Workflow")
+        # Motion Threshold - MIT INFO
+        motion_info = self._create_info_label(
+            "Schwellwert für Erkennung des Förderband-Takts. Niedrigere Werte = empfindlicher für Bewegung. "
+            "Bestimmt, wann das Förderband als 'in Bewegung' erkannt wird."
+        )
+        layout.addRow(motion_info)
         
         self.motion_threshold_spin = QSpinBox()
         self.motion_threshold_spin.setRange(1, 255)
         layout.addRow("Motion Threshold (1-255):", self.motion_threshold_spin)
+        self._add_spacer(layout)
+
+        # Roter Rahmen Schwellwert - MIT INFO
+        red_info = self._create_info_label(
+            "Mindestanzahl von schlechten Teilen, ab der der rote Rahmen angezeigt wird. "
+            "Bestimmt, wann ein Ausschuss-Signal ausgelöst wird."
+        )
+        layout.addRow(red_info)
         
         self.red_threshold_spin = QSpinBox()
         self.red_threshold_spin.setRange(1, 20)
         layout.addRow("Roter Rahmen Schwellwert:", self.red_threshold_spin)
+        self._add_spacer(layout)
+        
+        # Grüner Rahmen Schwellwert - MIT INFO
+        green_info = self._create_info_label(
+            "Mindestanzahl von guten Teilen, ab der der grüne Rahmen angezeigt wird. "
+            "Bestätigt, dass ausreichend gute Teile erkannt wurden."
+        )
+        layout.addRow(green_info)
         
         self.green_threshold_spin = QSpinBox()
         self.green_threshold_spin.setRange(1, 20)
         layout.addRow("Grüner Rahmen Schwellwert:", self.green_threshold_spin)
+        self._add_spacer(layout)
+        
+        # Ausschwingzeit - MIT INFO
+        settling_info = self._create_info_label(
+            "Wartezeit nach Stillstand des Förderbands, bevor die KI-Erkennung startet. "
+            "Verhindert Erkennungen während des Ausschwingvorgangs."
+        )
+        layout.addRow(settling_info)
         
         self.settling_time_spin = QDoubleSpinBox()
         self.settling_time_spin.setRange(0.1, 10.0)
         self.settling_time_spin.setSingleStep(0.1)
         layout.addRow("Ausschwingzeit (Sekunden):", self.settling_time_spin)
+        self._add_spacer(layout)
+        
+        # Aufnahmezeit - MIT INFO
+        capture_info = self._create_info_label(
+            "Dauer der KI-Erkennung pro Zyklus. Längere Zeit = mehr Bilder analysiert, "
+            "aber langsamerer Durchsatz."
+        )
+        layout.addRow(capture_info)
         
         self.capture_time_spin = QDoubleSpinBox()
         self.capture_time_spin.setRange(0.5, 10.0)
         self.capture_time_spin.setSingleStep(0.1)
         layout.addRow("Aufnahmezeit (Sekunden):", self.capture_time_spin)
+        self._add_spacer(layout)
+        
+        # Abblas-Wartezeit - MIT INFO
+        blow_off_info = self._create_info_label(
+            "Wartezeit nach Ausschuss-Signal, bevor der nächste Zyklus beginnt. "
+            "Muss lang genug sein, damit das Abblasen vollständig beendet ist. "
+        )
+        layout.addRow(blow_off_info)
         
         self.blow_off_time_spin = QDoubleSpinBox()
         self.blow_off_time_spin.setRange(1.0, 30.0)
         self.blow_off_time_spin.setSingleStep(0.5)
         layout.addRow("Abblas-Wartezeit (Sekunden):", self.blow_off_time_spin)
+        self._add_spacer(layout)
         
-        self.tab_widget.addTab(scroll, "🤖 KI & Workflow")
+        self.tab_widget.addTab(scroll, "⚙️ Allgemein")
     
-    def _create_parts_config_tab(self):
-        """Tab 2: 🔍 Teile-Konfiguration"""
+    def _create_classes_assignment_tab(self):
+        """Tab 2: 🔍 Klassen-Zuteilung - MIT BEIDEN KONFIDENZ-EINSTELLUNGEN"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -194,19 +238,69 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setSpacing(20)
         
+        # NEUE Konfidenz-Einstellungen Sektion (beide hier)
+        confidence_group = QFrame()
+        confidence_group.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
+        confidence_layout = QVBoxLayout(confidence_group)
+        
+        confidence_title = QLabel("🎯 Konfidenz-Einstellungen")
+        confidence_title.setFont(QFont("", 14, QFont.Weight.Bold))
+        confidence_layout.addWidget(confidence_title)
+        
+        # Allgemeine Konfidenz
+        general_conf_info = self._create_info_label(
+            "Grundschwellwert für alle KI-Erkennungen. Nur Erkennungen über diesem Wert werden berücksichtigt. "
+            "Höhere Werte = weniger falsche Erkennungen, aber eventuell werden echte Objekte übersehen."
+        )
+        confidence_layout.addWidget(general_conf_info)
+        
+        general_conf_layout = QHBoxLayout()
+        general_conf_layout.addWidget(QLabel("Allgemeine Konfidenz-Schwelle:"))
+        self.confidence_spin = QDoubleSpinBox()
+        self.confidence_spin.setRange(0.1, 1.0)
+        self.confidence_spin.setSingleStep(0.1)
+        self.confidence_spin.setDecimals(2)
+        general_conf_layout.addWidget(self.confidence_spin)
+        confidence_layout.addLayout(general_conf_layout)
+        
+        # Schlecht-Teil spezifische Konfidenz
+        bad_conf_info = self._create_info_label(
+            "Zusätzliche Mindest-Konfidenz für Schlecht-Teile. Verhindert fälschliche Ausschuss-Signale "
+            "durch unsichere Erkennungen. Sollte höher als die allgemeine Konfidenz sein."
+        )
+        confidence_layout.addWidget(bad_conf_info)
+        
+        bad_conf_layout = QHBoxLayout()
+        bad_conf_layout.addWidget(QLabel("Schlecht-Teil Mindest-Konfidenz:"))
+        self.bad_part_confidence_spin = QDoubleSpinBox()
+        self.bad_part_confidence_spin.setRange(0.1, 1.0)
+        self.bad_part_confidence_spin.setSingleStep(0.1)
+        self.bad_part_confidence_spin.setDecimals(2)
+        bad_conf_layout.addWidget(self.bad_part_confidence_spin)
+        confidence_layout.addLayout(bad_conf_layout)
+        
+        layout.addWidget(confidence_group)
+        
         # Schlecht-Teil Konfiguration
         bad_parts_group = QFrame()
         bad_parts_group.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
         bad_parts_layout = QVBoxLayout(bad_parts_group)
         
-        bad_parts_title = QLabel("❌ Schlecht-Teil Konfiguration")
+        bad_parts_title = QLabel("❌ Schlecht-Teil Klassenzuteilung")
         bad_parts_title.setFont(QFont("", 14, QFont.Weight.Bold))
         bad_parts_layout.addWidget(bad_parts_title)
+        
+        # Info-Text
+        bad_info = self._create_info_label(
+            "Wählen Sie die Klassen aus, die als fehlerhafte/schlechte Teile behandelt werden sollen. "
+            "Bei Erkennung dieser Klassen wird ein Ausschuss-Signal ausgelöst."
+        )
+        bad_parts_layout.addWidget(bad_info)
         
         # Klassenliste für schlechte Teile
         self.bad_part_classes_list = QListWidget()
         self.bad_part_classes_list.setMaximumHeight(120)
-        bad_parts_layout.addWidget(QLabel("Schlecht-Teil Klassen:"))
+        bad_parts_layout.addWidget(QLabel("Zugeteilte Schlecht-Teil Klassen:"))
         bad_parts_layout.addWidget(self.bad_part_classes_list)
         
         # Buttons für schlechte Teile
@@ -224,16 +318,6 @@ class SettingsDialog(QDialog):
         
         bad_parts_layout.addLayout(bad_buttons_layout)
         
-        # Mindest-Konfidenz
-        conf_layout = QHBoxLayout()
-        conf_layout.addWidget(QLabel("Mindest-Konfidenz:"))
-        self.bad_part_confidence_spin = QDoubleSpinBox()
-        self.bad_part_confidence_spin.setRange(0.1, 1.0)
-        self.bad_part_confidence_spin.setSingleStep(0.1)
-        self.bad_part_confidence_spin.setDecimals(2)
-        conf_layout.addWidget(self.bad_part_confidence_spin)
-        bad_parts_layout.addLayout(conf_layout)
-        
         layout.addWidget(bad_parts_group)
         
         # Gut-Teil Konfiguration
@@ -241,14 +325,21 @@ class SettingsDialog(QDialog):
         good_parts_group.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
         good_parts_layout = QVBoxLayout(good_parts_group)
         
-        good_parts_title = QLabel("✅ Gut-Teil Konfiguration")
+        good_parts_title = QLabel("✅ Gut-Teil Klassenzuteilung")
         good_parts_title.setFont(QFont("", 14, QFont.Weight.Bold))
         good_parts_layout.addWidget(good_parts_title)
+        
+        # Info-Text
+        good_info = self._create_info_label(
+            "Wählen Sie die Klassen aus, die als fehlerfreie/gute Teile behandelt werden sollen. "
+            "Bei ausreichender Erkennung dieser Klassen wird ein Gut-Signal generiert."
+        )
+        good_parts_layout.addWidget(good_info)
         
         # Klassenliste für gute Teile
         self.good_part_classes_list = QListWidget()
         self.good_part_classes_list.setMaximumHeight(120)
-        good_parts_layout.addWidget(QLabel("Gut-Teil Klassen:"))
+        good_parts_layout.addWidget(QLabel("Zugeteilte Gut-Teil Klassen:"))
         good_parts_layout.addWidget(self.good_part_classes_list)
         
         # Buttons für gute Teile
@@ -269,10 +360,10 @@ class SettingsDialog(QDialog):
         layout.addWidget(good_parts_group)
         layout.addStretch()
         
-        self.tab_widget.addTab(scroll, "🔍 Teile-Konfiguration")
+        self.tab_widget.addTab(scroll, "🔍 Klassen-Zuteilung")
     
-    def _create_hardware_tab(self):
-        """Tab 3: 🔌 Hardware"""
+    def _create_interfaces_tab(self):
+        """Tab 3: 🔌 Schnittstellen (ehemals Hardware)"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -296,7 +387,12 @@ class SettingsDialog(QDialog):
         # Konfigurationspfad
         config_path_layout = QHBoxLayout()
         self.camera_config_path_label = QLabel("Keine Konfiguration ausgewählt")
-        self.camera_config_path_label.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        self.camera_config_path_label.setStyleSheet(
+            "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
+        )
+        palette = QApplication.instance().palette()
+        self.camera_config_path_label.setPalette(palette)
+        self.camera_config_path_label.setAutoFillBackground(True)
         self.camera_config_path_label.setWordWrap(True)
         config_path_layout.addWidget(self.camera_config_path_label, 1)
         
@@ -313,14 +409,26 @@ class SettingsDialog(QDialog):
         self._add_spacer(layout)
         
         # MODBUS-Einstellungen
-        self._add_section_header(layout, "🔌 WAGO Modbus")
+        self._add_section_header(layout, "🔌 WAGO Modbus-Schnittstelle")
         
-        self.modbus_enabled_check = QCheckBox()
-        layout.addRow("Modbus aktiviert:", self.modbus_enabled_check)
+        # INFO: Modbus ist immer aktiviert
+        modbus_info = QLabel("Modbus ist für den Betrieb immer aktiviert.")
+        modbus_info.setStyleSheet("color: #2c3e50; font-weight: bold; background-color: #ecf0f1; padding: 8px; border-radius: 4px;")
+        layout.addRow(modbus_info)
         
+        # IP-Adresse (nur Anzeige)
         self.modbus_ip_input = QLabel("192.168.1.100")
-        self.modbus_ip_input.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        self.modbus_ip_input.setStyleSheet(
+            "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
+        )
         layout.addRow("WAGO IP-Adresse:", self.modbus_ip_input)
+        
+        # Ausschuss-Signal Dauer - MIT INFO
+        reject_duration_info = self._create_info_label(
+            "Dauer des Ausschuss-Signals in Sekunden. Muss lang genug sein, "
+            "damit das nachgelagerte System (Druckluft, Aussortierung) reagieren kann."
+        )
+        layout.addRow(reject_duration_info)
         
         self.reject_coil_duration_spin = QDoubleSpinBox()
         self.reject_coil_duration_spin.setRange(0.1, 10.0)
@@ -328,7 +436,71 @@ class SettingsDialog(QDialog):
         self.reject_coil_duration_spin.setDecimals(1)
         layout.addRow("Ausschuss-Signal Dauer (Sekunden):", self.reject_coil_duration_spin)
         
-        self.tab_widget.addTab(scroll, "🔌 Hardware")
+        self._add_spacer(layout)
+        
+        # Modbus-Aktionen
+        self._add_section_header(layout, "🔧 WAGO Modbus-Aktionen")
+        
+        # Aktions-Buttons
+        modbus_actions_layout = QHBoxLayout()
+        
+        # Controller Reset Button
+        self.modbus_reset_btn = QPushButton("🔄 Controller Reset")
+        self.modbus_reset_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                font-size: 12px;
+                min-height: 35px;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #d35400;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+            }
+        """)
+        self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen (Admin-Rechte erforderlich)")
+        self.modbus_reset_btn.clicked.connect(self.handle_modbus_reset)
+        modbus_actions_layout.addWidget(self.modbus_reset_btn)
+        
+        # Neuverbindung Button
+        self.modbus_reconnect_btn = QPushButton("🔌 Neuverbindung")
+        self.modbus_reconnect_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                font-size: 12px;
+                min-height: 35px;
+                padding: 8px 16px;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+            }
+        """)
+        self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden (Admin-Rechte erforderlich)")
+        self.modbus_reconnect_btn.clicked.connect(self.handle_modbus_reconnect)
+        modbus_actions_layout.addWidget(self.modbus_reconnect_btn)
+        
+        layout.addRow("Aktionen:", modbus_actions_layout)
+        
+        # Status-Info
+        modbus_status_info = QLabel("Diese Aktionen sind nur für Administratoren verfügbar und helfen bei Verbindungsproblemen.")
+        modbus_status_info.setStyleSheet("color: #7f8c8d; font-style: italic; font-size: 11px;")
+        modbus_status_info.setWordWrap(True)
+        layout.addRow(modbus_status_info)
+        
+        self.tab_widget.addTab(scroll, "🔌 Schnittstellen")
     
     def _create_storage_monitoring_tab(self):
         """Tab 4: 💾 Speicherung & Überwachung"""
@@ -343,13 +515,25 @@ class SettingsDialog(QDialog):
         # Bilderspeicherung
         self._add_section_header(layout, "📸 Bilderspeicherung")
         
+        # Bilderspeicherung Info
+        storage_info = self._create_info_label(
+            "Speichert Bilder zur späteren Analyse oder Dokumentation. "
+            "Schlechtbilder: Bilder mit erkannten Fehlern. Gutbilder: Bilder ohne erkannte Fehler."
+        )
+        layout.addRow(storage_info)
+        
         self.save_bad_images_check = QCheckBox()
         layout.addRow("Schlechtbilder speichern:", self.save_bad_images_check)
         
         # Schlechtbilder-Verzeichnis
         bad_dir_layout = QHBoxLayout()
         self.bad_images_dir_input = QLabel("bad_images")
-        self.bad_images_dir_input.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        self.bad_images_dir_input.setStyleSheet(
+            "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
+        )
+        palette = QApplication.instance().palette()
+        self.bad_images_dir_input.setPalette(palette)
+        self.bad_images_dir_input.setAutoFillBackground(True)
         bad_dir_layout.addWidget(self.bad_images_dir_input, 1)
         
         bad_dir_browse_btn = QPushButton("📁")
@@ -364,7 +548,12 @@ class SettingsDialog(QDialog):
         # Gutbilder-Verzeichnis
         good_dir_layout = QHBoxLayout()
         self.good_images_dir_input = QLabel("good_images")
-        self.good_images_dir_input.setStyleSheet("background-color: #f0f0f0; padding: 5px; border-radius: 3px;")
+        self.good_images_dir_input.setStyleSheet(
+            "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
+        )
+        palette = QApplication.instance().palette()
+        self.good_images_dir_input.setPalette(palette)
+        self.good_images_dir_input.setAutoFillBackground(True)
         good_dir_layout.addWidget(self.good_images_dir_input, 1)
         
         good_dir_browse_btn = QPushButton("📁")
@@ -373,7 +562,13 @@ class SettingsDialog(QDialog):
         
         layout.addRow("Gutbilder-Verzeichnis:", good_dir_layout)
         
-        # Maximale Dateien
+        # Maximale Dateien - MIT INFO
+        max_files_info = self._create_info_label(
+            "Maximale Anzahl Bilder pro Verzeichnis. Bei Erreichen werden keine weiteren Bilder gespeichert. "
+            "Verhindert Speicher-Überlauf bei Langzeitbetrieb."
+        )
+        layout.addRow(max_files_info)
+        
         self.max_images_spin = QSpinBox()
         self.max_images_spin.setRange(1000, 500000)
         self.max_images_spin.setSingleStep(1000)
@@ -385,15 +580,22 @@ class SettingsDialog(QDialog):
         # Helligkeitsüberwachung
         self._add_section_header(layout, "💡 Helligkeitsüberwachung")
         
+        # Helligkeitsüberwachung Info
+        brightness_info = self._create_info_label(
+            "Überwacht die Bildhelligkeit und stoppt die Erkennung automatisch bei schlechten Lichtverhältnissen. "
+            "Verhindert fehlerhafte Erkennungen durch zu dunkle oder überbelichtete Bilder."
+        )
+        layout.addRow(brightness_info)
+        
         self.brightness_low_spin = QSpinBox()
         self.brightness_low_spin.setRange(0, 254)
         self.brightness_low_spin.valueChanged.connect(self.validate_brightness_ranges)
-        layout.addRow("Untere Schwelle (Auto-Stopp):", self.brightness_low_spin)
+        layout.addRow("Untere Schwelle (Auto-Stopp bei zu dunkel):", self.brightness_low_spin)
         
         self.brightness_high_spin = QSpinBox()
         self.brightness_high_spin.setRange(1, 255)
         self.brightness_high_spin.valueChanged.connect(self.validate_brightness_ranges)
-        layout.addRow("Obere Schwelle (Auto-Stopp):", self.brightness_high_spin)
+        layout.addRow("Obere Schwelle (Auto-Stopp bei zu hell):", self.brightness_high_spin)
         
         self.brightness_duration_spin = QDoubleSpinBox()
         self.brightness_duration_spin.setRange(1.0, 30.0)
@@ -401,6 +603,23 @@ class SettingsDialog(QDialog):
         layout.addRow("Dauer bis Auto-Stopp (Sekunden):", self.brightness_duration_spin)
         
         self.tab_widget.addTab(scroll, "💾 Speicherung & Überwachung")
+    
+    def _create_info_label(self, text):
+        """Erstelle ein Info-Label mit einheitlichem Styling."""
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setStyleSheet("""
+            QLabel {
+                color: #7f8c8d;
+                font-style: italic;
+                font-size: 11px;
+                background-color: #ecf0f1;
+                padding: 8px;
+                border-radius: 4px;
+                border-left: 3px solid #3498db;
+            }
+        """)
+        return label
     
     def _create_class_combo(self):
         """ComboBox mit verfügbaren Klassen erstellen."""
@@ -413,10 +632,14 @@ class SettingsDialog(QDialog):
         return combo
     
     def _add_section_header(self, layout, title):
-        """Sektion-Header hinzufügen."""
         header = QLabel(title)
+
+        # Palette aus App-Theme ziehen
+        palette = QApplication.instance().palette()
+        header.setPalette(palette)
+        header.setAutoFillBackground(True)
+
         header.setFont(QFont("", 12, QFont.Weight.Bold))
-        header.setStyleSheet("color: #2c3e50; margin: 10px 0 5px 0;")
         layout.addRow(header)
     
     def _add_spacer(self, layout):
@@ -447,6 +670,91 @@ class SettingsDialog(QDialog):
         button_layout.addWidget(reset_btn)
         
         layout.addLayout(button_layout)
+    
+    # Modbus-Aktions-Handler
+    def handle_modbus_reset(self):
+        """WAGO Controller Reset aus Einstellungen."""
+        # Prüfe Admin-Rechte
+        if not hasattr(self.parent_app, 'app') or not self.parent_app.app.user_manager.is_admin():
+            QMessageBox.warning(
+                self,
+                "Zugriff verweigert",
+                "Admin-Rechte erforderlich für Controller-Reset."
+            )
+            return
+        
+        # Bestätigung anfordern
+        reply = QMessageBox.question(
+            self,
+            "Controller Reset",
+            "WAGO Controller zurücksetzen?\n\nDies kann Verbindungsprobleme beheben.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                if self.parent_app.app.modbus_manager.restart_controller():
+                    QMessageBox.information(
+                        self,
+                        "Reset erfolgreich",
+                        "WAGO Controller wurde zurückgesetzt.\nVerbindung wird neu aufgebaut..."
+                    )
+                    # Automatische Neuverbindung nach Reset
+                    self.handle_modbus_reconnect()
+                else:
+                    QMessageBox.critical(
+                        self,
+                        "Reset fehlgeschlagen",
+                        "Controller-Reset konnte nicht durchgeführt werden.\nPrüfen Sie die Verbindung."
+                    )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Fehler",
+                    f"Fehler beim Controller-Reset:\n{str(e)}"
+                )
+    
+    def handle_modbus_reconnect(self):
+        """Modbus Neuverbindung aus Einstellungen."""
+        # Prüfe Admin-Rechte
+        if not hasattr(self.parent_app, 'app') or not self.parent_app.app.user_manager.is_admin():
+            QMessageBox.warning(
+                self,
+                "Zugriff verweigert",
+                "Admin-Rechte erforderlich für Neuverbindung."
+            )
+            return
+        
+        try:
+            if self.parent_app.app.modbus_manager.force_reconnect():
+                # Services neu starten
+                self.parent_app.app.modbus_manager.start_watchdog()
+                self.parent_app.app.modbus_manager.start_coil_refresh()
+                
+                # UI Status aktualisieren
+                self.parent_app.app.ui.update_modbus_status(True, self.parent_app.app.modbus_manager.ip_address)
+                
+                # App entsperren falls gesperrt
+                if hasattr(self.parent_app.app, 'modbus_critical_failure'):
+                    self.parent_app.app.unlock_app_after_modbus_recovery()
+                
+                QMessageBox.information(
+                    self,
+                    "Neuverbindung erfolgreich",
+                    "Modbus erfolgreich neu verbunden.\nAnwendung ist wieder betriebsbereit."
+                )
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Neuverbindung fehlgeschlagen",
+                    "Modbus-Neuverbindung konnte nicht hergestellt werden.\nPrüfen Sie die Netzwerkverbindung."
+                )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Fehler",
+                f"Fehler bei Neuverbindung:\n{str(e)}"
+            )
     
     # Event Handler-Methoden
     def browse_camera_config_file(self):
@@ -573,14 +881,17 @@ class SettingsDialog(QDialog):
     
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
-        # KI & Workflow
-        self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
+        # Allgemein (ehemals KI & Workflow) - OHNE allgemeine Konfidenz (verschoben)
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
         self.red_threshold_spin.setValue(self.settings.get('red_threshold', 1))
         self.green_threshold_spin.setValue(self.settings.get('green_threshold', 4))
         self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
         self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
+        
+        # Klassen-Zuteilung: BEIDE Konfidenz-Einstellungen
+        self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
+        self.bad_part_confidence_spin.setValue(self.settings.get('bad_part_min_confidence', 0.5))
         
         # Schlecht-Teil Klassen laden (mit Namen)
         bad_classes = self.settings.get('bad_part_classes', [1])
@@ -606,18 +917,22 @@ class SettingsDialog(QDialog):
             item.setData(Qt.ItemDataRole.UserRole, class_id)
             self.good_part_classes_list.addItem(item)
         
-        self.bad_part_confidence_spin.setValue(self.settings.get('bad_part_min_confidence', 0.5))
-        
-        # Hardware
+        # Schnittstellen (ehemals Hardware)
         camera_config_path = self.settings.get('camera_config_path', '')
         if camera_config_path:
             self.camera_config_path_label.setText(camera_config_path)
         else:
             self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
         
-        self.modbus_enabled_check.setChecked(self.settings.get('modbus_enabled', True))
+        # MODBUS: Nur IP und Dauer laden
         self.modbus_ip_input.setText(self.settings.get('modbus_ip', '192.168.1.100'))
         self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
+        
+        # Modbus-Buttons je nach Admin-Status aktivieren/deaktivieren
+        if hasattr(self.parent_app, 'app'):
+            is_admin = self.parent_app.app.user_manager.is_admin()
+            self.modbus_reset_btn.setEnabled(is_admin)
+            self.modbus_reconnect_btn.setEnabled(is_admin)
         
         # Speicherung & Überwachung
         self.save_bad_images_check.setChecked(self.settings.get('save_bad_images', False))
@@ -632,14 +947,17 @@ class SettingsDialog(QDialog):
     
     def save_settings(self):
         """Einstellungen speichern."""
-        # KI & Workflow
-        self.settings.set('confidence_threshold', self.confidence_spin.value())
+        # Allgemein (ehemals KI & Workflow) - OHNE allgemeine Konfidenz
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
         self.settings.set('red_threshold', self.red_threshold_spin.value())
         self.settings.set('green_threshold', self.green_threshold_spin.value())
         self.settings.set('settling_time', self.settling_time_spin.value())
         self.settings.set('capture_time', self.capture_time_spin.value())
         self.settings.set('blow_off_time', self.blow_off_time_spin.value())
+        
+        # Klassen-Zuteilung: BEIDE Konfidenz-Einstellungen
+        self.settings.set('confidence_threshold', self.confidence_spin.value())
+        self.settings.set('bad_part_min_confidence', self.bad_part_confidence_spin.value())
         
         # Schlecht-Teil Klassen sammeln (IDs extrahieren)
         bad_classes = []
@@ -657,16 +975,14 @@ class SettingsDialog(QDialog):
             good_classes.append(class_id)
         self.settings.set('good_part_classes', good_classes)
         
-        self.settings.set('bad_part_min_confidence', self.bad_part_confidence_spin.value())
-        
-        # Hardware
+        # Schnittstellen (ehemals Hardware)
         camera_config_text = self.camera_config_path_label.text()
         if camera_config_text == "Keine Konfiguration ausgewählt":
             self.settings.set('camera_config_path', '')
         else:
             self.settings.set('camera_config_path', camera_config_text)
         
-        self.settings.set('modbus_enabled', self.modbus_enabled_check.isChecked())
+        # MODBUS: Nur IP und Dauer speichern
         self.settings.set('modbus_ip', self.modbus_ip_input.text())
         self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         

@@ -1,6 +1,6 @@
 """
 Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen für industriellen Workflow mit Auto-Loading, Modbus und Bilderspeicherung
+Verwaltet alle Anwendungseinstellungen für industrllen Workflow mit Auto-Loading, Modbus und Bilderspeicherung
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung für industriellen Workflow mit Auto-Loading, Modbus und Bilderspeicherung."""
+    """Einfache Einstellungsverwaltung für Workflow mit Auto-Loading, Modbus und Bilderspeicherung."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -61,7 +61,7 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
     
     def get_defaults(self):
-        """Standardeinstellungen für industriellen Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
+        """Standardeinstellungen für Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
         
         Returns:
             dict: Standardeinstellungen
@@ -76,7 +76,7 @@ class Settings:
             'last_mode_was_video': False,        # Auto-Loading: War es Video oder Kamera?
             'camera_config_path': '',            # Pfad zur IDS Peak Kamera-Konfigurationsdatei
             
-            # Industrieller Workflow - Zeiteinstellungen
+            # Workflow - Zeiteinstellungen
             'motion_threshold': 110,      # Schwellwert für Bewegungserkennung
             'settling_time': 1.0,         # Ausschwingzeit nach Bewegung (Sekunden)
             'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)

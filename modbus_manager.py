@@ -107,6 +107,9 @@ class ModbusManager:
             if temp_client.connect():
                 try:
                     result = temp_client.write_register(0x2040, 0xAA55)
+                    # Warten 1 Sekunde für den Reset
+                    time.sleep(1)
+                    # Prüfen, ob der Befehl erfolgreich war
                     success = not result.isError()
                     if success:
                         logging.info("Controller-Reset-Befehl gesendet (0x2040 = 0xAA55)")

@@ -124,7 +124,7 @@ class MainUI(QWidget):
         layout.setSpacing(10)  # Kompakter Abstand
         layout.setContentsMargins(15, 15, 15, 15)  # Kompakte Ränder
         
-        # NEUER Breiter Login-Status-Button (kein separates Label mehr)
+        # Breiter Login-Status-Button (kein separates Label mehr)
         self._create_login_status_section(layout)
         
         # WAGO Modbus Status (OHNE Reset/Reconnect Buttons)
@@ -906,7 +906,7 @@ class MainUI(QWidget):
             'READY': "#757575",      # Grau
             'MOTION': '#757575',     # Grau  
             'SETTLING': "#757575",   # Grau
-            'CAPTURING': "#23aeff",  # Blau
+            'CAPTURING': "#757575",  # Grau
             'BLOWING': '#e74c3c'     # Rot
         }
         
@@ -927,8 +927,8 @@ class MainUI(QWidget):
             'info': "#757575",      # Grau
             'success': "#757575",      # Grau
             'error': '#e74c3c',     # Rot
-            'ready': "#18929b",     # Türkis
-            'warning': '#f39c12'    # Orange
+            'ready': "#757575",     # Grau
+            'warning': "#e74c3c"    # Rot
         }
         
         color = colors.get(status_type, '#95a5a6')
@@ -945,13 +945,8 @@ class MainUI(QWidget):
         """Motion-Wert aktualisieren."""
         self.motion_info.setText(f"{motion_value:.0f}")
         
-        # Farbe je nach Motion-Level  
-        if motion_value < 50:
-            color = "#27ae60"  # Grün (ruhig)
-        elif motion_value < 150:
-            color = "#f39c12"  # Orange (moderate Bewegung)
-        else:
-            color = "#e74c3c"  # Rot (starke Bewegung)
+        # Farbe des Hintergrunds immer gleich
+        color = "#878787"
         
         self.motion_info.setStyleSheet(f"""
             background-color: {color};

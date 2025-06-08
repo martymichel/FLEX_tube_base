@@ -1,6 +1,7 @@
 """
-WAGO Modbus Manager - SIMPLE und zuverlässig
+WAGO Modbus Manager - OPTIMIERT für intelligente Verbindungsversuche
 Verwaltet Watchdog und Coil-Ausgänge für die KI-Objekterkennung
+VERBESSERT: Vermeidet redundante Aktionen und Watchdog-Frühfehler
 """
 
 import time
@@ -15,7 +16,7 @@ except ImportError:
     logging.warning("pymodbus nicht verfügbar - Modbus-Funktionen deaktiviert")
 
 class ModbusManager:
-    """SIMPLE WAGO Modbus-Manager mit Watchdog und Coil-Steuerung."""
+    """OPTIMIERTER WAGO Modbus-Manager mit intelligenter Verbindungslogik."""
     
     def __init__(self, settings):
         self.settings = settings
@@ -25,10 +26,11 @@ class ModbusManager:
         # Thread-Lock für sichere Zugriffe
         self._lock = threading.Lock()
         
-        # Simple Watchdog
+        # Optimierter Watchdog mit Startverzögerung
         self.watchdog_running = False
         self.watchdog_thread = None
         self.watchdog_value = 0
+        self.watchdog_initialized = False  # NEU: Verhindert Frühfehler
         
         # Coil-Status
         self.detection_active = False
@@ -42,16 +44,16 @@ class ModbusManager:
         self.detection_active_coil_address = self.settings.get('detection_active_coil_address', 1)
         self.reject_coil_duration = self.settings.get('reject_coil_duration_seconds', 1.0)
         
-        logging.info(f"ModbusManager initialisiert - IP: {self.ip_address}")
+        logging.info(f"ModbusManager optimiert initialisiert - IP: {self.ip_address}")
     
     def connect(self):
-        """Einfache Verbindung zur WAGO herstellen."""
+        """OPTIMIERTE Verbindung zur WAGO - direkt ohne Reset."""
         if not MODBUS_AVAILABLE:
             logging.warning("pymodbus nicht verfügbar")
             return False
         
         try:
-            logging.info(f"Verbinde zu WAGO {self.ip_address}:{self.port}")
+            logging.info(f"Versuche direkte WAGO-Verbindung zu {self.ip_address}:{self.port}")
             
             # Alte Verbindung schließen
             if self.client:
@@ -60,59 +62,38 @@ class ModbusManager:
                 except:
                     pass
             
-            # Neue Verbindung
-            self.client = ModbusTcpClient(self.ip_address, port=self.port)
+            # Neue Verbindung mit längerem Timeout für Stabilität
+            self.client = ModbusTcpClient(self.ip_address, port=self.port, timeout=5)
             self.connected = self.client.connect()
             
             if self.connected:
-                logging.info("WAGO Modbus-Verbindung erfolgreich")
+                logging.info("WAGO Modbus-Direktverbindung erfolgreich")
             else:
-                logging.error("WAGO Modbus-Verbindung fehlgeschlagen")
+                logging.error("WAGO Modbus-Direktverbindung fehlgeschlagen")
             
             return self.connected
             
         except Exception as e:
-            logging.error(f"Fehler bei WAGO Verbindung: {e}")
-            return False
-    
-    def startup_reconnect(self):
-        """Neuverbindung bei App-Start mit Controller-Reset."""
-        logging.info("Starte WAGO Neuverbindung bei App-Start...")
-        
-        # Schritt 1: Controller-Reset durchführen
-        if self.restart_controller():
-            logging.info("Controller-Reset erfolgreich")
-        else:
-            logging.warning("Controller-Reset fehlgeschlagen - versuche trotzdem Verbindung...")
-        
-        # Schritt 2: Kurz warten nach Reset
-        time.sleep(3)
-        
-        # Schritt 3: Verbindung herstellen
-        if self.connect():
-            logging.info("WAGO Neuverbindung bei Start erfolgreich")
-            return True
-        else:
-            logging.error("WAGO Neuverbindung bei Start fehlgeschlagen")
+            logging.error(f"Fehler bei WAGO Direktverbindung: {e}")
             return False
     
     def restart_controller(self):
-        """SIMPLE Controller-Reset des WAGO 750-362."""
+        """Controller-Reset des WAGO 750-362 - VERBESSERT mit Wartezeit."""
         try:
             logging.info("Führe WAGO Controller-Reset durch...")
             
-            # Temporäre Verbindung für Reset
-            temp_client = ModbusTcpClient(self.ip_address, port=self.port)
+            # Temporäre Verbindung für Reset mit längerem Timeout
+            temp_client = ModbusTcpClient(self.ip_address, port=self.port, timeout=8)
             
             if temp_client.connect():
                 try:
                     result = temp_client.write_register(0x2040, 0xAA55)
-                    # Warten 1 Sekunde für den Reset
-                    time.sleep(1)
+                    # WICHTIG: Warten bis Reset-Befehl verarbeitet wird
+                    time.sleep(2)
                     # Prüfen, ob der Befehl erfolgreich war
                     success = not result.isError()
                     if success:
-                        logging.info("Controller-Reset-Befehl gesendet (0x2040 = 0xAA55)")
+                        logging.info("Controller-Reset-Befehl erfolgreich gesendet (0x2040 = 0xAA55)")
                     else:
                         logging.warning("Controller-Reset-Befehl fehlgeschlagen")
                     return success
@@ -149,7 +130,7 @@ class ModbusManager:
         self.client = None
     
     def start_watchdog(self):
-        """SIMPLE Watchdog starten."""
+        """OPTIMIERTER Watchdog-Start mit Initialisierungsverzögerung."""
         if not self.connected:
             return False
         
@@ -169,24 +150,42 @@ class ModbusManager:
             logging.error(f"Watchdog-Konfiguration fehlgeschlagen: {e}")
             return False
         
-        # Thread starten
+        # Thread starten mit Initialisierungsflag
         self.watchdog_running = True
+        self.watchdog_initialized = False  # Erstmal nicht initialisiert
         self.watchdog_thread = threading.Thread(target=self._watchdog_loop, daemon=True)
         self.watchdog_thread.start()
         
-        logging.info("Watchdog-Thread gestartet")
+        logging.info("Watchdog-Thread gestartet (mit Startverzögerung)")
         return True
     
     def stop_watchdog(self):
         """Watchdog stoppen."""
         if self.watchdog_running:
             self.watchdog_running = False
+            self.watchdog_initialized = False  # Reset
             if self.watchdog_thread:
                 self.watchdog_thread.join(timeout=1.0)
             logging.info("Watchdog gestoppt")
     
     def _watchdog_loop(self):
-        """SIMPLE Watchdog-Schleife."""
+        """OPTIMIERTE Watchdog-Schleife mit Startverzögerung."""
+        try:
+            # STARTVERZÖGERUNG: Warte erst 3 Sekunden vor erstem Trigger
+            logging.info("Watchdog wartet 3 Sekunden vor erstem Trigger...")
+            time.sleep(3.0)
+            
+            if not self.watchdog_running:  # Prüfe ob zwischenzeitlich gestoppt
+                return
+                
+            self.watchdog_initialized = True  # Jetzt ist der Watchdog bereit
+            logging.info("Watchdog-Startverzögerung beendet - beginne reguläre Trigger")
+            
+        except Exception as e:
+            logging.error(f"Fehler in Watchdog-Startverzögerung: {e}")
+            return
+        
+        # Reguläre Watchdog-Schleife
         while self.watchdog_running:
             try:
                 with self._lock:
@@ -194,7 +193,9 @@ class ModbusManager:
                     result = self.client.write_register(0x1003, self.watchdog_value)
                     
                     if result.isError():
-                        logging.warning("Watchdog-Trigger fehlgeschlagen")
+                        logging.warning(f"Watchdog-Trigger fehlgeschlagen (Wert: {self.watchdog_value})")
+                    else:
+                        logging.debug(f"Watchdog-Trigger erfolgreich (Wert: {self.watchdog_value})")
                 
                 time.sleep(self.watchdog_interval)
                 
@@ -282,14 +283,14 @@ class ModbusManager:
             logging.error(f"Fehler beim Coils ausschalten: {e}")
     
     def force_reconnect(self):
-        """Erzwinge Neuverbindung (für UI-Button)."""
+        """Erzwinge Neuverbindung (für UI-Button) - OPTIMIERT."""
         logging.info("Erzwinge WAGO Neuverbindung...")
         
         self.disconnect()
         time.sleep(1)
         
         if self.connect():
-            # Watchdog neu starten
+            # Watchdog neu starten (mit Verzögerung)
             self.start_watchdog()
             return True
         return False
@@ -300,6 +301,7 @@ class ModbusManager:
             'connected': self.connected,
             'ip_address': self.ip_address,
             'watchdog_running': self.watchdog_running,
+            'watchdog_initialized': self.watchdog_initialized,  # NEU
             'detection_active': self.detection_active
         }
     

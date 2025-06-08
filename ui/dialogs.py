@@ -112,7 +112,7 @@ class SettingsDialog(QDialog):
         self.parent_app = parent  # Referenz zur Hauptanwendung für Modbus-Funktionen
         self.setWindowTitle("⚙️ Einstellungen")
         self.setModal(True)
-        self.resize(900, 800) 
+        self.resize(800, 800) 
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
         # 20 vordefinierte Farben für Klassen
@@ -975,7 +975,7 @@ class SettingsDialog(QDialog):
         high_value = self.brightness_high_spin.value()
         
         if low_value >= high_value:
-            if self.sender() == self.brightness_low_spin:
+            if self.sender() == self.brightness_low_skip:
                 self.brightness_high_spin.setValue(low_value + 1)
             else:
                 self.brightness_low_spin.setValue(high_value - 1)
@@ -1012,7 +1012,7 @@ class SettingsDialog(QDialog):
             return
         
         class_name = self.class_names.get(selected_id, f"Class {selected_id}")
-        display_text = f"{class_name} (ID: {selected_id})"
+        display_text = f"{class_name} (ID: {class_id})"
         
         # Prüfe ob bereits vorhanden
         for i in range(self.good_part_classes_list.count()):

@@ -9,9 +9,9 @@
   "show_class_names": false,
   "auto_save_snapshots": false,
   "log_level": "INFO",
-  "motion_threshold": 45,
+  "motion_threshold": 15,
   "settling_time": 0.7,
-  "capture_time": 1.0,
+  "capture_time": 1.6,
   "clearing_time": 1.0,
   "brightness_low_threshold": 124,
   "brightness_high_threshold": 140,
@@ -36,5 +36,10 @@
   "modbus_enabled": true,
   "modbus_ip": "192.168.1.100",
   "reject_coil_duration_seconds": 1.5,
-  "camera_config_path": ""
+  "camera_config_path": "",
+  "class_colors": {
+    "0": "#00ff00",
+    "1": "#aa0000",
+    "2": "#f1ffe9"
+  }
 }

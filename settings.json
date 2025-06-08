@@ -9,8 +9,8 @@
   "show_class_names": false,
   "auto_save_snapshots": false,
   "log_level": "INFO",
-  "motion_threshold": 15,
-  "settling_time": 0.7,
+  "motion_threshold": 125,
+  "settling_time": 0.8,
   "capture_time": 1.6,
   "clearing_time": 1.0,
   "brightness_low_threshold": 124,
@@ -41,5 +41,6 @@
     "0": "#ff0000",
     "1": "#ff0000",
     "2": "#0000ff"
-  }
+  },
+  "motion_decay_factor": 0.25
 }

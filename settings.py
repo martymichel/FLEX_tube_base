@@ -91,6 +91,7 @@ class Settings:
             
             # Workflow - Zeiteinstellungen
             'motion_threshold': 110,      # Schwellwert für Bewegungserkennung
+            'motion_decay_factor': 0.1,  # Abklingfaktor für Motion-Anzeige (0.1-0.99)
             'settling_time': 1.0,         # Ausschwingzeit nach Bewegung (Sekunden)
             'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)
             'blow_off_time': 5.0,         # Wartezeit nach Abblasen (Sekunden)

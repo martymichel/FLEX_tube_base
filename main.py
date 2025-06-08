@@ -99,8 +99,8 @@ class DetectionApp(QMainWindow):
         self.no_motion_stable_count = 0
         self.motion_values = []
         self.current_motion_value = 0.0
-        self.motion_decay_factor = 0.85
-        
+        self.motion_decay_factor = self.settings.get('motion_decay_factor', 0.1)        
+
         # Helligkeitsüberwachung
         self.brightness_values = []
         self.low_brightness_start = None
@@ -123,7 +123,7 @@ class DetectionApp(QMainWindow):
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
-        logging.info("KI-Objekterkennungs-Anwendung erfolgreich gestartet")
+        logging.info("DetectionApp erfolgreich gestartet")
     
     def intelligent_modbus_init(self):
         """INTELLIGENTE Modbus-Initialisierung: Erst direkt versuchen, dann Reset-Fallback."""
@@ -319,6 +319,13 @@ class DetectionApp(QMainWindow):
                     new_colors = self.settings.get('class_colors', {})
                     if old_colors != new_colors and new_colors and hasattr(self.detection_engine, 'set_class_colors'):
                         self.detection_engine.set_class_colors_quietly(new_colors)
+
+                    # Motion Decay Factor bei Änderung aktualisieren
+                    old_decay = old_settings.get('motion_decay_factor', 0.1)
+                    new_decay = self.settings.get('motion_decay_factor', 0.1)
+                    if old_decay != new_decay:
+                        self.motion_decay_factor = new_decay
+                        logging.info(f"Motion Decay Factor aktualisiert: {new_decay}")                        
         except:
             pass
     
@@ -412,9 +419,9 @@ class DetectionApp(QMainWindow):
     def init_robust_motion_detection(self):
         """Motion Detection initialisieren."""
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-            detectShadows=False,
-            varThreshold=16,
-            history=500
+            detectShadows=False, # Deaktiviert für bessere Performance
+            varThreshold=32, # Varianz-Schwelle für bessere Erkennung
+            history=200 # History für stabilere Bewegungserkennung
         )
         
         self.motion_history = []
@@ -489,27 +496,35 @@ class DetectionApp(QMainWindow):
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
     
     def update_motion_display_with_decay(self, frame):
-        """Motion-Wert berechnen."""
+        """Motion-Wert berechnen mit drastischem Abfall nach Stillstand."""
         if self.bg_subtractor is None:
             return
-        
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
         fg_mask = self.bg_subtractor.apply(gray)
-        
+
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
-        
-        motion_pixels = cv2.countNonZero(fg_mask)
+
+        # Motion-Berechnung mit Downsampling-Kompensation
+        motion_pixels = cv2.countNonZero(fg_mask) * 16  # Kompensiert 4x4 Downsampling
         current_motion = min(255, motion_pixels / 100)
         
+        # ELEGANTE DECAY-MATHEMATIK: Ein-Schritt Division
         if current_motion < self.current_motion_value:
-            self.current_motion_value = self.current_motion_value * self.motion_decay_factor
-            self.current_motion_value = max(self.current_motion_value, current_motion)
+            decay_power = 1.0 / max(0.001, self.motion_decay_factor)
+            self.current_motion_value = max(self.current_motion_value, current_motion) / decay_power
+            
+            # Intelligenter Threshold für sofortigen Reset
+            if self.current_motion_value < 1.0:
+                self.current_motion_value = 0.0
         else:
+            # Sofortige Aktualisierung bei steigenden Werten
             self.current_motion_value = current_motion
         
+        # UI aktualisieren
         self.ui.update_motion(self.current_motion_value)
     
     def process_industrial_workflow(self, frame):
@@ -530,7 +545,7 @@ class DetectionApp(QMainWindow):
                 self.motion_clear_time = None
                 self.no_motion_stable_count = 0
                 self.ui.show_status("Förderband taktet", "warning")
-                self.ui.update_workflow_status("MOTION")
+                self.ui.update_workflow_status("BEWEGUNG")
                 logging.info("Bewegung erkannt")
         
         # 2. Ausschwingen
@@ -544,7 +559,7 @@ class DetectionApp(QMainWindow):
                     if self.motion_clear_time is None:
                         self.motion_clear_time = current_time
                         self.ui.show_status("Ausschwingzeit läuft...", "warning")
-                        self.ui.update_workflow_status("SETTLING")
+                        self.ui.update_workflow_status("AUSSCHWINGEN")
                         logging.info("Ausschwingzeit startet")
                     
                     elif current_time - self.motion_clear_time >= settling_time:
@@ -554,7 +569,7 @@ class DetectionApp(QMainWindow):
                         self.last_cycle_detections = {}
                         self.cycle_image_count = 0
                         self.ui.show_status("KI-Erkennung aktiv", "success")
-                        self.ui.update_workflow_status("CAPTURING")
+                        self.ui.update_workflow_status("OBJEKTERKENNUNG")
                         logging.info("KI-Erkennung startet")
             else:
                 self.motion_clear_time = None
@@ -584,12 +599,12 @@ class DetectionApp(QMainWindow):
                         self.ui.update_coil_status(reject_active=True, detection_active=True)
                     
                     self.ui.show_status("Schlechte Teile - Abblasen aktiv", "error")
-                    self.ui.update_workflow_status("BLOWING")
+                    self.ui.update_workflow_status("ABBLASEN")
                     logging.info("Schlechte Teile erkannt")
                 else:
                     self.reset_workflow()
                     self.ui.show_status("Prüfung abgeschlossen", "ready")
-                    self.ui.update_workflow_status("READY")
+                    self.ui.update_workflow_status("BEREIT")
                     logging.info("Keine schlechten Teile")
         
         # 4. Abblas-Wartezeit
@@ -602,7 +617,7 @@ class DetectionApp(QMainWindow):
                 
                 self.reset_workflow()
                 self.ui.show_status("Abblasen beendet", "ready")
-                self.ui.update_workflow_status("READY")
+                self.ui.update_workflow_status("BEREIT")
                 logging.info("Abblas-Wartezeit beendet")
     
     def start_red_blink(self):

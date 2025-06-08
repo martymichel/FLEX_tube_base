@@ -2,6 +2,7 @@
 """
 Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT
 MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme
+FIXED: Modbus-Bedingungen implementiert
 """
 
 import sys
@@ -146,11 +147,11 @@ class DetectionApp(QMainWindow):
             is_connected = self.modbus_manager.is_connected()
             
             if was_connected and not is_connected:
-                # Verbindung verloren - EINFACHE Behandlung
-                logging.warning("Modbus-Verbindung verloren - stoppe Detection")
+                # Verbindung verloren - SOFORTIGER STOPP DER DETECTION
+                logging.warning("Modbus-Verbindung verloren - stoppe Detection SOFORT")
                 self.modbus_manager.connected = False
                 
-                # Detection stoppen falls läuft
+                # Detection sofort stoppen falls läuft
                 if self.running:
                     self.stop_detection()
                     self.ui.show_status("Modbus getrennt - Detection gestoppt", "error")
@@ -248,9 +249,12 @@ class DetectionApp(QMainWindow):
                     if self.camera_manager.set_source(last_source):
                         self.ui.update_camera_status(last_source, 'webcam')
             
-            # Status setzen
+            # Status setzen basierend auf Modbus-Verbindung
             if self.detection_engine.model_loaded and self.camera_manager.camera_ready:
-                self.ui.show_status("Bereit - Alle Komponenten geladen", "ready")
+                if self.modbus_manager.connected:
+                    self.ui.show_status("Bereit - Alle Komponenten geladen", "ready")
+                else:
+                    self.ui.show_status("Warte auf Modbus-Verbindung", "warning")
             else:
                 self.ui.show_status("Modell und Kamera auswählen", "warning")
                 
@@ -316,7 +320,7 @@ class DetectionApp(QMainWindow):
             self.stop_detection()
     
     def start_detection(self):
-        """Detection starten."""
+        """Detection starten - NUR WENN MODBUS VERBUNDEN."""
         try:
             if not self.detection_engine.model_loaded:
                 self.ui.show_status("Bitte zuerst ein Modell laden", "error")
@@ -324,6 +328,12 @@ class DetectionApp(QMainWindow):
                 
             if not self.camera_manager.camera_ready:
                 self.ui.show_status("Bitte zuerst Kamera/Video auswählen", "error")
+                return
+            
+            # NEUE BEDINGUNG: Prüfe Modbus-Verbindung
+            if not self.modbus_manager.is_connected():
+                self.ui.show_status("Modbus-Verbindung erforderlich für Detection", "error")
+                logging.warning("Detection-Start verweigert - Modbus nicht verbunden")
                 return
             
             if self.camera_manager.start():

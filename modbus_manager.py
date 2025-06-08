@@ -44,6 +44,26 @@ class ModbusManager:
         
         logging.info(f"ModbusManager initialisiert - IP: {self.ip_address}")
     
+    def is_connected(self):
+        """Prüfe Modbus-Verbindungsstatus mit einfachem Test.
+        
+        Returns:
+            bool: True wenn verbunden und funktionsfähig
+        """
+        if not MODBUS_AVAILABLE:
+            return False
+        
+        if not self.client or not self.connected:
+            return False
+        
+        try:
+            # Einfacher Test: Versuche ein Register zu lesen
+            with self._lock:
+                result = self.client.read_holding_registers(0, 1)
+                return not result.isError()
+        except Exception:
+            return False
+    
     def connect(self):
         """Einfache Verbindung zur WAGO herstellen."""
         if not MODBUS_AVAILABLE:
@@ -60,9 +80,19 @@ class ModbusManager:
                 except:
                     pass
             
-            # Neue Verbindung
+            # Neue Verbindung - OHNE unit Parameter für pymodbus 2.5.3
             self.client = ModbusTcpClient(self.ip_address, port=self.port)
-            self.connected = self.client.connect()
+            connection_result = self.client.connect()
+            
+            if connection_result:
+                # Zusätzlicher Test ob wirklich funktionsfähig
+                try:
+                    test_result = self.client.read_holding_registers(0, 1)
+                    self.connected = not test_result.isError()
+                except:
+                    self.connected = False
+            else:
+                self.connected = False
             
             if self.connected:
                 logging.info("WAGO Modbus-Verbindung erfolgreich")
@@ -73,6 +103,7 @@ class ModbusManager:
             
         except Exception as e:
             logging.error(f"Fehler bei WAGO Verbindung: {e}")
+            self.connected = False
             return False
     
     def startup_reconnect(self):
@@ -101,7 +132,7 @@ class ModbusManager:
         try:
             logging.info("Führe WAGO Controller-Reset durch...")
             
-            # Temporäre Verbindung für Reset
+            # Temporäre Verbindung für Reset - OHNE unit Parameter
             temp_client = ModbusTcpClient(self.ip_address, port=self.port)
             
             if temp_client.connect():
@@ -190,16 +221,20 @@ class ModbusManager:
         while self.watchdog_running:
             try:
                 with self._lock:
-                    self.watchdog_value = (self.watchdog_value + 1) & 0xFFFF
-                    result = self.client.write_register(0x1003, self.watchdog_value)
-                    
-                    if result.isError():
-                        logging.warning("Watchdog-Trigger fehlgeschlagen")
+                    if self.client and self.connected:
+                        self.watchdog_value = (self.watchdog_value + 1) & 0xFFFF
+                        result = self.client.write_register(0x1003, self.watchdog_value)
+                        
+                        if result.isError():
+                            logging.warning("Watchdog-Trigger fehlgeschlagen")
+                            # Verbindungsstatus aktualisieren
+                            self.connected = False
                 
                 time.sleep(self.watchdog_interval)
                 
             except Exception as e:
                 logging.error(f"Watchdog-Fehler: {e}")
+                self.connected = False
                 time.sleep(1.0)
     
     def start_coil_refresh(self):
@@ -214,7 +249,7 @@ class ModbusManager:
     
     def set_coil(self, address, state):
         """SIMPLE Coil setzen."""
-        if not self.connected:
+        if not self.connected or not self.client:
             return False
         
         try:
@@ -225,9 +260,12 @@ class ModbusManager:
                     logging.debug(f"Coil {address} = {state}")
                 else:
                     logging.warning(f"Coil {address} setzen fehlgeschlagen")
+                    # Bei Fehlern Verbindungsstatus prüfen
+                    self.connected = False
                 return success
         except Exception as e:
             logging.error(f"Fehler bei Coil {address}: {e}")
+            self.connected = False
             return False
     
     def set_reject_coil(self):

@@ -34,6 +34,9 @@ class ModbusManager:
         # Coil-Status
         self.detection_active = False
         
+        # Callback für Verbindungsverlust (wird von Main-App gesetzt)
+        self.connection_lost_callback = None
+        
         # Modbus-Parameter aus Settings
         self.ip_address = self.settings.get('modbus_ip', '192.168.1.100')
         self.port = self.settings.get('modbus_port', 502)
@@ -44,6 +47,10 @@ class ModbusManager:
         self.reject_coil_duration = self.settings.get('reject_coil_duration_seconds', 1.0)
         
         logging.info(f"ModbusManager initialisiert - IP: {self.ip_address}")
+    
+    def set_connection_lost_callback(self, callback):
+        """Setze Callback-Funktion für Verbindungsverlust."""
+        self.connection_lost_callback = callback
     
     def is_connected(self):
         """EINFACHE Verbindungsprüfung - nur Status zurückgeben.
@@ -202,9 +209,9 @@ class ModbusManager:
             logging.info("Watchdog gestoppt")
     
     def _watchdog_loop(self):
-        """ROBUSTE Watchdog-Schleife mit Verbindungsüberwachung."""
+        """ROBUSTE Watchdog-Schleife mit sofortigem Callback bei Verbindungsverlust."""
         consecutive_failures = 0
-        max_failures = 3  # Nach 3 aufeinanderfolgenden Fehlern Verbindung als verloren betrachten
+        max_failures = 2  # Nach 2 aufeinanderfolgenden Fehlern Verbindung als verloren betrachten
         
         while self.watchdog_running:
             try:
@@ -220,8 +227,10 @@ class ModbusManager:
                             if consecutive_failures >= max_failures:
                                 logging.error("Modbus-Verbindung verloren - zu viele Watchdog-Fehler")
                                 self.connected = False
-                                # Watchdog beenden da Verbindung verloren
                                 self.watchdog_running = False
+                                # SOFORTIGER CALLBACK AN MAIN-APP
+                                if self.connection_lost_callback:
+                                    self.connection_lost_callback("Watchdog-Fehler")
                                 break
                         else:
                             # Erfolgreicher Watchdog-Trigger - Fehleranzahl zurücksetzen
@@ -236,8 +245,10 @@ class ModbusManager:
                 if consecutive_failures >= max_failures:
                     logging.error("Modbus-Verbindung verloren - zu viele Verbindungsfehler")
                     self.connected = False
-                    # Watchdog beenden da Verbindung verloren
                     self.watchdog_running = False
+                    # SOFORTIGER CALLBACK AN MAIN-APP
+                    if self.connection_lost_callback:
+                        self.connection_lost_callback(f"Watchdog-Exception: {e}")
                     break
                 
                 time.sleep(1.0)
@@ -253,7 +264,7 @@ class ModbusManager:
         pass
     
     def set_coil(self, address, state):
-        """ROBUSTE Coil setzen mit Verbindungsüberwachung."""
+        """ROBUSTE Coil setzen mit sofortigem Callback bei Verbindungsverlust."""
         if not self.connected or not self.client:
             return False
         
@@ -272,6 +283,9 @@ class ModbusManager:
             if "Connection" in str(e) or "timed out" in str(e).lower():
                 logging.error("Modbus-Verbindung verloren - Coil-Kommunikation fehlgeschlagen")
                 self.connected = False
+                # SOFORTIGER CALLBACK AN MAIN-APP
+                if self.connection_lost_callback:
+                    self.connection_lost_callback(f"Coil-Fehler: {e}")
             return False
     
     def set_reject_coil(self):

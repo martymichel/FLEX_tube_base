@@ -123,11 +123,14 @@ class DetectionApp(QMainWindow):
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
-        logging.info("DetectionApp VEREINFACHT gestartet")
+        logging.info("KI-Objekterkennungs-Anwendung erfolgreich gestartet")
     
     def intelligent_modbus_init(self):
         """INTELLIGENTE Modbus-Initialisierung: Erst direkt versuchen, dann Reset-Fallback."""
         try:
+            # Callback für sofortigen Verbindungsverlust setzen
+            self.modbus_manager.set_connection_lost_callback(self.on_modbus_connection_lost)
+            
             if self.modbus_manager.startup_connect_with_reset_fallback():
                 self.modbus_manager.start_watchdog()
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
@@ -138,6 +141,20 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Modbus-Initialisierung fehlgeschlagen: {e}")
             self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+    
+    def on_modbus_connection_lost(self, reason):
+        """SOFORTIGER Callback bei Modbus-Verbindungsverlust."""
+        logging.error(f"MODBUS VERBINDUNG VERLOREN: {reason}")
+        
+        # Detection SOFORT stoppen falls läuft
+        if self.running:
+            self.stop_detection()
+            self.ui.show_status("MODBUS GETRENNT - Detection gestoppt", "error")
+            logging.warning("Detection SOFORT gestoppt aufgrund Modbus-Verlust")
+        
+        # UI sofort aktualisieren
+        self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+        self.ui.update_coil_status(reject_active=False, detection_active=False)
     
     def check_modbus_status(self):
         """VERBESSERTE Modbus-Status-Überprüfung mit sofortigem Detection-Stopp."""

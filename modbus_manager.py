@@ -209,48 +209,66 @@ class ModbusManager:
             logging.info("Watchdog gestoppt")
     
     def _watchdog_loop(self):
-        """ROBUSTE Watchdog-Schleife mit sofortigem Callback bei Verbindungsverlust."""
+        """ROBUSTE Watchdog-Schleife mit Callback bei Verbindungsverlust.
+           Der erste Aufruf ist ein Wecken des Watchdogs,
+           danach wird auf Fehler geachtet und bei zu vielen Fehlern die Verbindung als verloren betrachtet.
+        """
         consecutive_failures = 0
         max_failures = 2  # Nach 2 aufeinanderfolgenden Fehlern Verbindung als verloren betrachten
-        
+        first_call = True  # Flag für ersten Watchdog-Aufruf
+                
         while self.watchdog_running:
             try:
                 with self._lock:
                     if self.client and self.connected:
+                        # Watchdog-Triggern
                         self.watchdog_value = (self.watchdog_value + 1) & 0xFFFF
                         result = self.client.write_register(0x1003, self.watchdog_value)
-                        
+                                                
                         if result.isError():
-                            consecutive_failures += 1
-                            logging.warning(f"Watchdog-Trigger fehlgeschlagen ({consecutive_failures}/{max_failures})")
-                            
-                            if consecutive_failures >= max_failures:
-                                logging.error("Modbus-Verbindung verloren - zu viele Watchdog-Fehler")
-                                self.connected = False
-                                self.watchdog_running = False
-                                # SOFORTIGER CALLBACK AN MAIN-APP
-                                if self.connection_lost_callback:
-                                    self.connection_lost_callback("Watchdog-Fehler")
-                                break
+                            if first_call:
+                                # Erster Aufruf - Fehler ist normal (Watchdog aufwecken)
+                                logging.info("Watchdog aufgeweckt (erster Aufruf)")
+                                first_call = False
+                            else:
+                                # Ab zweitem Aufruf - Fehler zählen
+                                consecutive_failures += 1
+                                logging.warning(f"Watchdog-Trigger fehlgeschlagen ({consecutive_failures}/{max_failures})")
+                                                    
+                                if consecutive_failures >= max_failures:
+                                    logging.error("Modbus-Verbindung verloren - zu viele Watchdog-Fehler")
+                                    self.connected = False
+                                    self.watchdog_running = False
+                                    # SOFORTIGER CALLBACK AN MAIN-APP
+                                    if self.connection_lost_callback:
+                                        self.connection_lost_callback("Watchdog-Fehler")
+                                    break
                         else:
-                            # Erfolgreicher Watchdog-Trigger - Fehleranzahl zuruecksetzen
-                            consecutive_failures = 0
-                
+                            # Erfolgreicher Watchdog-Trigger
+                            first_call = False  # Nicht mehr erster Aufruf
+                            consecutive_failures = 0  # Fehleranzahl zurücksetzen
+                                                
                 time.sleep(self.watchdog_interval)
-                
+                            
             except Exception as e:
-                consecutive_failures += 1
-                logging.error(f"Watchdog-Fehler: {e} ({consecutive_failures}/{max_failures})")
-                
-                if consecutive_failures >= max_failures:
-                    logging.error("Modbus-Verbindung verloren - zu viele Verbindungsfehler")
-                    self.connected = False
-                    self.watchdog_running = False
-                    # SOFORTIGER CALLBACK AN MAIN-APP
-                    if self.connection_lost_callback:
-                        self.connection_lost_callback(f"Watchdog-Exception: {e}")
-                    break
-                
+                if first_call:
+                    # Erster Aufruf - Exception ist normal
+                    logging.info(f"Watchdog aufgeweckt mit Exception (erster Aufruf): {e}")
+                    first_call = False
+                else:
+                    # Ab zweitem Aufruf - Exception zählen
+                    consecutive_failures += 1
+                    logging.error(f"Watchdog-Fehler: {e} ({consecutive_failures}/{max_failures})")
+                                
+                    if consecutive_failures >= max_failures:
+                        logging.error("Modbus-Verbindung verloren - zu viele Verbindungsfehler")
+                        self.connected = False
+                        self.watchdog_running = False
+                        # SOFORTIGER CALLBACK AN MAIN-APP
+                        if self.connection_lost_callback:
+                            self.connection_lost_callback(f"Watchdog-Exception: {e}")
+                        break
+                                
                 time.sleep(1.0)
     
     def start_coil_refresh(self):

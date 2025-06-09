@@ -70,8 +70,8 @@ class DetectionEngine:
                 self.class_names = {i: f"class_{i}" for i in range(80)}
             
             self.model_loaded = True
-            logging.info(f"Modell geladen: {model_path}")
-            logging.info(f"Klassen: {list(self.class_names.values())}")
+            logging.info(f"KI-Modell geladen: {model_path}")
+            logging.info(f"Klassen im KI-Modell: {list(self.class_names.values())}")
             
             return True
             
@@ -80,7 +80,7 @@ class DetectionEngine:
             return False
     
     def set_class_colors(self, class_colors_dict):
-        """Setze benutzerdefinierte Farben fuer Klassen.
+        """Setze benutzerdefinierte Farben fuer Objekt-Klassen.
         
         Args:
             class_colors_dict (dict): Dictionary mit {class_id: color_hex_string}

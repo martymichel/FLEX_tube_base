@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""
-Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT
-MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme
-FIXED: Modbus-Bedingungen implementiert
-"""
+""" Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme FIXED: Modbus-Bedingungen implementiert ERWEITERT: Parquet-basiertes Event-Logging """
 
 import sys
 import os
@@ -17,13 +13,15 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 
 # Eigene Module
 from detection_engine import DetectionEngine
-from camera_manager import CameraManager  
+from camera_manager import CameraManager
+
 from camera_config_manager import CameraConfigManager
 from settings import Settings
 from ui.main_ui import MainUI
 from user_manager import UserManager
 from modbus_manager import ModbusManager
 from image_saver import ImageSaver
+from detection_logger import DetectionLogger
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -36,8 +34,10 @@ logging.basicConfig(
 )
 
 class DetectionApp(QMainWindow):
-    """Hauptanwendung - VEREINFACHT ohne komplexe Threading-Probleme."""
-    
+    """
+    Hauptanwendung - VEREINFACHT ohne komplexe Threading-Probleme.
+    """
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("KI-Objekterkennung - VEREINFACHT")
@@ -57,6 +57,9 @@ class DetectionApp(QMainWindow):
         
         # Image-Saver
         self.image_saver = ImageSaver(self.settings)
+        
+        # NEUER Parquet Detection Logger
+        self.detection_logger = DetectionLogger(self.settings)
         
         # UI aufbauen
         self.ui = MainUI(self)
@@ -123,8 +126,15 @@ class DetectionApp(QMainWindow):
         # Auto-Loading beim Start
         self.auto_load_on_startup()
         
+        # Log Application Start
+        self.detection_logger.log_system_event('START', 'INFO', 'DetectionApp erfolgreich gestartet', {
+            'model_loaded': self.detection_engine.model_loaded,
+            'camera_ready': self.camera_manager.camera_ready,
+            'modbus_connected': self.modbus_manager.connected
+        })
+        
         logging.info("DetectionApp erfolgreich gestartet")
-    
+
     def intelligent_modbus_init(self):
         """INTELLIGENTE Modbus-Initialisierung: Erst direkt versuchen, dann Reset-Fallback."""
         try:
@@ -134,17 +144,47 @@ class DetectionApp(QMainWindow):
             if self.modbus_manager.startup_connect_with_reset_fallback():
                 self.modbus_manager.start_watchdog()
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
+                
+                # Log Modbus Connection Success
+                self.detection_logger.log_modbus_event('CONNECTION_ESTABLISHED', 'SUCCESS', 
+                    'WAGO Modbus erfolgreich initialisiert', {
+                        'ip_address': self.modbus_manager.ip_address,
+                        'port': self.modbus_manager.port
+                    })
+                
                 logging.info("WAGO Modbus erfolgreich initialisiert")
             else:
                 self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
+                
+                # Log Modbus Connection Failure
+                self.detection_logger.log_modbus_event('CONNECTION_FAILED', 'ERROR', 
+                    'WAGO Modbus Verbindung endgültig fehlgeschlagen', {
+                        'ip_address': self.modbus_manager.ip_address,
+                        'port': self.modbus_manager.port
+                    })
+                
                 logging.warning("WAGO Modbus Verbindung endgültig fehlgeschlagen")
         except Exception as e:
             logging.error(f"Modbus-Initialisierung fehlgeschlagen: {e}")
             self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
-    
+            
+            # Log Modbus Initialization Error
+            self.detection_logger.log_modbus_event('INITIALIZATION_ERROR', 'ERROR', 
+                f'Modbus-Initialisierung fehlgeschlagen: {e}', {
+                    'ip_address': self.modbus_manager.ip_address,
+                    'error': str(e)
+                })
+
     def on_modbus_connection_lost(self, reason):
         """SOFORTIGER Callback bei Modbus-Verbindungsverlust."""
         logging.error(f"MODBUS VERBINDUNG VERLOREN: {reason}")
+        
+        # Log Modbus Connection Lost
+        self.detection_logger.log_modbus_event('CONNECTION_LOST', 'ERROR', 
+            f'MODBUS VERBINDUNG VERLOREN: {reason}', {
+                'reason': reason,
+                'detection_was_running': self.running
+            })
         
         # Detection SOFORT stoppen falls läuft
         if self.running:
@@ -155,7 +195,7 @@ class DetectionApp(QMainWindow):
         # UI sofort aktualisieren
         self.ui.update_modbus_status(False, self.modbus_manager.ip_address)
         self.ui.update_coil_status(reject_active=False, detection_active=False)
-    
+
     def check_modbus_status(self):
         """VERBESSERTE Modbus-Status-Überprüfung mit sofortigem Detection-Stopp."""
         try:
@@ -167,6 +207,12 @@ class DetectionApp(QMainWindow):
                 # Verbindung verloren - SOFORTIGER STOPP DER DETECTION
                 logging.error("Modbus-Verbindung verloren - stoppe Detection SOFORT")
                 self.modbus_manager.connected = False
+                
+                # Log Modbus Connection Lost in Status Check
+                self.detection_logger.log_modbus_event('CONNECTION_LOST_STATUS_CHECK', 'ERROR', 
+                    'Modbus-Verbindung im Status-Check verloren', {
+                        'detection_was_running': self.running
+                    })
                 
                 # Detection sofort stoppen falls läuft
                 if self.running:
@@ -185,6 +231,12 @@ class DetectionApp(QMainWindow):
                 self.ui.update_modbus_status(True, self.modbus_manager.ip_address)
                 self.ui.show_status("Modbus wiederhergestellt", "success")
                 
+                # Log Modbus Connection Restored
+                self.detection_logger.log_modbus_event('CONNECTION_RESTORED', 'SUCCESS', 
+                    'Modbus-Verbindung wiederhergestellt', {
+                        'ip_address': self.modbus_manager.ip_address
+                    })
+                
             # Update UI Status
             self.ui.update_modbus_status(is_connected, self.modbus_manager.ip_address)
             
@@ -193,9 +245,17 @@ class DetectionApp(QMainWindow):
             # Bei kritischen Fehlern im Status-Check auch Detection stoppen
             if self.running and ("Connection" in str(e) or "timed out" in str(e).lower()):
                 logging.error("Kritischer Modbus-Fehler - stoppe Detection")
+                
+                # Log Critical Modbus Error
+                self.detection_logger.log_modbus_event('CRITICAL_ERROR', 'ERROR', 
+                    f'Kritischer Modbus-Fehler: {e}', {
+                        'error': str(e),
+                        'detection_stopped': True
+                    })
+                
                 self.stop_detection()
                 self.ui.show_status("Modbus-Fehler - Detection gestoppt", "error")
-    
+
     def setup_exit_shortcuts(self):
         """ESC-Taste für schnelles Beenden."""
         self.esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
@@ -205,7 +265,7 @@ class DetectionApp(QMainWindow):
         self.quit_shortcut.activated.connect(self.quit_application)
         
         logging.info("Exit shortcuts eingerichtet: ESC und Ctrl+Q")
-    
+
     def quit_application(self):
         """Anwendung schnell beenden."""
         logging.info("Schnelles Beenden eingeleitet...")
@@ -233,13 +293,17 @@ class DetectionApp(QMainWindow):
             # Einstellungen speichern
             self.settings.save()
             
+            # Detection Logger schließen
+            if hasattr(self, 'detection_logger'):
+                self.detection_logger.close()
+            
             logging.info("Anwendung wird beendet")
             QApplication.quit()
             
         except Exception as e:
             logging.error(f"Fehler beim Beenden: {e}")
             sys.exit(0)
-    
+
     def auto_load_on_startup(self):
         """Auto-Loading beim Start."""
         try:
@@ -253,6 +317,14 @@ class DetectionApp(QMainWindow):
                         self.detection_engine.set_class_colors(class_colors)
                     
                     self.ui.update_model_status(last_model)
+                    
+                    # Log Model Auto-Loading
+                    self.detection_logger.log_system_event('MODEL_AUTO_LOADED', 'SUCCESS', 
+                        f'Modell automatisch geladen: {os.path.basename(last_model)}', {
+                            'model_path': last_model,
+                            'class_names': list(self.detection_engine.class_names.values())
+                        })
+                    
                     logging.info(f"Auto-loaded model: {last_model}")
             
             # Kamera-Konfiguration laden
@@ -284,7 +356,7 @@ class DetectionApp(QMainWindow):
                 
         except Exception as e:
             logging.error(f"Fehler beim Auto-Loading: {e}")
-    
+
     def setup_connections(self):
         """Signale verbinden."""
         self.ui.start_btn.clicked.connect(self.toggle_detection)
@@ -295,7 +367,7 @@ class DetectionApp(QMainWindow):
         self.ui.login_status_btn.clicked.connect(self.toggle_login)
         self.ui.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
         self.ui.quit_btn.clicked.connect(self.quit_application)
-    
+
     def check_settings_changes(self):
         """Einstellungsänderungen prüfen - OPTIMIERT: Weniger Logging."""
         try:
@@ -328,7 +400,7 @@ class DetectionApp(QMainWindow):
                         logging.info(f"Motion Decay Factor aktualisiert: {new_decay}")                        
         except:
             pass
-    
+
     def toggle_login(self):
         """Login/Logout umschalten."""
         if self.user_manager.is_admin():
@@ -341,18 +413,18 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Angemeldet als Admin", "success")
             else:
                 self.ui.show_status("Falsches Passwort", "error")
-    
+
     def toggle_sidebar(self):
         """Sidebar umschalten."""
         self.ui.toggle_sidebar()
-    
+
     def toggle_detection(self):
         """Detection starten/stoppen."""
         if not self.running:
             self.start_detection()
         else:
             self.stop_detection()
-    
+
     def start_detection(self):
         """Detection starten - NUR WENN MODBUS VERBUNDEN."""
         try:
@@ -368,6 +440,14 @@ class DetectionApp(QMainWindow):
             if not self.modbus_manager.is_connected():
                 self.ui.show_status("Modbus-Verbindung erforderlich für Detection", "error")
                 logging.warning("Detection-Start verweigert - Modbus nicht verbunden")
+                
+                # Log Detection Start Denied
+                self.detection_logger.log_system_event('DETECTION_START_DENIED', 'WARNING', 
+                    'Detection-Start verweigert - Modbus nicht verbunden', {
+                        'modbus_connected': False,
+                        'model_loaded': self.detection_engine.model_loaded,
+                        'camera_ready': self.camera_manager.camera_ready
+                    })
                 return
             
             if self.camera_manager.start():
@@ -403,13 +483,35 @@ class DetectionApp(QMainWindow):
                 
                 self.ui.show_status("Detection läuft", "success")
                 self.ui.update_workflow_status("BEREIT")
+                
+                # Log Detection Started
+                self.detection_logger.log_system_event('DETECTION_STARTED', 'SUCCESS', 
+                    'Detection erfolgreich gestartet', {
+                        'modbus_connected': self.modbus_manager.connected,
+                        'camera_source': self.camera_manager.source_info,
+                        'camera_type': self.camera_manager.source_type
+                    })
+                
                 logging.info("Detection gestartet")
             else:
                 self.ui.show_status("Fehler beim Starten der Kamera", "error")
                 
+                # Log Camera Start Error
+                self.detection_logger.log_system_event('CAMERA_START_ERROR', 'ERROR', 
+                    'Fehler beim Starten der Kamera', {
+                        'camera_source': self.camera_manager.source_info,
+                        'camera_type': self.camera_manager.source_type
+                    })
+                
         except Exception as e:
             logging.error(f"Fehler beim Starten: {e}")
             self.ui.show_status(f"Fehler: {e}", "error")
+            
+            # Log Detection Start Error
+            self.detection_logger.log_system_event('DETECTION_START_ERROR', 'ERROR', 
+                f'Fehler beim Starten der Detection: {e}', {
+                    'error': str(e)
+                })
 
     def stop_detection(self):
         """Detection stoppen."""
@@ -449,8 +551,14 @@ class DetectionApp(QMainWindow):
         self.ui.update_workflow_status("BEREIT")
         self.reset_workflow()
         
+        # Log Detection Stopped
+        self.detection_logger.log_system_event('DETECTION_STOPPED', 'INFO', 
+            'Detection gestoppt', {
+                'modbus_connected': self.modbus_manager.connected
+            })
+        
         logging.info("Detection gestoppt")
-    
+
     def init_robust_motion_detection(self):
         """Motion Detection initialisieren."""
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
@@ -476,7 +584,7 @@ class DetectionApp(QMainWindow):
         self.high_brightness_start = None
         
         logging.info("Motion Detection initialisiert")
-    
+
     def reset_workflow(self):
         """Workflow zurücksetzen."""
         self.motion_detected = False
@@ -488,7 +596,7 @@ class DetectionApp(QMainWindow):
         self.blow_off_start_time = None
         self.motion_stable_count = 0
         self.no_motion_stable_count = 0
-    
+
     def process_frame(self):
         """Frame verarbeiten."""
         try:
@@ -529,7 +637,7 @@ class DetectionApp(QMainWindow):
                 
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
-    
+
     def update_motion_display_with_decay(self, frame):
         """Motion-Wert berechnen mit drastischem Abfall nach Stillstand."""
         if self.bg_subtractor is None:
@@ -561,7 +669,7 @@ class DetectionApp(QMainWindow):
         
         # UI aktualisieren
         self.ui.update_motion(self.current_motion_value)
-    
+
     def process_industrial_workflow(self, frame):
         """Industrieller Workflow."""
         current_time = time.time()
@@ -654,7 +762,7 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Abblasen beendet", "ready")
                 self.ui.update_workflow_status("BEREIT")
                 logging.info("Abblas-Wartezeit beendet")
-    
+
     def start_red_blink(self):
         """Rotes Blinken für 1 Sekunde starten - DELEGIERT AN UI."""
         try:
@@ -663,7 +771,7 @@ class DetectionApp(QMainWindow):
             
         except Exception as e:
             logging.error(f"Fehler beim roten Blinken: {e}")
-    
+
     def detect_robust_motion(self, frame):
         """Robuste Bewegungserkennung."""
         if self.bg_subtractor is None:
@@ -693,7 +801,7 @@ class DetectionApp(QMainWindow):
             self.motion_stable_count = 0
         
         return self.motion_stable_count >= 3
-    
+
     def update_cycle_statistics_extended(self, detections):
         """Statistiken für aktuellen Zyklus."""
         for detection in detections:
@@ -720,12 +828,14 @@ class DetectionApp(QMainWindow):
             
             confidences = stats['confidences']
             stats['avg_confidence'] = sum(confidences) / len(confidences)
-    
+
     def evaluate_detection_results(self):
         """Erkennungsergebnisse auswerten."""
         bad_part_classes = self.settings.get('bad_part_classes', [])
         red_threshold = self.settings.get('red_threshold', 1)
         min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
+        
+        bad_parts_found = False
         
         for class_name, stats in self.last_cycle_detections.items():
             class_id = stats.get('class_id', 0)
@@ -736,10 +846,22 @@ class DetectionApp(QMainWindow):
                 total_detections >= red_threshold and 
                 max_conf >= min_confidence):
                 logging.info(f"Schlechtes Teil: {class_name}")
-                return True
+                bad_parts_found = True
         
-        return False
-    
+        # Log Detection Cycle Result
+        self.detection_logger.log_detection_cycle(
+            bad_parts_detected=bad_parts_found,
+            cycle_detections=self.last_cycle_detections,
+            cycle_stats={
+                'cycle_image_count': self.cycle_image_count,
+                'red_threshold': red_threshold,
+                'min_confidence': min_confidence,
+                'bad_part_classes': bad_part_classes
+            }
+        )
+        
+        return bad_parts_found
+
     def save_detection_result_image(self, frame, bad_parts_detected):
         """Bild speichern."""
         try:
@@ -749,7 +871,7 @@ class DetectionApp(QMainWindow):
                 self.image_saver.save_good_image(frame, self.last_cycle_detections)
         except Exception as e:
             logging.error(f"Fehler beim Speichern: {e}")
-    
+
     def check_brightness_with_auto_stop(self, frame):
         """Helligkeitsüberwachung."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -775,6 +897,17 @@ class DetectionApp(QMainWindow):
                     self.stop_detection()
                     self.brightness_auto_stop_active = True
                     self.ui.show_status(f"Zu dunkel: {avg_brightness:.1f}", "error")
+                    
+                    # Log Brightness Auto-Stop (Low)
+                    self.detection_logger.log_brightness_event(
+                        auto_stop_triggered=True,
+                        brightness_value=avg_brightness,
+                        threshold_info={
+                            'reason': 'too_low',
+                            'threshold': low_threshold,
+                            'duration_threshold': duration_threshold
+                        }
+                    )
                 return
         else:
             self.low_brightness_start = None
@@ -787,13 +920,24 @@ class DetectionApp(QMainWindow):
                     self.stop_detection()
                     self.brightness_auto_stop_active = True
                     self.ui.show_status(f"Zu hell: {avg_brightness:.1f}", "error")
+                    
+                    # Log Brightness Auto-Stop (High)
+                    self.detection_logger.log_brightness_event(
+                        auto_stop_triggered=True,
+                        brightness_value=avg_brightness,
+                        threshold_info={
+                            'reason': 'too_high',
+                            'threshold': high_threshold,
+                            'duration_threshold': duration_threshold
+                        }
+                    )
                 return
         else:
             self.high_brightness_start = None
         
         self.ui.hide_brightness_warning()
         self.ui.update_brightness(avg_brightness)
-    
+
     def load_model(self):
         """Modell laden."""
         if not self.user_manager.can_change_model():
@@ -812,9 +956,22 @@ class DetectionApp(QMainWindow):
                 self.ui.update_model_status(model_path)
                 self.settings.set('last_model', model_path)
                 self.settings.save()
+                
+                # Log Model Loaded
+                self.detection_logger.log_system_event('MODEL_LOADED', 'SUCCESS', 
+                    f'Modell manuell geladen: {os.path.basename(model_path)}', {
+                        'model_path': model_path,
+                        'class_names': list(self.detection_engine.class_names.values())
+                    })
             else:
                 self.ui.show_status("Fehler beim Laden", "error")
-    
+                
+                # Log Model Load Error
+                self.detection_logger.log_system_event('MODEL_LOAD_ERROR', 'ERROR', 
+                    f'Fehler beim Laden des Modells: {model_path}', {
+                        'model_path': model_path
+                    })
+
     def select_camera(self):
         """Kamera auswählen."""
         if not self.user_manager.can_change_camera():
@@ -836,7 +993,7 @@ class DetectionApp(QMainWindow):
                 self.settings.save()
             else:
                 self.ui.show_status("Fehler bei Auswahl", "error")
-    
+
     def open_settings(self):
         """Einstellungen öffnen."""
         if not self.user_manager.can_access_settings():
@@ -844,7 +1001,7 @@ class DetectionApp(QMainWindow):
             return
             
         self.ui.open_settings_dialog(self.settings)
-    
+
     def take_snapshot(self):
         """Schnappschuss."""
         frame = self.camera_manager.get_frame()
@@ -854,7 +1011,7 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Schnappschuss gespeichert", "success")
             else:
                 self.ui.show_status("Fehler beim Speichern", "error")
-    
+
     def closeEvent(self, event):
         """Sauberes Herunterfahren."""
         self.quit_application()

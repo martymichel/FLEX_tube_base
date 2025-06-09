@@ -1,6 +1,6 @@
 """
 IDS Peak Kamera-Konfigurationsmanager
-Lädt und wendet TOML-Konfigurationsdateien für IDS Peak Kameras an
+Laedt und wendet TOML-Konfigurationsdateien fuer IDS Peak Kameras an
 """
 
 import logging
@@ -12,7 +12,7 @@ try:
     TOMLI_AVAILABLE = True
 except ImportError:
     TOMLI_AVAILABLE = False
-    logging.warning("tomli nicht verfügbar - TOML-Konfigurationsdateien können nicht geladen werden")
+    logging.warning("tomli nicht verfuegbar - TOML-Konfigurationsdateien koennen nicht geladen werden")
 
 class CameraConfigManager:
     """
@@ -39,7 +39,7 @@ class CameraConfigManager:
             bool: True if successful, False otherwise
         """
         if not TOMLI_AVAILABLE:
-            logging.error("tomli nicht verfügbar - kann TOML-Datei nicht laden")
+            logging.error("tomli nicht verfuegbar - kann TOML-Datei nicht laden")
             return False
             
         try:
@@ -56,7 +56,7 @@ class CameraConfigManager:
             
             # Verify that this is an IDS Peak config file
             if self.config_data.get('type') != 'ImgProc':
-                logging.warning(f"Die geladene TOML-Datei ist möglicherweise keine gültige IDS Peak Konfiguration: {toml_path}")
+                logging.warning(f"Die geladene TOML-Datei ist moeglicherweise keine gueltige IDS Peak Konfiguration: {toml_path}")
                 
             return True
             
@@ -81,7 +81,7 @@ class CameraConfigManager:
             bool: True if successful, False otherwise
         """
         if not self.is_loaded or not self.config_data or not remote_device_nodemap:
-            logging.debug("Keine Konfiguration geladen oder kein Nodemap verfügbar")
+            logging.debug("Keine Konfiguration geladen oder kein Nodemap verfuegbar")
             return False
             
         try:

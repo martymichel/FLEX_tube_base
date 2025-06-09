@@ -1,7 +1,7 @@
 """
-WAGO Modbus Manager - SIMPLE und zuverlässig
-Verwaltet Watchdog und Coil-Ausgänge für die KI-Objekterkennung
-ROBUST: Basierend auf bewährter alter Version mit intelligenter Startup-Logik
+WAGO Modbus Manager - SIMPLE und zuverlaessig
+Verwaltet Watchdog und Coil-Ausgaenge fuer die KI-Objekterkennung
+ROBUST: Basierend auf bewaehrter alter Version mit intelligenter Startup-Logik
 """
 
 import time
@@ -13,7 +13,7 @@ try:
     MODBUS_AVAILABLE = True
 except ImportError:
     MODBUS_AVAILABLE = False
-    logging.warning("pymodbus nicht verfügbar - Modbus-Funktionen deaktiviert")
+    logging.warning("pymodbus nicht verfuegbar - Modbus-Funktionen deaktiviert")
 
 class ModbusManager:
     """SIMPLE WAGO Modbus-Manager mit Watchdog und Coil-Steuerung."""
@@ -23,7 +23,7 @@ class ModbusManager:
         self.client = None
         self.connected = False
         
-        # Thread-Lock für sichere Zugriffe
+        # Thread-Lock fuer sichere Zugriffe
         self._lock = threading.Lock()
         
         # Simple Watchdog
@@ -34,7 +34,7 @@ class ModbusManager:
         # Coil-Status
         self.detection_active = False
         
-        # Callback für Verbindungsverlust (wird von Main-App gesetzt)
+        # Callback fuer Verbindungsverlust (wird von Main-App gesetzt)
         self.connection_lost_callback = None
         
         # Modbus-Parameter aus Settings
@@ -49,11 +49,11 @@ class ModbusManager:
         logging.info(f"ModbusManager initialisiert - IP: {self.ip_address}")
     
     def set_connection_lost_callback(self, callback):
-        """Setze Callback-Funktion für Verbindungsverlust."""
+        """Setze Callback-Funktion fuer Verbindungsverlust."""
         self.connection_lost_callback = callback
     
     def is_connected(self):
-        """EINFACHE Verbindungsprüfung - nur Status zurückgeben.
+        """EINFACHE Verbindungspruefung - nur Status zurueckgeben.
         
         Returns:
             bool: True wenn verbunden (basiert auf letztem connect() Ergebnis)
@@ -63,20 +63,20 @@ class ModbusManager:
     def connect(self):
         """ROBUSTE Verbindung zur WAGO herstellen (wie alte Version)."""
         if not MODBUS_AVAILABLE:
-            logging.warning("pymodbus nicht verfügbar")
+            logging.warning("pymodbus nicht verfuegbar")
             return False
         
         try:
             logging.info(f"Verbinde zu WAGO {self.ip_address}:{self.port}")
             
-            # Alte Verbindung schließen
+            # Alte Verbindung schliessen
             if self.client:
                 try:
                     self.client.close()
                 except:
                     pass
             
-            # Neue Verbindung - OHNE unit Parameter für pymodbus 2.5.3
+            # Neue Verbindung - OHNE unit Parameter fuer pymodbus 2.5.3
             self.client = ModbusTcpClient(self.ip_address, port=self.port)
             self.connected = self.client.connect()
             
@@ -101,8 +101,8 @@ class ModbusManager:
             logging.info("WAGO direkte Verbindung bei Start erfolgreich")
             return True
         
-        # Schritt 2: Direkte Verbindung fehlgeschlagen - Controller-Reset durchführen
-        logging.warning("Direkte Verbindung fehlgeschlagen - führe Controller-Reset durch...")
+        # Schritt 2: Direkte Verbindung fehlgeschlagen - Controller-Reset durchfuehren
+        logging.warning("Direkte Verbindung fehlgeschlagen - fuehre Controller-Reset durch...")
         
         if self.restart_controller():
             logging.info("Controller-Reset erfolgreich - warte 4 Sekunden...")
@@ -122,17 +122,17 @@ class ModbusManager:
     def restart_controller(self):
         """SIMPLE Controller-Reset des WAGO 750-362."""
         try:
-            logging.info("Führe WAGO Controller-Reset durch...")
+            logging.info("Fuehre WAGO Controller-Reset durch...")
             
-            # Temporäre Verbindung für Reset - OHNE unit Parameter
+            # Temporaere Verbindung fuer Reset - OHNE unit Parameter
             temp_client = ModbusTcpClient(self.ip_address, port=self.port)
             
             if temp_client.connect():
                 try:
                     result = temp_client.write_register(0x2040, 0xAA55)
-                    # Warten 1 Sekunde für den Reset
+                    # Warten 1 Sekunde fuer den Reset
                     time.sleep(1)
-                    # Prüfen, ob der Befehl erfolgreich war
+                    # Pruefen, ob der Befehl erfolgreich war
                     success = not result.isError()
                     if success:
                         logging.info("Controller-Reset-Befehl gesendet (0x2040 = 0xAA55)")
@@ -142,7 +142,7 @@ class ModbusManager:
                 finally:
                     temp_client.close()
             else:
-                logging.warning("Keine temporäre Verbindung für Reset möglich")
+                logging.warning("Keine temporaere Verbindung fuer Reset moeglich")
                 return False
                 
         except Exception as e:
@@ -159,7 +159,7 @@ class ModbusManager:
         # Alle Coils ausschalten
         self.set_all_coils_off()
         
-        # Verbindung schließen
+        # Verbindung schliessen
         if self.client and self.connected:
             try:
                 time.sleep(0.1)  # Letzte Befehle abwarten
@@ -233,7 +233,7 @@ class ModbusManager:
                                     self.connection_lost_callback("Watchdog-Fehler")
                                 break
                         else:
-                            # Erfolgreicher Watchdog-Trigger - Fehleranzahl zurücksetzen
+                            # Erfolgreicher Watchdog-Trigger - Fehleranzahl zuruecksetzen
                             consecutive_failures = 0
                 
                 time.sleep(self.watchdog_interval)
@@ -254,7 +254,7 @@ class ModbusManager:
                 time.sleep(1.0)
     
     def start_coil_refresh(self):
-        """SIMPLE Coil-Refresh für Detection-Active."""
+        """SIMPLE Coil-Refresh fuer Detection-Active."""
         # In SIMPLE Version: Kein extra Thread, wird bei Bedarf aufgefrischt
         logging.debug("Coil-Refresh im SIMPLE Modus (bei Bedarf)")
         return True
@@ -289,7 +289,7 @@ class ModbusManager:
             return False
     
     def set_reject_coil(self):
-        """Ausschuss-Signal für definierte Zeit."""
+        """Ausschuss-Signal fuer definierte Zeit."""
         if not self.connected:
             return False
         
@@ -298,7 +298,7 @@ class ModbusManager:
             if self.set_coil(self.reject_coil_address, True):
                 logging.info(f"Ausschuss-Signal EIN (Coil {self.reject_coil_address})")
                 
-                # Timer für automatisches Ausschalten
+                # Timer fuer automatisches Ausschalten
                 def turn_off():
                     self.set_coil(self.reject_coil_address, False)
                     logging.info(f"Ausschuss-Signal AUS (Coil {self.reject_coil_address})")
@@ -340,7 +340,7 @@ class ModbusManager:
             logging.error(f"Fehler beim Coils ausschalten: {e}")
     
     def force_reconnect(self):
-        """Erzwinge Neuverbindung (für UI-Button)."""
+        """Erzwinge Neuverbindung (fuer UI-Button)."""
         logging.info("Erzwinge WAGO Neuverbindung...")
         
         self.disconnect()
@@ -376,7 +376,7 @@ class ModbusManager:
         
         # Neuverbindung bei IP/Port-Änderung
         if old_ip != self.ip_address or old_port != self.port:
-            logging.info("WAGO Parameter geändert - Neuverbindung erforderlich")
+            logging.info("WAGO Parameter geaendert - Neuverbindung erforderlich")
             return True
         
         return False

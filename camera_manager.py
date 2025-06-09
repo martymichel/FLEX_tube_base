@@ -1,5 +1,5 @@
 """
-Kamera-Manager - einfach und zuverlässig
+Kamera-Manager - einfach und zuverlaessig
 Verwaltet Kamera-/Video-Eingabe mit Zeitstempel-Support und IDS Peak Konfiguration
 """
 
@@ -15,7 +15,7 @@ try:
     IDS_AVAILABLE = True
 except ImportError:
     IDS_AVAILABLE = False
-    logging.warning("IDS Peak nicht verfügbar - nur Standard-Kameras")
+    logging.warning("IDS Peak nicht verfuegbar - nur Standard-Kameras")
 
 class CameraManager:
     """Einfacher Kamera-Manager mit Zeitstempel-Support und IDS Peak Konfiguration."""
@@ -68,7 +68,7 @@ class CameraManager:
             elif isinstance(source, tuple) and source[0] == 'ids':
                 # IDS Kamera
                 if not IDS_AVAILABLE:
-                    logging.error("IDS Peak nicht verfügbar")
+                    logging.error("IDS Peak nicht verfuegbar")
                     return False
                 self.source_type = 'ids'
                 self.source_info = source[1]
@@ -125,10 +125,10 @@ class CameraManager:
         """Standard-Webcam starten."""
         self.camera = cv2.VideoCapture(self.source_info)
         if not self.camera.isOpened():
-            logging.error(f"Webcam {self.source_info} konnte nicht geöffnet werden")
+            logging.error(f"Webcam {self.source_info} konnte nicht geoeffnet werden")
             return False
         
-        # Auflösung setzen
+        # Aufloesung setzen
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         
@@ -139,7 +139,7 @@ class CameraManager:
         """Video-Datei starten."""
         self.camera = cv2.VideoCapture(self.source_info)
         if not self.camera.isOpened():
-            logging.error(f"Video {self.source_info} konnte nicht geöffnet werden")
+            logging.error(f"Video {self.source_info} konnte nicht geoeffnet werden")
             return False
         
         logging.info(f"Video {self.source_info} gestartet")
@@ -158,25 +158,25 @@ class CameraManager:
             device_manager = ids_peak.DeviceManager.Instance()
             device_manager.Update()
             
-            # Verfügbare Geräte
+            # Verfuegbare Geraete
             devices = device_manager.Devices()
             if self.source_info >= len(devices):
                 logging.error(f"IDS Kamera {self.source_info} nicht gefunden")
                 return False
             
-            # Gerät öffnen
+            # Geraet oeffnen
             device_descriptor = devices[self.source_info]
             self.ids_device = device_descriptor.OpenDevice(ids_peak.DeviceAccessType.Control)
             
             # Datastream einrichten
             datastreams = self.ids_device.DataStreams()
             if not datastreams:
-                logging.error("Keine IDS Datastreams verfügbar")
+                logging.error("Keine IDS Datastreams verfuegbar")
                 return False
                 
             self.ids_datastream = datastreams[0].OpenDataStream()
             
-            # Kamera-Konfiguration anwenden (falls verfügbar)
+            # Kamera-Konfiguration anwenden (falls verfuegbar)
             if self.camera_config_manager and self.camera_config_manager.is_loaded:
                 try:
                     remote_device_nodemap = self.ids_device.RemoteDevice().NodeMaps()[0]
@@ -225,7 +225,7 @@ class CameraManager:
             self.current_frame = frame
             return frame
             
-        # Bei Video: Loop zurück zum Anfang
+        # Bei Video: Loop zurueck zum Anfang
         if self.source_type == 'video':
             self.camera.set(cv2.CAP_PROP_POS_FRAMES, 0)
             ret, frame = self.camera.read()
@@ -319,10 +319,10 @@ class CameraManager:
             return None
     
     def get_available_cameras(self):
-        """Verfügbare Kameras finden.
+        """Verfuegbare Kameras finden.
         
         Returns:
-            list: Liste verfügbarer Kameras [(type, index, name), ...]
+            list: Liste verfuegbarer Kameras [(type, index, name), ...]
         """
         cameras = []
         

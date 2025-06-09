@@ -1,7 +1,7 @@
 """
 KI-Erkennungsmodul - einfach und robust
-Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Statistiken und Farbunterstützung
-ERWEITERT: Verwendung von benutzerdefinierten Farben für Bounding Boxes
+Verwaltet das YOLO-Modell und die Objekterkennung mit erweiterten Statistiken und Farbunterstuetzung
+ERWEITERT: Verwendung von benutzerdefinierten Farben fuer Bounding Boxes
 """
 
 import cv2
@@ -15,7 +15,7 @@ try:
     YOLO_AVAILABLE = True
 except ImportError:
     YOLO_AVAILABLE = False
-    logging.warning("ultralytics nicht verfügbar - KI-Erkennung deaktiviert")
+    logging.warning("ultralytics nicht verfuegbar - KI-Erkennung deaktiviert")
 
 class DetectionEngine:
     """Einfache KI-Erkennungsengine mit erweiterten Statistiken und benutzerdefinierten Farben."""
@@ -28,7 +28,7 @@ class DetectionEngine:
         
         # Standard-Farben (falls keine benutzerdefinierten Farben gesetzt sind)
         self.default_colors = [
-            (0, 255, 0),    # Grün
+            (0, 255, 0),    # Gruen
             (255, 0, 0),    # Rot  
             (0, 0, 255),    # Blau
             (255, 255, 0),  # Cyan
@@ -52,7 +52,7 @@ class DetectionEngine:
         """
         try:
             if not YOLO_AVAILABLE:
-                logging.error("ultralytics nicht verfügbar")
+                logging.error("ultralytics nicht verfuegbar")
                 return False
                 
             if not Path(model_path).exists():
@@ -66,7 +66,7 @@ class DetectionEngine:
             if hasattr(self.model, 'names'):
                 self.class_names = self.model.names
             else:
-                # Fallback für ältere Versionen
+                # Fallback fuer aeltere Versionen
                 self.class_names = {i: f"class_{i}" for i in range(80)}
             
             self.model_loaded = True
@@ -80,7 +80,7 @@ class DetectionEngine:
             return False
     
     def set_class_colors(self, class_colors_dict):
-        """Setze benutzerdefinierte Farben für Klassen.
+        """Setze benutzerdefinierte Farben fuer Klassen.
         
         Args:
             class_colors_dict (dict): Dictionary mit {class_id: color_hex_string}
@@ -102,12 +102,12 @@ class DetectionEngine:
                 self.custom_colors[int(class_id)] = bgr_color
                 
             except Exception as e:
-                logging.warning(f"Ungültige Farbe für Klasse {class_id}: {color_hex} - {e}")
+                logging.warning(f"Ungueltige Farbe fuer Klasse {class_id}: {color_hex} - {e}")
         
-        logging.info(f"Benutzerdefinierte Farben für {len(self.custom_colors)} Klassen gesetzt")
+        logging.info(f"Benutzerdefinierte Farben fuer {len(self.custom_colors)} Klassen gesetzt")
     
     def set_class_colors_quietly(self, class_colors_dict):
-        """Setze benutzerdefinierte Farben für Klassen OHNE Logging (für regelmäßige Updates).
+        """Setze benutzerdefinierte Farben fuer Klassen OHNE Logging (fuer regelmaessige Updates).
         
         Args:
             class_colors_dict (dict): Dictionary mit {class_id: color_hex_string}
@@ -133,15 +133,15 @@ class DetectionEngine:
                 pass
     
     def get_color_for_class(self, class_id):
-        """Hole Farbe für eine bestimmte Klasse.
+        """Hole Farbe fuer eine bestimmte Klasse.
         
         Args:
             class_id (int): Klassen-ID
             
         Returns:
-            tuple: BGR-Farbtupel für OpenCV
+            tuple: BGR-Farbtupel fuer OpenCV
         """
-        # Prüfe ob benutzerdefinierte Farbe vorhanden
+        # Pruefe ob benutzerdefinierte Farbe vorhanden
         if class_id in self.custom_colors:
             return self.custom_colors[class_id]
         
@@ -149,7 +149,7 @@ class DetectionEngine:
         return self.default_colors[class_id % len(self.default_colors)]
     
     def detect(self, frame):
-        """Objekterkennung durchführen.
+        """Objekterkennung durchfuehren.
         
         Args:
             frame: OpenCV-Frame (numpy array)
@@ -161,7 +161,7 @@ class DetectionEngine:
             return []
         
         try:
-            # Erkennung durchführen
+            # Erkennung durchfuehren
             results = self.model(frame, verbose=False)
             
             detections = []
@@ -214,7 +214,7 @@ class DetectionEngine:
         for detection in detections:
             x1, y1, x2, y2, confidence, class_id = detection
             
-            # Benutzerdefinierte oder Standard-Farbe wählen
+            # Benutzerdefinierte oder Standard-Farbe waehlen
             color = self.get_color_for_class(class_id)
             
             # Bounding Box zeichnen
@@ -235,7 +235,7 @@ class DetectionEngine:
         return annotated
     
     def get_class_names(self):
-        """Klassennamen zurückgeben.
+        """Klassennamen zurueckgeben.
         
         Returns:
             dict: {class_id: class_name}
@@ -288,13 +288,13 @@ class DetectionEngine:
         return summary
     
     def analyze_detection_quality(self, detections):
-        """Qualitätsanalyse der Erkennungen (erweiterte Funktion).
+        """Qualitaetsanalyse der Erkennungen (erweiterte Funktion).
         
         Args:
             detections: Liste der Erkennungen
             
         Returns:
-            dict: Qualitätsmetriken
+            dict: Qualitaetsmetriken
         """
         if not detections:
             return {
@@ -309,7 +309,7 @@ class DetectionEngine:
         avg_confidence = sum(confidences) / total_detections
         high_confidence_count = len([c for c in confidences if c > 0.8])
         
-        # Qualitäts-Score basierend auf Konfidenz und Anzahl
+        # Qualitaets-Score basierend auf Konfidenz und Anzahl
         quality_score = (avg_confidence * 0.7) + (high_confidence_count / total_detections * 0.3)
         
         return {

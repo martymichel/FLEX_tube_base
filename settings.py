@@ -1,6 +1,6 @@
 """
-Einstellungs-Manager - einfach und zuverlässig
-Verwaltet alle Anwendungseinstellungen für industrllen Workflow mit Auto-Loading, Modbus und Bilderspeicherung
+Einstellungs-Manager - einfach und zuverlaessig
+Verwaltet alle Anwendungseinstellungen fuer industrllen Workflow mit Auto-Loading, Modbus und Bilderspeicherung
 """
 
 import json
@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 
 class Settings:
-    """Einfache Einstellungsverwaltung für Workflow mit Auto-Loading, Modbus und Bilderspeicherung."""
+    """Einfache Einstellungsverwaltung fuer Workflow mit Auto-Loading, Modbus und Bilderspeicherung."""
     
     def __init__(self, filename="settings.json"):
         self.filename = Path(filename)
@@ -21,7 +21,7 @@ class Settings:
             if self.filename.exists():
                 with open(self.filename, 'r', encoding='utf-8') as f:
                     self.data = json.load(f)
-                logging.info(f"Einstellungen geladen: {len(self.data)} Einträge")
+                logging.info(f"Einstellungen geladen: {len(self.data)} Eintraege")
             else:
                 logging.info("Keine Einstellungsdatei gefunden, verwende Standardwerte")
                 self.data = self.get_defaults()
@@ -30,7 +30,7 @@ class Settings:
             self.data = self.get_defaults()
     
     def load_quietly(self):
-        """Einstellungen aus Datei laden OHNE Logging (für regelmäßige Checks)."""
+        """Einstellungen aus Datei laden OHNE Logging (fuer regelmaessige Checks)."""
         try:
             if self.filename.exists():
                 with open(self.filename, 'r', encoding='utf-8') as f:
@@ -55,7 +55,7 @@ class Settings:
         """Einstellungswert abrufen.
         
         Args:
-            key (str): Schlüssel
+            key (str): Schluessel
             default: Standardwert falls nicht vorhanden
             
         Returns:
@@ -67,14 +67,14 @@ class Settings:
         """Einstellungswert setzen.
         
         Args:
-            key (str): Schlüssel
+            key (str): Schluessel
             value: Wert
         """
         self.data[key] = value
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
     
     def get_defaults(self):
-        """Standardeinstellungen für Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
+        """Standardeinstellungen fuer Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
         
         Returns:
             dict: Standardeinstellungen
@@ -90,24 +90,24 @@ class Settings:
             'camera_config_path': '',            # Pfad zur IDS Peak Kamera-Konfigurationsdatei
             
             # Workflow - Zeiteinstellungen
-            'motion_threshold': 110,      # Schwellwert für Bewegungserkennung
-            'motion_decay_factor': 0.1,  # Abklingfaktor für Motion-Anzeige (0.1-0.99)
+            'motion_threshold': 110,      # Schwellwert fuer Bewegungserkennung
+            'motion_decay_factor': 0.1,  # Abklingfaktor fuer Motion-Anzeige (0.1-0.99)
             'settling_time': 1.0,         # Ausschwingzeit nach Bewegung (Sekunden)
             'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)
             'blow_off_time': 5.0,         # Wartezeit nach Abblasen (Sekunden)
             
             # Schlecht-Teil Erkennung
             'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
-            'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile
+            'bad_part_min_confidence': 0.5, # Mindest-Konfidenz fuer Schlecht-Teile
             
             # Gut-Teil Erkennung
             'good_part_classes': [0],     # Klassen-IDs die als "gut" gelten
             
             # Rahmen-Schwellenwerte
-            'red_threshold': 1,           # Mindestanzahl für roten Rahmen (schlechte Teile)
-            'green_threshold': 4,         # Mindestanzahl für grünen Rahmen (gute Teile)
+            'red_threshold': 1,           # Mindestanzahl fuer roten Rahmen (schlechte Teile)
+            'green_threshold': 4,         # Mindestanzahl fuer gruenen Rahmen (gute Teile)
             
-            # Helligkeitsüberwachung
+            # Helligkeitsueberwachung
             'brightness_low_threshold': 30,      # Untere Helligkeitsschwelle
             'brightness_high_threshold': 220,    # Obere Helligkeitsschwelle
             'brightness_duration_threshold': 3.0, # Warndauer in Sekunden
@@ -118,15 +118,15 @@ class Settings:
             'modbus_port': 502,                           # Modbus-TCP Port
             'watchdog_timeout_seconds': 5,                # Watchdog-Timeout in Sekunden
             'watchdog_interval_seconds': 2,               # Watchdog-Trigger-Intervall
-            'reject_coil_address': 0,                     # Coil-Adresse für Ausschuss-Signal
-            'detection_active_coil_address': 1,           # Coil-Adresse für Detection-Active
+            'reject_coil_address': 0,                     # Coil-Adresse fuer Ausschuss-Signal
+            'detection_active_coil_address': 1,           # Coil-Adresse fuer Detection-Active
             'reject_coil_duration_seconds': 1.0,          # Dauer des Ausschuss-Signals
             
             # BILDERSPEICHERUNG-Einstellungen
             'save_bad_images': False,                     # Schlechtbilder speichern
             'save_good_images': False,                    # Gutbilder speichern
-            'bad_images_directory': 'bad_images',         # Verzeichnis für Schlechtbilder
-            'good_images_directory': 'good_images',       # Verzeichnis für Gutbilder
+            'bad_images_directory': 'bad_images',         # Verzeichnis fuer Schlechtbilder
+            'good_images_directory': 'good_images',       # Verzeichnis fuer Gutbilder
             'max_image_files': 100000,                    # Maximale Dateien pro Verzeichnis
             
             # UI-Einstellungen
@@ -149,6 +149,6 @@ class Settings:
         logging.info(f"{len(new_settings)} Einstellungen aktualisiert")
     
     def reset_to_defaults(self):
-        """Alle Einstellungen auf Standardwerte zurücksetzen."""
+        """Alle Einstellungen auf Standardwerte zuruecksetzen."""
         self.data = self.get_defaults()
-        logging.info("Einstellungen auf Standardwerte zurückgesetzt")
+        logging.info("Einstellungen auf Standardwerte zurueckgesetzt")

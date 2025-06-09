@@ -1,5 +1,5 @@
 """
-Hauptbenutzeroberfläche - FINALE Version mit einheitlichen Status-Proportionen und rotem Blinken
+Hauptbenutzeroberflaeche - FINALE Version mit einheitlichen Status-Proportionen und rotem Blinken
 Angepasst: Status-Titel ohne farbige Boxen, 1/3 zu 2/3 Proportionen, rotes Blinken bei Schlechtteilen
 """
 
@@ -19,7 +19,7 @@ import logging
 from .dialogs import CameraSelectionDialog, SettingsDialog
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberfläche mit einheitlichen Status-Proportionen und rotem Blinken."""
+    """Hauptbenutzeroberflaeche mit einheitlichen Status-Proportionen und rotem Blinken."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -32,7 +32,7 @@ class MainUI(QWidget):
         self.session_bad_parts = 0
         self.session_total_cycles = 0
         
-        # Rotes Blinken - Timer für Animation
+        # Rotes Blinken - Timer fuer Animation
         self.flash_timer = QTimer()
         self.flash_timer.timeout.connect(self._flash_step)
         self.flash_count = 0
@@ -40,7 +40,7 @@ class MainUI(QWidget):
         
         self.setup_ui()
         
-        # User Manager Signale verbinden für Auto-Updates
+        # User Manager Signale verbinden fuer Auto-Updates
         if hasattr(self.app, 'user_manager'):
             self.app.user_manager.user_status_changed.connect(self.on_user_status_changed)
     
@@ -49,7 +49,7 @@ class MainUI(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Splitter für Sidebar und Hauptbereich
+        # Splitter fuer Sidebar und Hauptbereich
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         layout.addWidget(self.splitter)
         
@@ -59,11 +59,11 @@ class MainUI(QWidget):
         # Hauptbereich erstellen
         main_area = self.create_main_area()
         
-        # Zu Splitter hinzufügen
+        # Zu Splitter hinzufuegen
         self.splitter.addWidget(sidebar)
         self.splitter.addWidget(main_area)
         
-        # Größenverhältnis setzen
+        # Groessenverhaeltnis setzen
         self.splitter.setSizes([350, 1000])
     
     def create_sidebar(self):
@@ -128,13 +128,13 @@ class MainUI(QWidget):
         # 6. Status Grenzwerte + WAGO Modbus
         self._create_united_status_section(layout)
         
-        # Stretch für Platz
+        # Stretch fuer Platz
         layout.addStretch()
         
         # 7. ESC Hinweis ganz unten
         self._create_esc_hint(layout)
         
-        # Content direkt zu Sidebar hinzufügen - KEIN ScrollArea
+        # Content direkt zu Sidebar hinzufuegen - KEIN ScrollArea
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.addWidget(sidebar_content)
@@ -196,7 +196,7 @@ class MainUI(QWidget):
                 background-color: #2980b9;
             }
         """)
-        self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
+        self.login_status_btn.setToolTip("Klicken fuer Admin-Login/Logout")
         layout.addWidget(self.login_status_btn)
 
     def _set_flash_red(self):
@@ -250,7 +250,7 @@ class MainUI(QWidget):
         """)
 
     def _reset_flash_colors(self):
-        """Setze normale Farben zurück."""
+        """Setze normale Farben zurueck."""
         # Main Area normal
         self.main_area_frame.setStyleSheet("""
             QFrame {
@@ -304,7 +304,7 @@ class MainUI(QWidget):
         
     def _create_camera_status_section(self, layout):
         """Kamera-Video Status-Button."""
-        self.camera_btn = QPushButton("Modus wählen")
+        self.camera_btn = QPushButton("Modus waehlen")
         self.camera_btn.setMinimumHeight(45)
         self.camera_btn.setStyleSheet("""
             QPushButton {
@@ -331,7 +331,7 @@ class MainUI(QWidget):
                 border-color: #95a5a6;
             }
         """)
-        self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
+        self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
         layout.addWidget(self.camera_btn)
 
     def _create_actions_section(self, layout):
@@ -465,7 +465,7 @@ class MainUI(QWidget):
         status_layout.addLayout(brightness_layout)
         
         # Helligkeitswarnung
-        self.brightness_warning = QLabel("Beleuchtung prüfen!")
+        self.brightness_warning = QLabel("Beleuchtung pruefen!")
         self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.brightness_warning.setStyleSheet("""
             background-color: #e74c3c;
@@ -522,7 +522,7 @@ class MainUI(QWidget):
         coils_label.setStyleSheet("color: white; background: transparent;")  # Kein farbiger Hintergrund
         coils_layout.addWidget(coils_label, 1)  # 1/3 Proportion
         
-        # Coil-Container für 2/3 Bereich
+        # Coil-Container fuer 2/3 Bereich
         coil_container = QWidget()
         coil_container_layout = QHBoxLayout(coil_container)
         coil_container_layout.setContentsMargins(0, 0, 0, 0)
@@ -547,7 +547,7 @@ class MainUI(QWidget):
         # Detection Active Coil
         self.detection_coil_indicator = QLabel("P")
         # Infotext bei Hover
-        self.detection_coil_indicator.setToolTip("-Prüfung AKTIV Ausgang EIN-")
+        self.detection_coil_indicator.setToolTip("-Pruefung AKTIV Ausgang EIN-")
         self.detection_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.detection_coil_indicator.setFixedSize(22, 22)
         self.detection_coil_indicator.setStyleSheet("""
@@ -560,7 +560,7 @@ class MainUI(QWidget):
         self.detection_coil_indicator.setToolTip("Detection Active Modbus Ausgang")
         coil_container_layout.addWidget(self.detection_coil_indicator)
         
-        coil_container_layout.addStretch()  # Füllt verbleibenden Platz
+        coil_container_layout.addStretch()  # Fuellt verbleibenden Platz
         coils_layout.addWidget(coil_container, 2)  # 2/3 Proportion
         status_layout.addLayout(coils_layout)
         
@@ -604,7 +604,7 @@ class MainUI(QWidget):
         layout.addWidget(esc_hint)
     
     def on_user_status_changed(self, new_status):
-        """Callback für User-Status-Änderungen."""
+        """Callback fuer User-Status-Änderungen."""
         self.update_user_interface()
         if new_status == "Operator":
             self.app.ui.show_status("Automatischer Logout - Operator-Modus", "warning")
@@ -612,7 +612,7 @@ class MainUI(QWidget):
     def create_main_area(self):
         """Hauptbereich mit optimiertem Header-Layout erstellen."""
         main_area = QFrame()
-        # Standard-Styling für Main Area
+        # Standard-Styling fuer Main Area
         self.default_main_area_style = """
             QFrame {
                 background-color: #ecf0f1;
@@ -624,11 +624,11 @@ class MainUI(QWidget):
         layout = QVBoxLayout(main_area)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Header mit: [Menü-Button] [⚙️ Einstellungen] [Status] [Counter]
+        # Header mit: [Menue-Button] [⚙️ Einstellungen] [Status] [Counter]
         header_layout = QHBoxLayout()
         header_layout.setSpacing(20)
         
-        # 1. Sidebar Toggle Button (höher wie Status/Counter)
+        # 1. Sidebar Toggle Button (hoeher wie Status/Counter)
         self.sidebar_toggle_btn = QToolButton()
         self.sidebar_toggle_btn.setText("≡")
         self.sidebar_toggle_btn.setStyleSheet("""
@@ -648,7 +648,7 @@ class MainUI(QWidget):
         """)
         header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # 2. Einstellungen-Button (höher wie Status/Counter)
+        # 2. Einstellungen-Button (hoeher wie Status/Counter)
         self.settings_btn = QPushButton("⚙️")
         self.settings_btn.setStyleSheet("""
             QPushButton {
@@ -687,7 +687,7 @@ class MainUI(QWidget):
                 border-radius: 8px;
             }
         """)
-        header_layout.addWidget(self.status_label, 1)  # Stretch factor 1 für die Mitte
+        header_layout.addWidget(self.status_label, 1)  # Stretch factor 1 fuer die Mitte
         
         # 4. KOMPAKTER COUNTER (rechts oben)
         self._create_compact_counter_section(header_layout)
@@ -706,10 +706,10 @@ class MainUI(QWidget):
                 font-size: 18px;
             }
         """)
-        self.video_label.setText("Kein Stream verfügbar")
+        self.video_label.setText("Kein Stream verfuegbar")
         layout.addWidget(self.video_label, 1)
         
-        # Referenz für das Main Area Frame speichern (für Blinken)
+        # Referenz fuer das Main Area Frame speichern (fuer Blinken)
         self.main_area_frame = main_area
         
         return main_area
@@ -740,12 +740,12 @@ class MainUI(QWidget):
         shadow.setOffset(0, 2)
         self.counter_frame.setGraphicsEffect(shadow)
 
-        # Hauptlayout ohne Ränder, Platz zwischen Sektionen
+        # Hauptlayout ohne Raender, Platz zwischen Sektionen
         counter_layout = QHBoxLayout(self.counter_frame)
         counter_layout.setContentsMargins(0, 0, 0, 0)
         counter_layout.setSpacing(30)
 
-        # Monospace-Font für Zahlen
+        # Monospace-Font fuer Zahlen
         counter_font = QFont("Consolas", 28, QFont.Weight.Bold)
         if not counter_font.exactMatch():
             counter_font = QFont("Courier New", 28, QFont.Weight.Bold)
@@ -776,7 +776,7 @@ class MainUI(QWidget):
             lbl_percent.setStyleSheet(f"color: {color};")
             lbl_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            # Widgets hinzufügen mit minimalem Abstand
+            # Widgets hinzufuegen mit minimalem Abstand
             vbox.addWidget(lbl_title)
             vbox.addWidget(lbl_count)
             vbox.addWidget(lbl_percent)
@@ -790,7 +790,7 @@ class MainUI(QWidget):
         # Nicht OK
         _add_spaced_section("Nicht OK", "bad_parts_counter", "bad_parts_percent", "#ff7e70")
 
-        # Reset-Button nur für Admin
+        # Reset-Button nur fuer Admin
         self.reset_counter_btn = QPushButton("Reset")
         self.reset_counter_btn.setStyleSheet("""
             QPushButton {
@@ -818,7 +818,7 @@ class MainUI(QWidget):
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
 
     def update_counters_with_formatting(self, good_count, bad_count, total_count):
-        """Counter mit Formatierung für große Zahlen aktualisieren."""
+        """Counter mit Formatierung fuer grosse Zahlen aktualisieren."""
         # Zahlenformatierung mit Tausendertrennzeichen (optional)
         self.good_parts_counter.setText(f"{good_count:,}")
         self.bad_parts_counter.setText(f"{bad_count:,}")
@@ -843,7 +843,7 @@ class MainUI(QWidget):
         self.is_flashing = True
         self.flash_count = 0
         
-        # Timer für 100ms Intervalle (10 Blinks in 1 Sekunde)
+        # Timer fuer 100ms Intervalle (10 Blinks in 1 Sekunde)
         self.flash_timer.start(100)
     
     def _flash_step(self):
@@ -854,7 +854,7 @@ class MainUI(QWidget):
             self.is_flashing = False
             self.flash_count = 0
             
-            # Zurück zu normalen Farben
+            # Zurueck zu normalen Farben
             self._reset_flash_colors()
             return
         
@@ -934,17 +934,17 @@ class MainUI(QWidget):
     
     # Standard UI-Update-Methoden
     def reset_session_counter(self):
-        """Session-Counter zurücksetzen - NEU: NUR FÜR ADMIN."""
-        # Prüfe Admin-Rechte
+        """Session-Counter zuruecksetzen - NEU: NUR FÜR ADMIN."""
+        # Pruefe Admin-Rechte
         if not self.app.user_manager.can_reset_counter():
-            self.show_status("Admin-Rechte erforderlich für Counter-Reset", "error")
+            self.show_status("Admin-Rechte erforderlich fuer Counter-Reset", "error")
             return
         
-        # Bestätigung anfordern
+        # Bestaetigung anfordern
         reply = QMessageBox.question(
             self,
-            "Counter zurücksetzen",
-            "Session-Counter auf Null zurücksetzen?",
+            "Counter zuruecksetzen",
+            "Session-Counter auf Null zuruecksetzen?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
@@ -953,8 +953,8 @@ class MainUI(QWidget):
             self.session_bad_parts = 0
             self.session_total_cycles = 0
             self.update_counter_display()
-            self.show_status("Session-Counter zurückgesetzt", "info")
-            logging.info("Session-Counter von Admin zurückgesetzt")
+            self.show_status("Session-Counter zurueckgesetzt", "info")
+            logging.info("Session-Counter von Admin zurueckgesetzt")
     
     def update_counter_display(self):
         """Counter-Anzeige aktualisieren - ERWEITERT mit Prozentangaben."""
@@ -979,7 +979,7 @@ class MainUI(QWidget):
         
         if bad_parts_detected:
             self.session_bad_parts += 1
-            # Update Coil-Status für visuelles Feedback
+            # Update Coil-Status fuer visuelles Feedback
             self.update_coil_status(reject_active=True, detection_active=True)
             
             # NEU: Rotes Blinken bei Schlecht-Teil-Erkennung
@@ -1010,7 +1010,7 @@ class MainUI(QWidget):
         self.login_status_btn.setText(user_level)
         
         if self.app.user_manager.is_admin():
-            # Admin-Style: Grün
+            # Admin-Style: Gruen
             self.login_status_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #27ae60;
@@ -1030,7 +1030,7 @@ class MainUI(QWidget):
                     background-color: #229954;
                 }
             """)
-            self.login_status_btn.setToolTip("Admin eingeloggt - Klicken für Logout")
+            self.login_status_btn.setToolTip("Admin eingeloggt - Klicken fuer Logout")
         else:
             # Operator-Style: Grau
             self.login_status_btn.setStyleSheet("""
@@ -1052,7 +1052,7 @@ class MainUI(QWidget):
                     background-color: #2980b9;
                 }
             """)
-            self.login_status_btn.setToolTip("Operator-Modus - Klicken für Admin-Login")
+            self.login_status_btn.setToolTip("Operator-Modus - Klicken fuer Admin-Login")
         
         # Buttons aktivieren/deaktivieren
         can_admin = self.app.user_manager.is_admin()
@@ -1060,7 +1060,7 @@ class MainUI(QWidget):
         self.camera_btn.setEnabled(can_admin)
         self.settings_btn.setEnabled(can_admin)  # NEU: Einstellungen-Button im Header
         
-        # Reset-Button für Counter - NEU: NUR FÜR ADMIN
+        # Reset-Button fuer Counter - NEU: NUR FÜR ADMIN
         self.reset_counter_btn.setEnabled(can_admin)
     
     def update_workflow_status(self, status):
@@ -1150,7 +1150,7 @@ class MainUI(QWidget):
     
     def update_last_cycle_stats(self, last_cycle_stats):
         """Letzte Erkennungen aktualisieren - ERWEITERT: Mit Img und Anz-Spalten."""
-        # Detaillierte Tabelle für LETZTEN Zyklus aktualisieren - ERWEITERT
+        # Detaillierte Tabelle fuer LETZTEN Zyklus aktualisieren - ERWEITERT
         self.last_cycle_table.setRowCount(len(last_cycle_stats))
         
         for row, (class_name, stats) in enumerate(last_cycle_stats.items()):
@@ -1201,7 +1201,7 @@ class MainUI(QWidget):
             qt_image = QImage(rgb_frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
             pixmap = QPixmap.fromImage(qt_image)
             
-            # Skalieren für Video-Label
+            # Skalieren fuer Video-Label
             scaled_pixmap = pixmap.scaled(
                 self.video_label.size(),
                 Qt.AspectRatioMode.KeepAspectRatio,
@@ -1215,7 +1215,7 @@ class MainUI(QWidget):
     
     # STATUS-BUTTON UPDATE-METHODEN (NEU: ANGEPASST AUF BLAU)
     def update_model_status(self, model_path):
-        """Model-Status-Button aktualisieren - BLAU statt Grün."""
+        """Model-Status-Button aktualisieren - BLAU statt Gruen."""
         if model_path and os.path.exists(model_path):
             model_name = os.path.basename(model_path)
             self.model_btn.setText(f"Modell: {model_name}")
@@ -1243,7 +1243,7 @@ class MainUI(QWidget):
                     border-color: #95a5a6;
                 }
             """)
-            self.model_btn.setToolTip(f"Modell geladen: {model_name}\nKlicken um zu ändern")
+            self.model_btn.setToolTip(f"Modell geladen: {model_name}\nKlicken um zu aendern")
         else:
             self.model_btn.setText("Kein Modell geladen")
             self.model_btn.setStyleSheet("""
@@ -1274,7 +1274,7 @@ class MainUI(QWidget):
             self.model_btn.setToolTip("Klicken um Modell zu laden")
     
     def update_camera_status(self, source_info, source_type):
-        """Camera-Status-Button aktualisieren - BLAU statt Grün."""
+        """Camera-Status-Button aktualisieren - BLAU statt Gruen."""
         if source_info is not None:
             if source_type == 'webcam':
                 display_text = f"Webcam: {source_info}"
@@ -1312,9 +1312,9 @@ class MainUI(QWidget):
                     border-color: #95a5a6;
                 }
             """)
-            self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu ändern")
+            self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu aendern")
         else:
-            self.camera_btn.setText("Modus wählen")
+            self.camera_btn.setText("Modus waehlen")
             self.camera_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #34495e;
@@ -1340,16 +1340,16 @@ class MainUI(QWidget):
                     border-color: #95a5a6;
                 }
             """)
-            self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
+            self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
     
     # Dialog-Handler
     def select_model_file(self):
-        """Modell-Datei auswählen Dialog."""
+        """Modell-Datei auswaehlen Dialog."""
         from PyQt6.QtWidgets import QFileDialog
         
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "KI-Modell auswählen",
+            "KI-Modell auswaehlen",
             "",
             "PyTorch Modelle (*.pt);;Alle Dateien (*)"
         )
@@ -1360,7 +1360,7 @@ class MainUI(QWidget):
         return file_path
     
     def select_camera_source(self):
-        """Kamera/Video-Quelle auswählen Dialog."""
+        """Kamera/Video-Quelle auswaehlen Dialog."""
         dialog = CameraSelectionDialog(self.app.camera_manager, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             source = dialog.get_selected_source()
@@ -1378,7 +1378,7 @@ class MainUI(QWidget):
         return None
     
     def open_settings_dialog(self, settings):
-        """Einstellungen-Dialog öffnen - ANGEPASST: Mit class_names."""
+        """Einstellungen-Dialog oeffnen - ANGEPASST: Mit class_names."""
         # Hole die aktuellen Klassennamen vom detection_engine
         class_names = {}
         if hasattr(self.app, 'detection_engine') and hasattr(self.app.detection_engine, 'class_names'):
@@ -1386,10 +1386,10 @@ class MainUI(QWidget):
         
         dialog = SettingsDialog(settings, class_names, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            # Warnung wenn Erkennung läuft
+            # Warnung wenn Erkennung laeuft
             if self.app.running:
                 QMessageBox.information(
                     self,
-                    "Einstellungen geändert",
+                    "Einstellungen geaendert",
                     "Einstellungen wurden gespeichert.\n\nBitte stoppen Sie die Erkennung und starten Sie sie neu, damit die Änderungen wirksam werden."
                 )

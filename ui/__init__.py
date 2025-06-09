@@ -1,6 +1,6 @@
 """
-UI-Package - Modulare Benutzeroberfläche
-Importiert alle UI-Komponenten für einfache Verwendung
+UI-Package - Modulare Benutzeroberflaeche
+Importiert alle UI-Komponenten fuer einfache Verwendung
 """
 
 from .main_ui import MainUI

@@ -1,6 +1,6 @@
 """
 Spezielle UI-Widgets und wiederverwendbare Komponenten
-Hier können zukünftige spezielle Widgets hinzugefügt werden
+Hier koennen zukuenftige spezielle Widgets hinzugefuegt werden
 """
 
 from PyQt6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout
@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 class StatusIndicator(QWidget):
-    """Status-Indikator Widget für verschiedene Zustände."""
+    """Status-Indikator Widget fuer verschiedene Zustaende."""
     
     def __init__(self, title="Status", parent=None):
         super().__init__(parent)
@@ -54,7 +54,7 @@ class StatusIndicator(QWidget):
         """)
 
 class CounterWidget(QWidget):
-    """Counter-Widget für Session-Statistiken."""
+    """Counter-Widget fuer Session-Statistiken."""
     
     def __init__(self, label="", initial_value=0, color="#ecf0f1", parent=None):
         super().__init__(parent)
@@ -87,17 +87,17 @@ class CounterWidget(QWidget):
         self.value_label.setText(str(value))
     
     def increment(self):
-        """Wert um 1 erhöhen."""
+        """Wert um 1 erhoehen."""
         self.value += 1
         self.value_label.setText(str(self.value))
     
     def reset(self):
-        """Wert zurücksetzen."""
+        """Wert zuruecksetzen."""
         self.value = 0
         self.value_label.setText(str(self.value))
 
 class ProgressIndicator(QWidget):
-    """Fortschritts-Indikator für zeitliche Prozesse."""
+    """Fortschritts-Indikator fuer zeitliche Prozesse."""
     
     def __init__(self, title="Progress", max_time=5.0, parent=None):
         super().__init__(parent)
@@ -146,7 +146,7 @@ class ProgressIndicator(QWidget):
         elif progress_percent < 80:
             color = "#f39c12"  # Orange
         else:
-            color = "#27ae60"  # Grün
+            color = "#27ae60"  # Gruen
         
         # Balken-Styling basierend auf Fortschritt
         self.progress_label.setStyleSheet(f"""
@@ -160,6 +160,6 @@ class ProgressIndicator(QWidget):
         self.time_label.setText(f"{self.current_time:.1f} / {self.max_time:.1f}s")
     
     def reset(self):
-        """Fortschritt zurücksetzen."""
+        """Fortschritt zuruecksetzen."""
         self.current_time = 0.0
         self.update_progress(0.0)

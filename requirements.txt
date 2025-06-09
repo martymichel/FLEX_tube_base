@@ -15,8 +15,8 @@ pymodbus==2.5.3
 tomli>=2.2.1
 
 # Optionale Pakete (je nach Verwendung)
-# ids-peak  # Für IDS Kameras (falls verfügbar)
-pillow>=9.0.0  # Für erweiterte Bildverarbeitung
+# ids-peak  # Fuer IDS Kameras (falls verfuegbar)
+pillow>=9.0.0  # Fuer erweiterte Bildverarbeitung
 pyarrow>=14.0.1
 pandas>=2.0.0
 pymodbus-asyncio>=2.5.3

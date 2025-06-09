@@ -11,7 +11,7 @@ from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 class UserManager(QObject):
     """Einfache Benutzerverwaltung mit Auto-Logout."""
     
-    # Signal für UI-Updates bei Status-Änderungen
+    # Signal fuer UI-Updates bei Status-Änderungen
     user_status_changed = pyqtSignal(str)  # Sendet neuen Status: "Operator" oder "Admin / Dev"
     
     def __init__(self):
@@ -19,7 +19,7 @@ class UserManager(QObject):
         # Passweort "flex2025" oder "adminoverride" akzeptieren
         self.admin_password = "flex2025"  # Standard-Admin-Passwort
         self.admin_override_password = "adminoverride"  # Alternative Admin-Passwort
-        # Status-Flag für Admin-Login
+        # Status-Flag fuer Admin-Login
         self.is_admin_logged_in = False
         
         # Auto-Logout Timer (10 Minuten)
@@ -43,7 +43,7 @@ class UserManager(QObject):
             QLineEdit.EchoMode.Password
         )
         
-        # Prüfen ob Passwort korrekt ist (Admin oder Override)
+        # Pruefen ob Passwort korrekt ist (Admin oder Override)
         if ok and (password == self.admin_password or password == self.admin_override_password):
             self.is_admin_logged_in = True
             self.admin_login_time = time.time()
@@ -79,14 +79,14 @@ class UserManager(QObject):
             self.logout()
     
     def extend_session(self):
-        """Session verlängern (bei Admin-Aktivitäten)."""
+        """Session verlaengern (bei Admin-Aktivitaeten)."""
         if self.is_admin_logged_in and self.auto_logout_timer.isActive():
             # Timer neu starten
             self.auto_logout_timer.start(10 * 60 * 1000)  # Weitere 10 Minuten
-            logging.debug("Admin-Session verlängert")
+            logging.debug("Admin-Session verlaengert")
     
     def is_admin(self):
-        """Prüfe ob Administrator eingeloggt.
+        """Pruefe ob Administrator eingeloggt.
         
         Returns:
             bool: True wenn Administrator
@@ -94,27 +94,27 @@ class UserManager(QObject):
         return self.is_admin_logged_in
     
     def can_change_model(self):
-        """Kann Modell ändern?"""
+        """Kann Modell aendern?"""
         if self.is_admin_logged_in:
-            self.extend_session()  # Session verlängern bei Aktivität
+            self.extend_session()  # Session verlaengern bei Aktivitaet
         return self.is_admin_logged_in
     
     def can_change_camera(self):
-        """Kann Kamera ändern?"""
+        """Kann Kamera aendern?"""
         if self.is_admin_logged_in:
-            self.extend_session()  # Session verlängern bei Aktivität
+            self.extend_session()  # Session verlaengern bei Aktivitaet
         return self.is_admin_logged_in
     
     def can_access_settings(self):
-        """Kann Einstellungen öffnen?"""
+        """Kann Einstellungen oeffnen?"""
         if self.is_admin_logged_in:
-            self.extend_session()  # Session verlängern bei Aktivität
+            self.extend_session()  # Session verlaengern bei Aktivitaet
         return self.is_admin_logged_in
     
     def can_reset_counter(self):
-        """Kann Counter zurücksetzen? (NEU)"""
+        """Kann Counter zuruecksetzen? (NEU)"""
         if self.is_admin_logged_in:
-            self.extend_session()  # Session verlängern bei Aktivität
+            self.extend_session()  # Session verlaengern bei Aktivitaet
         return self.is_admin_logged_in
     
     def get_user_level_text(self):

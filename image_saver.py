@@ -1,5 +1,5 @@
 """
-Bild-Speicher-Manager - einfach und zuverlässig
+Bild-Speicher-Manager - einfach und zuverlaessig
 Speichert Gut- und Schlechtbilder mit Zeitstempel und Dateilimit
 """
 
@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 class ImageSaver:
-    """Einfacher Image-Saver für Gut- und Schlechtbilder."""
+    """Einfacher Image-Saver fuer Gut- und Schlechtbilder."""
     
     def __init__(self, settings):
         self.settings = settings
@@ -44,12 +44,12 @@ class ImageSaver:
             logging.error(f"Fehler beim Erstellen der Verzeichnisse: {e}")
     
     def _count_images_in_directory(self, directory):
-        """Zähle Bilder in Verzeichnis."""
+        """Zaehle Bilder in Verzeichnis."""
         try:
             if not os.path.exists(directory):
                 return 0
             
-            # Zähle nur Bilddateien
+            # Zaehle nur Bilddateien
             image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
             count = 0
             
@@ -60,7 +60,7 @@ class ImageSaver:
             return count
             
         except Exception as e:
-            logging.error(f"Fehler beim Zählen der Bilder in {directory}: {e}")
+            logging.error(f"Fehler beim Zaehlen der Bilder in {directory}: {e}")
             return 0
     
     def _generate_timestamp_filename(self, prefix, extension='.jpg'):
@@ -74,7 +74,7 @@ class ImageSaver:
             return None
         
         try:
-            # Prüfe Dateilimit
+            # Pruefe Dateilimit
             current_count = self._count_images_in_directory(self.bad_images_dir)
             if current_count >= self.max_images_per_dir:
                 logging.warning(f"Schlechtbild-Verzeichnis voll ({current_count} Dateien) - speichere nicht")
@@ -104,7 +104,7 @@ class ImageSaver:
             return None
         
         try:
-            # Prüfe Dateilimit
+            # Pruefe Dateilimit
             current_count = self._count_images_in_directory(self.good_images_dir)
             if current_count >= self.max_images_per_dir:
                 logging.warning(f"Gutbild-Verzeichnis voll ({current_count} Dateien) - speichere nicht")
@@ -140,7 +140,7 @@ class ImageSaver:
         self.save_good_images = new_settings.get('save_good_images', self.save_good_images)
         self.max_images_per_dir = new_settings.get('max_image_files', self.max_images_per_dir)
         
-        # Verzeichnisse neu erstellen wenn geändert
+        # Verzeichnisse neu erstellen wenn geaendert
         if (old_bad_dir != self.bad_images_dir or old_good_dir != self.good_images_dir):
             self._ensure_directories()
             logging.info("Bild-Verzeichnisse aktualisiert")

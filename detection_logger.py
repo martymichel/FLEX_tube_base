@@ -1,4 +1,7 @@
-""" Detection Event Logger - Tagebasierte Parquet-Dateien Speichert alle Ereignisse eines Tages in einer gemeinsamen Parquet-Datei Neue Datei wird automatisch um Mitternacht erstellt """
+""" 
+Detection Event Logger - Tagebasierte Parquet-Dateien Speichert alle Ereignisse eines Tages in einer gemeinsamen Parquet-Datei Neue Datei wird automatisch um Mitternacht erstellt
+"""
+
 import os
 import logging
 from datetime import datetime, date
@@ -61,8 +64,9 @@ class DetectionLogger:
 
     def _define_schema(self):
         """Parquet-Schema für Event-Daten definieren."""
+        # KORRIGIERT: Verwende 'ns' statt 'ms' für pandas-Kompatibilität
         self.schema = pa.schema([
-            ('timestamp', pa.timestamp('ms')),
+            ('timestamp', pa.timestamp('ns')),  # Geändert von 'ms' zu 'ns'
             ('event_type', pa.string()),
             ('sub_type', pa.string()),
             ('status', pa.string()),
@@ -111,11 +115,12 @@ class DetectionLogger:
             # DataFrame aus Events erstellen
             df = pd.DataFrame(events_data)
             
-            # Datentypen sicherstellen
+            # KORRIGIERT: Explizite Timestamp-Konvertierung zu pandas-Standard
             df['timestamp'] = pd.to_datetime(df['timestamp'])
             
-            # Parquet-Tabelle erstellen
-            table = pa.Table.from_pandas(df, schema=self.schema)
+            # VERBESSERT: Schema automatisch aus DataFrame ableiten anstatt erzwingen
+            # Das verhindert Casting-Probleme zwischen ns und ms
+            table = pa.Table.from_pandas(df, preserve_index=False)
             
             # An bestehende Datei anhängen oder neue erstellen
             if os.path.exists(self.current_file_path):
@@ -123,10 +128,10 @@ class DetectionLogger:
                 existing_table = pq.read_table(self.current_file_path)
                 # Neue Daten anhängen
                 combined_table = pa.concat_tables([existing_table, table])
-                # Zurückschreiben
+                # Zurückschreiben mit Snappy-Kompression
                 pq.write_table(combined_table, self.current_file_path, compression='snappy')
             else:
-                # Neue Datei erstellen
+                # Neue Datei erstellen mit Snappy-Kompression
                 pq.write_table(table, self.current_file_path, compression='snappy')
             
             logging.debug(f"Events in Parquet-Datei gespeichert: {len(events_data)} Events")

@@ -13,7 +13,6 @@ from PyQt6.QtGui import QStandardItemModel, QStandardItem, QFont
 class DetailViewWidget(QWidget):
     """Widget zur Anzeige der Event-Details als formatierter JSON."""
 
-
     def __init__(self):
         super().__init__()
         self.setup_ui()
@@ -43,20 +42,67 @@ class DetailViewWidget(QWidget):
                 self.details_text.setPlainText("Keine Details verfügbar")
         except json.JSONDecodeError:
             self.details_text.setPlainText(f"Ungültiges JSON:\n{details_json_str}")
+
+class CustomProxyModel(QSortFilterProxyModel):
+    """Erweiterte Proxy-Model für kombinierte Filter."""
+    
+    def __init__(self):
+        super().__init__()
+        self.event_type_filter = ""
+        self.status_filter = ""
+        self.search_filter = ""
+        
+    def setEventTypeFilter(self, text):
+        self.event_type_filter = text
+        self.invalidateFilter()
+        
+    def setStatusFilter(self, text):
+        self.status_filter = text
+        self.invalidateFilter()
+        
+    def setSearchFilter(self, text):
+        self.search_filter = text
+        self.invalidateFilter()
+        
+    def filterAcceptsRow(self, source_row, source_parent):
+        model = self.sourceModel()
+        
+        # Event-Type Filter (Spalte 1)
+        if self.event_type_filter and self.event_type_filter != "Alle":
+            event_type_index = model.index(source_row, 1, source_parent)
+            event_type_value = model.data(event_type_index, Qt.ItemDataRole.DisplayRole)
+            if event_type_value != self.event_type_filter:
+                return False
+        
+        # Status Filter (Spalte 3)
+        if self.status_filter and self.status_filter != "Alle":
+            status_index = model.index(source_row, 3, source_parent)
+            status_value = model.data(status_index, Qt.ItemDataRole.DisplayRole)
+            if status_value != self.status_filter:
+                return False
+        
+        # Text-Suche in Nachrichten (Spalte 4)
+        if self.search_filter:
+            message_index = model.index(source_row, 4, source_parent)
+            message_value = model.data(message_index, Qt.ItemDataRole.DisplayRole)
+            if message_value and self.search_filter.lower() not in message_value.lower():
+                return False
+        
+        return True
             
 class ParquetViewer(QMainWindow):
     """Hauptfenster für Parquet Event Log Viewer."""
-
 
     def __init__(self):
         super().__init__()
         
         self.setWindowTitle("Detection Event Log Viewer")
-        self.setGeometry(100, 100, 1400, 800)
+        # Fenster maximiert öffnen
+        self.showMaximized()
         
         self.df = None
         self.model = QStandardItemModel()
-        self.proxy_model = QSortFilterProxyModel()
+        self.proxy_model = CustomProxyModel()
         self.proxy_model.setSourceModel(self.model)
         
         self.init_ui()
@@ -65,68 +111,79 @@ class ParquetViewer(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # Hauptlayout mit Splitter
+        # Hauptlayout
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Toolbar oben
-        toolbar_layout = self.create_toolbar()
-        main_layout.addLayout(toolbar_layout)
+        # Toolbar oben (maximal 40px hoch)
+        toolbar_widget = self.create_toolbar()
+        toolbar_widget.setMaximumHeight(40)
+        main_layout.addWidget(toolbar_widget)
         
-        # Splitter für Tabelle und Details
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Horizontaler Splitter für Tabelle und Details (nimmt den Rest der Höhe)
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Linke Seite: Tabelle
-        table_widget = self.create_table_widget()
-        splitter.addWidget(table_widget)
+        # Linke Seite: Filter + Tabelle
+        left_widget = self.create_left_panel()
+        content_splitter.addWidget(left_widget)
         
-        # Rechte Seite: Detail-View
+        # Rechte Seite: Detail-View (gesamte Höhe)
         self.detail_view = DetailViewWidget()
-        splitter.addWidget(self.detail_view)
+        content_splitter.addWidget(self.detail_view)
         
-        # Splitter-Verhältnis setzen (70% Tabelle, 30% Details)
-        splitter.setSizes([1000, 400])
+        # Splitter-Verhältnis setzen (70% links, 30% rechts)
+        content_splitter.setSizes([1000, 400])
         
-        main_layout.addWidget(splitter)
+        main_layout.addWidget(content_splitter)
         
         # Status-Bar
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
     def create_toolbar(self):
-        """Toolbar mit Buttons und Filtern erstellen."""
-        toolbar_layout = QVBoxLayout()
-        
-        # Erste Zeile: Datei-Operationen
-        file_layout = QHBoxLayout()
+        """Kompakte Toolbar mit nur Buttons und Dateiname (max 40px hoch)."""
+        toolbar_widget = QWidget()
+        toolbar_layout = QHBoxLayout(toolbar_widget)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
         
         self.open_button = QPushButton("📁 Datei öffnen")
+        self.open_button.setFixedHeight(30)
         self.open_button.clicked.connect(self.open_file)
-        file_layout.addWidget(self.open_button)
+        toolbar_layout.addWidget(self.open_button)
         
         self.refresh_button = QPushButton("🔄 Aktualisieren")
+        self.refresh_button.setFixedHeight(30)
         self.refresh_button.clicked.connect(self.refresh_current_file)
-        file_layout.addWidget(self.refresh_button)
+        toolbar_layout.addWidget(self.refresh_button)
         
-        file_layout.addStretch()
+        toolbar_layout.addStretch()
         
         # Info-Label für aktuelle Datei
         self.file_info_label = QLabel("Keine Datei geladen")
         self.file_info_label.setStyleSheet("color: #7f8c8d; font-style: italic;")
-        file_layout.addWidget(self.file_info_label)
+        toolbar_layout.addWidget(self.file_info_label)
         
-        toolbar_layout.addLayout(file_layout)
+        return toolbar_widget
+
+    def create_left_panel(self):
+        """Linkes Panel mit Filtern und Tabelle."""
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Zweite Zeile: Filter
+        # Filter-Zeile
         filter_layout = QHBoxLayout()
         
         filter_layout.addWidget(QLabel("Event-Typ:"))
         self.event_type_combo = QComboBox()
+        self.event_type_combo.setMinimumWidth(200)
         self.event_type_combo.addItem("Alle")
         self.event_type_combo.currentTextChanged.connect(self.apply_filters)
         filter_layout.addWidget(self.event_type_combo)
         
         filter_layout.addWidget(QLabel("Status:"))
         self.status_combo = QComboBox()
+        self.status_combo.setMinimumWidth(200)
         self.status_combo.addItem("Alle")
         self.status_combo.currentTextChanged.connect(self.apply_filters)
         filter_layout.addWidget(self.status_combo)
@@ -138,17 +195,11 @@ class ParquetViewer(QMainWindow):
         filter_layout.addWidget(self.search_input)
         
         self.reset_button = QPushButton("❌ Filter zurücksetzen")
+        self.reset_button.setFixedHeight(30)
         self.reset_button.clicked.connect(self.reset_filters)
         filter_layout.addWidget(self.reset_button)
         
-        toolbar_layout.addLayout(filter_layout)
-        
-        return toolbar_layout
-
-    def create_table_widget(self):
-        """Tabellen-Widget erstellen."""
-        table_container = QWidget()
-        layout = QVBoxLayout(table_container)
+        left_layout.addLayout(filter_layout)
         
         # Tabelle
         self.table_view = QTableView()
@@ -162,9 +213,9 @@ class ParquetViewer(QMainWindow):
         # Selection-Handler für Detail-View
         self.table_view.selectionModel().selectionChanged.connect(self.on_row_selected)
         
-        layout.addWidget(self.table_view)
+        left_layout.addWidget(self.table_view)
         
-        return table_container
+        return left_widget
 
     def open_file(self):
         """Parquet-Datei öffnen."""
@@ -278,60 +329,38 @@ class ParquetViewer(QMainWindow):
             self.status_combo.addItems(unique_statuses)
 
     def apply_filters(self):
-        """Filter auf die Tabelle anwenden."""
+        """Filter auf die Tabelle anwenden - jetzt mit korrigierter Kombinationslogik."""
         if self.df is None:
             return
         
-        # Kombination aus allen Filtern
-        filter_text = ""
-        
-        # Event-Type Filter
+        # Alle Filter an das Proxy-Model übergeben
         event_type = self.event_type_combo.currentText()
-        if event_type != "Alle":
-            # Suche in event_type Spalte (Index 1)
-            self.proxy_model.setFilterKeyColumn(1)
-            self.proxy_model.setFilterFixedString(event_type)
-            
-            filtered_rows = self.proxy_model.rowCount()
-            total_rows = self.model.rowCount()
-            self.status_bar.showMessage(f"Filter angewendet: {filtered_rows} von {total_rows} Events angezeigt")
-            return
-        
-        # Status Filter
         status = self.status_combo.currentText()
-        if status != "Alle":
-            # Suche in status Spalte (Index 3)
-            self.proxy_model.setFilterKeyColumn(3)
-            self.proxy_model.setFilterFixedString(status)
-            
-            filtered_rows = self.proxy_model.rowCount()
-            total_rows = self.model.rowCount()
-            self.status_bar.showMessage(f"Filter angewendet: {filtered_rows} von {total_rows} Events angezeigt")
-            return
-        
-        # Text-Suche in Nachrichten (Index 4)
         search_text = self.search_input.text().strip()
-        if search_text:
-            self.proxy_model.setFilterKeyColumn(4)
-            self.proxy_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            self.proxy_model.setFilterFixedString(search_text)
-            
-            filtered_rows = self.proxy_model.rowCount()
-            total_rows = self.model.rowCount()
-            self.status_bar.showMessage(f"Suche angewendet: {filtered_rows} von {total_rows} Events angezeigt")
-            return
         
-        # Keine Filter - alle anzeigen
-        self.proxy_model.setFilterFixedString("")
+        self.proxy_model.setEventTypeFilter(event_type)
+        self.proxy_model.setStatusFilter(status)
+        self.proxy_model.setSearchFilter(search_text)
+        
+        # Status-Meldung aktualisieren
+        filtered_rows = self.proxy_model.rowCount()
         total_rows = self.model.rowCount()
-        self.status_bar.showMessage(f"Alle {total_rows} Events angezeigt")
+        
+        if event_type != "Alle" or status != "Alle" or search_text:
+            self.status_bar.showMessage(f"Filter angewendet: {filtered_rows} von {total_rows} Events angezeigt")
+        else:
+            self.status_bar.showMessage(f"Alle {total_rows} Events angezeigt")
 
     def reset_filters(self):
         """Alle Filter zurücksetzen."""
         self.event_type_combo.setCurrentText("Alle")
         self.status_combo.setCurrentText("Alle")
         self.search_input.clear()
-        self.proxy_model.setFilterFixedString("")
+        
+        # Filter am Proxy-Model zurücksetzen
+        self.proxy_model.setEventTypeFilter("")
+        self.proxy_model.setStatusFilter("")
+        self.proxy_model.setSearchFilter("")
         
         if self.df is not None:
             total_rows = self.model.rowCount()

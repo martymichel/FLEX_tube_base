@@ -381,9 +381,28 @@ class DetectionApp(QMainWindow):
                     self.ui.update_coil_status(detection_active=True)
                 
                 self.update_timer.start(30)
-                self.ui.start_btn.setText("Stoppen")
+                
+                # Button zu Stoppen mit Gradient und Stop-Symbol
+                self.ui.start_btn.setText("⏹ STOPPEN")
+                self.ui.start_btn.setStyleSheet("""
+                    QPushButton {
+                        background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0,
+                                                stop: 0 #3498db, stop: 1 #2980b9);
+                        font-size: 18px;
+                        font-weight: bold;
+                        min-height: 45px;
+                        padding: 15px 25px;
+                        border-radius: 4px;
+                        color: white;
+                    }
+                    QPushButton:hover {
+                        background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0,
+                                                stop: 0 #5dade2, stop: 1 #3498db);
+                    }
+                """)
+                
                 self.ui.show_status("Detection läuft", "success")
-                self.ui.update_workflow_status("READY")
+                self.ui.update_workflow_status("BEREIT")
                 logging.info("Detection gestartet")
             else:
                 self.ui.show_status("Fehler beim Starten der Kamera", "error")
@@ -391,7 +410,7 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Fehler beim Starten: {e}")
             self.ui.show_status(f"Fehler: {e}", "error")
-    
+
     def stop_detection(self):
         """Detection stoppen."""
         self.running = False
@@ -409,9 +428,25 @@ class DetectionApp(QMainWindow):
         except:
             pass
         
-        self.ui.start_btn.setText("Starten")
+        # Button zurück zu Starten mit Play-Symbol
+        self.ui.start_btn.setText("▶ Live Detection STARTEN")
+        self.ui.start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 45px;
+                padding: 15px 25px;
+                border-radius: 4px;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #2ecc71;
+            }
+        """)
+        
         self.ui.show_status("Bereit", "ready")
-        self.ui.update_workflow_status("READY")
+        self.ui.update_workflow_status("BEREIT")
         self.reset_workflow()
         
         logging.info("Detection gestoppt")

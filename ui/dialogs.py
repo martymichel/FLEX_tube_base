@@ -407,7 +407,7 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(scroll, "🔍 Klassen-Zuteilung")
     
     def _create_color_assignment_tab(self):
-        """Tab 3: 🎨 Farbzuteilung - NEU: Farbauswahl für jede Klasse"""
+        """Tab 3: 🎨 Farbzuteilung - NUR vordefinierte Farbauswahl"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -427,17 +427,17 @@ class SettingsDialog(QDialog):
         
         # Info-Text
         color_info = self._create_info_label(
-            "Wählen Sie für jede Klasse eine individuelle Farbe für die Bounding Boxes im Live-Stream. "
+            "Wählen Sie für jede Klasse eine Farbe aus der vordefinierten Auswahl. "
             "Die Farben werden in der Erkennung zur besseren Unterscheidung der Klassen verwendet."
         )
         color_layout.addWidget(color_info)
         
-        # Farbraster für jede Klasse
+        # Farbraster für jede Klasse - NUR mit Dropdown
         if self.class_names:
             # Grid für Klassenfarben
             grid_widget = QWidget()
             grid_layout = QGridLayout(grid_widget)
-            grid_layout.setSpacing(10)
+            grid_layout.setSpacing(15)
             
             row = 0
             col = 0
@@ -445,71 +445,41 @@ class SettingsDialog(QDialog):
             for class_id, class_name in self.class_names.items():
                 # Klassen-Label
                 class_label = QLabel(f"{class_name} (ID: {class_id})")
-                class_label.setMinimumWidth(150)
-                grid_layout.addWidget(class_label, row, col * 3)
+                class_label.setMinimumWidth(180)
+                class_label.setFont(QFont("", 11, QFont.Weight.Bold))
+                grid_layout.addWidget(class_label, row, col * 2)
                 
-                # Farb-Vorschau-Button
-                color_preview = QPushButton()
-                color_preview.setFixedSize(40, 30)
+                # Vordefinierte Farben-Dropdown - EINZIGE Farbauswahl
+                color_preset_combo = QComboBox()
+                color_preset_combo.setMinimumWidth(120)
+                
+                # Standard-Farbe basierend auf class_id
                 default_color = self.predefined_colors[class_id % len(self.predefined_colors)]
                 self.class_colors[class_id] = QColor(default_color)
-                color_preview.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {default_color};
-                        border: 2px solid #000000;
-                        border-radius: 4px;
-                    }}
-                """)
+                
+                # Dropdown mit Farben füllen
+                for i, preset_color in enumerate(self.predefined_colors):
+                    color_preset_combo.addItem(f"Farbe {i+1}", preset_color)
+                    # Setze Farbe als Hintergrund für das Item
+                    color_preset_combo.setItemData(i, QColor(preset_color), Qt.ItemDataRole.BackgroundRole)
+                    color_preset_combo.setItemData(i, QColor("white"), Qt.ItemDataRole.ForegroundRole)
+                
+                # Standard-Auswahl setzen
+                default_index = class_id % len(self.predefined_colors)
+                color_preset_combo.setCurrentIndex(default_index)
                 
                 # Event-Handler für Farbauswahl
-                def make_color_picker(class_id, preview_btn):
-                    def pick_color():
-                        color = QColorDialog.getColor(
-                            self.class_colors[class_id], 
-                            self, 
-                            f"Farbe für {self.class_names[class_id]} auswählen",
-                            QColorDialog.ColorDialogOption.ShowAlphaChannel
-                        )
-                        if color.isValid():
-                            self.class_colors[class_id] = color
-                            preview_btn.setStyleSheet(f"""
-                                QPushButton {{
-                                    background-color: {color.name()};
-                                    border: 2px solid #000000;
-                                    border-radius: 4px;
-                                }}
-                            """)
-                    return pick_color
+                def make_color_selector(class_id, combo):
+                    def select_color():
+                        selected_color = combo.currentData()
+                        if selected_color:
+                            self.class_colors[class_id] = QColor(selected_color)
+                    return select_color
                 
-                color_preview.clicked.connect(make_color_picker(class_id, color_preview))
-                grid_layout.addWidget(color_preview, row, col * 3 + 1)
+                color_preset_combo.currentTextChanged.connect(make_color_selector(class_id, color_preset_combo))
+                grid_layout.addWidget(color_preset_combo, row, col * 2 + 1)
                 
-                # Vordefinierte Farben-Dropdown
-                color_preset_combo = QComboBox()
-                color_preset_combo.addItem("Vordefiniert...", "")
-                for i, preset_color in enumerate(self.predefined_colors):
-                    color_preset_combo.addItem("", preset_color)
-                    # Setze Farbe als Hintergrund für das Item
-                    color_preset_combo.setItemData(i + 1, QColor(preset_color), Qt.ItemDataRole.BackgroundRole)
-                
-                def make_preset_selector(class_id, preview_btn, combo):
-                    def select_preset():
-                        preset_color = combo.currentData()
-                        if preset_color:
-                            self.class_colors[class_id] = QColor(preset_color)
-                            preview_btn.setStyleSheet(f"""
-                                QPushButton {{
-                                    background-color: {preset_color};
-                                    border: 2px solid #000000;
-                                    border-radius: 4px;
-                                }}
-                            """)
-                    return select_preset
-                
-                color_preset_combo.currentTextChanged.connect(make_preset_selector(class_id, color_preview, color_preset_combo))
-                grid_layout.addWidget(color_preset_combo, row, col * 3 + 2)
-                
-                # Layout: 2 Spalten à 3 Felder
+                # Layout: 2 Spalten à 2 Felder (Label + Dropdown)
                 col += 1
                 if col >= 2:
                     col = 0
@@ -527,7 +497,7 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         
         self.tab_widget.addTab(scroll, "🎨 Farbzuteilung")
-    
+        
     def _create_interfaces_tab(self):
         """Tab 4: 🔌 Schnittstellen (ehemals Hardware)"""
         tab = QWidget()

@@ -339,14 +339,16 @@ class MainUI(QWidget):
         actions_layout = QVBoxLayout()
         actions_layout.setSpacing(12)
 
-        self.start_btn = QPushButton("Live Detection STARTEN")
+        self.start_btn = QPushButton("▶ Live Detection STARTEN")
         self.start_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27ae60;
-                font-size: 14px;
-                min-height: 35px;
+                font-size: 16px;
+                font-weight: bold;
+                min-height: 45px;
                 padding: 15px 25px;
                 border-radius: 4px;
+                color: white;
             }
             QPushButton:hover {
                 background-color: #2ecc71;
@@ -626,7 +628,7 @@ class MainUI(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setSpacing(20)
         
-        # 1. Sidebar Toggle Button (links)
+        # 1. Sidebar Toggle Button (höher wie Status/Counter)
         self.sidebar_toggle_btn = QToolButton()
         self.sidebar_toggle_btn.setText("≡")
         self.sidebar_toggle_btn.setStyleSheet("""
@@ -637,8 +639,8 @@ class MainUI(QWidget):
                 font-size: 20px;
                 padding: 8px;
                 border-radius: 4px;
-                min-width: 40px;
-                min-height: 40px;
+                min-width: 60px;
+                min-height: 60px;
             }
             QToolButton:hover {
                 background-color: #2980b9;
@@ -646,7 +648,7 @@ class MainUI(QWidget):
         """)
         header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # 2. NEU: EINSTELLUNGEN-BUTTON mit Zahnrad (neben Menü)
+        # 2. Einstellungen-Button (höher wie Status/Counter)
         self.settings_btn = QPushButton("⚙️")
         self.settings_btn.setStyleSheet("""
             QPushButton {
@@ -656,8 +658,8 @@ class MainUI(QWidget):
                 font-size: 20px;
                 padding: 8px;
                 border-radius: 4px;
-                min-width: 40px;
-                min-height: 40px;
+                min-width: 60px;
+                min-height: 60px;
             }
             QPushButton:hover {
                 background-color: #7d3c98;
@@ -1070,7 +1072,7 @@ class MainUI(QWidget):
             'BEREIT': "#757575",      # Grau
             'BANDTAKT': '#757575',     # Grau  
             'AUSSCHWINGEN': "#757575",   # Grau
-            'DETECTION': "#23aeff",  # Blau
+            'DETEKTION': "#23aeff",  # Blau
             'ABBLASEN': '#e74c3c'     # Rot
         }
         
@@ -1211,29 +1213,29 @@ class MainUI(QWidget):
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")
     
-    # STATUS-BUTTON UPDATE-METHODEN (NEU)
+    # STATUS-BUTTON UPDATE-METHODEN (NEU: ANGEPASST AUF BLAU)
     def update_model_status(self, model_path):
-        """Model-Status-Button aktualisieren."""
+        """Model-Status-Button aktualisieren - BLAU statt Grün."""
         if model_path and os.path.exists(model_path):
             model_name = os.path.basename(model_path)
             self.model_btn.setText(f"Modell: {model_name}")
             self.model_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #27ae60;
+                    background-color: #3498db;
                     color: white;
-                    border: 2px solid #229954;
+                    border: 2px solid #2980b9;
                     padding: 15px 25px;
                     border-radius: 4px;
                     font-size: 13px;
                     font-weight: bold;
-                    text-align: left;
+                    text-align: center;
                 }
                 QPushButton:hover {
-                    background-color: #2ecc71;
-                    border-color: #27ae60;
+                    background-color: #5dade2;
+                    border-color: #3498db;
                 }
                 QPushButton:pressed {
-                    background-color: #229954;
+                    background-color: #2980b9;
                 }
                 QPushButton:disabled {
                     background-color: #7f8c8d;
@@ -1272,7 +1274,7 @@ class MainUI(QWidget):
             self.model_btn.setToolTip("Klicken um Modell zu laden")
     
     def update_camera_status(self, source_info, source_type):
-        """Camera-Status-Button aktualisieren."""
+        """Camera-Status-Button aktualisieren - BLAU statt Grün."""
         if source_info is not None:
             if source_type == 'webcam':
                 display_text = f"Webcam: {source_info}"
@@ -1285,23 +1287,24 @@ class MainUI(QWidget):
                 display_text = f"Quelle: {source_info}"
                 
             self.camera_btn.setText(display_text)
+
             self.camera_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #27ae60;
+                    background-color: #3498db;
                     color: white;
-                    border: 2px solid #229954;
+                    border: 2px solid #2980b9;
                     padding: 15px 25px;
                     border-radius: 4px;
                     font-size: 13px;
                     font-weight: bold;
-                    text-align: left;
+                    text-align: center;
                 }
                 QPushButton:hover {
-                    background-color: #2ecc71;
-                    border-color: #27ae60;
+                    background-color: #5dade2;
+                    border-color: #3498db;
                 }
                 QPushButton:pressed {
-                    background-color: #229954;
+                    background-color: #2980b9;
                 }
                 QPushButton:disabled {
                     background-color: #7f8c8d;

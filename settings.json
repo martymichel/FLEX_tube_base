@@ -38,9 +38,9 @@
   "reject_coil_duration_seconds": 1.5,
   "camera_config_path": "",
   "class_colors": {
-    "0": "#ff0000",
+    "0": "#00ff00",
     "1": "#ff0000",
-    "2": "#0000ff"
+    "2": "#808080"
   },
-  "motion_decay_factor": 0.25
+  "motion_decay_factor": 0.05
 }

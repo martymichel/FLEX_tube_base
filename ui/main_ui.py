@@ -103,16 +103,11 @@ class MainUI(QWidget):
         self.sidebar.setMinimumWidth(300)
         self.sidebar.setMaximumWidth(380)
         
-        # Scrollbereich für Sidebar
-        scroll = QScrollArea()
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
+        # EINFACHES Layout ohne ScrollArea - SCROLL DEAKTIVIERT
         sidebar_content = QWidget()
         layout = QVBoxLayout(sidebar_content)
-        layout.setSpacing(25)  # Größere Abstände zwischen Sektionen
-        layout.setContentsMargins(20, 20, 20, 20)  # Größere Ränder
+        layout.setSpacing(25)
+        layout.setContentsMargins(20, 20, 20, 20)
         
         # REIHENFOLGE:
         # 1. Benutzer-Status
@@ -139,72 +134,12 @@ class MainUI(QWidget):
         # 7. ESC Hinweis ganz unten
         self._create_esc_hint(layout)
         
-        # Sidebar-Content zu Scroll hinzufügen
-        scroll.setWidget(sidebar_content)
-        
-        # Scroll zu Sidebar hinzufügen
+        # Content direkt zu Sidebar hinzufügen - KEIN ScrollArea
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.addWidget(scroll)
-        
+        sidebar_layout.addWidget(sidebar_content)
+            
         return self.sidebar
-    
-    def _create_login_status_section(self, layout):
-        """Login-Status-Button."""
-        self.login_status_btn = QPushButton("Benutzerstatus: Operator")
-        self.login_status_btn.setMinimumHeight(45)
-        self.login_status_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #34495e;
-                color: white;
-                border: 2px solid #5d6d7e;
-                padding: 15px 25px;
-                border-radius: 4px;
-                font-size: 16px;
-                font-weight: bold;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-                border-color: #2e86de;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-        """)
-        self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
-        layout.addWidget(self.login_status_btn)
-    
-    def _create_actions_section(self, layout):
-        """Aktionen."""
-        actions_layout = QVBoxLayout()
-        actions_layout.setSpacing(12)
-
-        self.start_btn = QPushButton("Live Detection STARTEN")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                font-size: 14px;
-                min-height: 35px;
-                padding: 15px 25px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #2ecc71;
-            }
-        """)
-        actions_layout.addWidget(self.start_btn)
-        
-        self.snapshot_btn = QPushButton("Schnappschuss")
-        self.snapshot_btn.setStyleSheet("""
-            QPushButton {
-                padding: 15px 25px;
-                border-radius: 4px;
-            }
-        """)
-        actions_layout.addWidget(self.snapshot_btn)
-        
-        layout.addLayout(actions_layout)
     
     def _create_model_status_section(self, layout):
         """KI-Modell Status-Button."""
@@ -237,7 +172,136 @@ class MainUI(QWidget):
         """)
         self.model_btn.setToolTip("Klicken um Modell zu laden")
         layout.addWidget(self.model_btn)
-    
+
+    def _create_login_status_section(self, layout):
+        """Login-Status-Button."""
+        self.login_status_btn = QPushButton("Benutzerstatus: Operator")
+        self.login_status_btn.setMinimumHeight(45)
+        self.login_status_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #34495e;
+                color: white;
+                border: 2px solid #5d6d7e;
+                padding: 15px 25px;
+                border-radius: 4px;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+                border-color: #2e86de;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+        """)
+        self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
+        layout.addWidget(self.login_status_btn)
+
+    def _set_flash_red(self):
+        """Setze rote Blink-Farben."""
+        # Main Area rot
+        self.main_area_frame.setStyleSheet("""
+            QFrame {
+                background-color: #e74c3c;
+                border-radius: 8px;
+            }
+        """)
+        
+        # Video-Label auch rot
+        self.video_label.setStyleSheet("""
+            QLabel {
+                background-color: #e74c3c;
+                color: white;
+                border-radius: 8px;
+                font-size: 18px;
+            }
+        """)
+        
+        # Sidebar komplett rot
+        self.sidebar.setStyleSheet("""
+            QFrame {
+                background-color: #e74c3c !important;
+                color: white;
+                border-radius: 4px;
+            }
+            QPushButton {
+                background-color: #c0392b !important;
+                color: white !important;
+                border: 2px solid #a93226 !important;
+                padding: 15px 20px;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                min-height: 15px;
+            }
+            QPushButton:hover {
+                background-color: #a93226 !important;
+            }
+            QPushButton:pressed {
+                background-color: #922b21 !important;
+            }
+            QLabel {
+                color: white;
+                font-size: 13px;
+                background-color: transparent;
+            }
+        """)
+
+    def _reset_flash_colors(self):
+        """Setze normale Farben zurück."""
+        # Main Area normal
+        self.main_area_frame.setStyleSheet("""
+            QFrame {
+                background-color: #ecf0f1;
+                border-radius: 8px;
+            }
+        """)
+        
+        # Video-Label normal
+        self.video_label.setStyleSheet("""
+            QLabel {
+                background-color: #34495e;
+                color: white;
+                border-radius: 8px;
+                font-size: 18px;
+            }
+        """)
+        
+        # Sidebar normal
+        self.sidebar.setStyleSheet("""
+            QFrame {
+                background-color: #2c3e50;
+                color: white;
+                border-radius: 4px;
+            }
+            QPushButton {
+                background-color: #34495e;
+                color: white;
+                border: none;
+                padding: 15px 20px;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                min-height: 15px;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+            }
+            QLabel {
+                color: white;
+                font-size: 13px;
+            }
+        """)
+        
     def _create_camera_status_section(self, layout):
         """Kamera-Video Status-Button."""
         self.camera_btn = QPushButton("Modus wählen")
@@ -269,7 +333,37 @@ class MainUI(QWidget):
         """)
         self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
         layout.addWidget(self.camera_btn)
-    
+
+    def _create_actions_section(self, layout):
+        """Aktionen."""
+        actions_layout = QVBoxLayout()
+        actions_layout.setSpacing(12)
+
+        self.start_btn = QPushButton("Live Detection STARTEN")
+        self.start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                font-size: 14px;
+                min-height: 35px;
+                padding: 15px 25px;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #2ecc71;
+            }
+        """)
+        actions_layout.addWidget(self.start_btn)
+        
+        self.snapshot_btn = QPushButton("Schnappschuss")
+        self.snapshot_btn.setStyleSheet("""
+            QPushButton {
+                padding: 15px 25px;
+                border-radius: 4px;
+            }
+        """)
+        actions_layout.addWidget(self.snapshot_btn)
+        layout.addLayout(actions_layout)
+
     def _create_stats_section(self, layout):
         """Statistiken - HÖHERE Tabelle."""
         self.last_cycle_table = QTableWidget(0, 5)
@@ -320,7 +414,7 @@ class MainUI(QWidget):
         workflow_label.setStyleSheet("color: white; background: transparent;")  # Kein farbiger Hintergrund
         workflow_info_layout.addWidget(workflow_label, 1)  # 1/3 Proportion
         
-        self.workflow_info = QLabel("READY")
+        self.workflow_info = QLabel("BEREIT")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workflow_info.setStyleSheet("""
             background-color: #34495e;
@@ -771,87 +865,6 @@ class MainUI(QWidget):
             self._reset_flash_colors()
         
         self.flash_count += 1
-    
-    def _set_flash_red(self):
-        """Setze rote Blink-Farben."""
-        # Main Area rot
-        self.main_area_frame.setStyleSheet("""
-            QFrame {
-                background-color: #e74c3c;
-                border-radius: 8px;
-            }
-        """)
-        
-        # Sidebar schwarz
-        self.sidebar.setStyleSheet("""
-            QFrame {
-                background-color: #000000;
-                color: white;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #34495e;
-                color: white;
-                border: none;
-                padding: 15px 20px;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                min-height: 15px;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-            }
-            QLabel {
-                color: white;
-                font-size: 13px;
-            }
-        """)
-    
-    def _reset_flash_colors(self):
-        """Setze normale Farben zurück."""
-        # Main Area normal
-        self.main_area_frame.setStyleSheet(self.default_main_area_style)
-        
-        # Sidebar normal
-        self.sidebar.setStyleSheet("""
-            QFrame {
-                background-color: #2c3e50;
-                color: white;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #34495e;
-                color: white;
-                border: none;
-                padding: 15px 20px;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                min-height: 15px;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-            }
-            QLabel {
-                color: white;
-                font-size: 13px;
-            }
-        """)
     
     # MODBUS UI-Update-Methoden
     def update_modbus_status(self, connected, ip_address):

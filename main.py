@@ -621,44 +621,13 @@ class DetectionApp(QMainWindow):
                 logging.info("Abblas-Wartezeit beendet")
     
     def start_red_blink(self):
-        """Rotes Blinken für 1 Sekunde starten."""
+        """Rotes Blinken für 1 Sekunde starten - DELEGIERT AN UI."""
         try:
-            # Hauptbereich rot färben
-            self.ui.video_label.setStyleSheet("""
-                QLabel {
-                    background-color: #e74c3c;
-                    color: white;
-                    border-radius: 8px;
-                    font-size: 18px;
-                }
-            """)
-            
-            # Timer für Reset nach 1 Sekunde
-            if self.blink_timer:
-                self.blink_timer.stop()
-            
-            self.blink_timer = QTimer()
-            self.blink_timer.setSingleShot(True)
-            self.blink_timer.timeout.connect(self.stop_red_blink)
-            self.blink_timer.start(1000)  # 1 Sekunde
+            # DELEGIERE AN UI-KLASSE statt eigene Implementierung
+            self.ui.flash_red_on_bad_part_detection()
             
         except Exception as e:
             logging.error(f"Fehler beim roten Blinken: {e}")
-    
-    def stop_red_blink(self):
-        """Rotes Blinken stoppen."""
-        try:
-            # Normales Styling wiederherstellen
-            self.ui.video_label.setStyleSheet("""
-                QLabel {
-                    background-color: #34495e;
-                    color: white;
-                    border-radius: 8px;
-                    font-size: 18px;
-                }
-            """)
-        except Exception as e:
-            logging.error(f"Fehler beim Stoppen des roten Blinkens: {e}")
     
     def detect_robust_motion(self, frame):
         """Robuste Bewegungserkennung."""

@@ -666,7 +666,6 @@ class DetectionApp(QMainWindow):
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
 
     def update_motion_display_with_decay(self, frame):
-        """Motion-Wert berechnen mit drastischem Abfall nach Stillstand."""
         if self.bg_subtractor is None:
             return
 
@@ -678,23 +677,27 @@ class DetectionApp(QMainWindow):
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
 
-        # Motion-Berechnung mit Downsampling-Kompensation
-        motion_pixels = cv2.countNonZero(fg_mask) * 16  # Kompensiert 4x4 Downsampling
-        current_motion = min(255, motion_pixels / 100)
+        motion_pixels = cv2.countNonZero(fg_mask)
+        current_raw_motion = min(255, motion_pixels / 100)
         
-        # ELEGANTE DECAY-MATHEMATIK: Ein-Schritt Division
-        if current_motion < self.current_motion_value:
+        if not hasattr(self, '_smoothed_motion_value'):
+            self._smoothed_motion_value = current_raw_motion
+            self._ema_alpha = 0.9
+        
+        self._smoothed_motion_value = self._ema_alpha * current_raw_motion + \
+                                      (1 - self._ema_alpha) * self._smoothed_motion_value
+        
+        current_motion_for_decay = self._smoothed_motion_value
+        
+        if current_motion_for_decay < self.current_motion_value:
             decay_power = 1.0 / max(0.001, self.motion_decay_factor)
-            self.current_motion_value = max(self.current_motion_value, current_motion) / decay_power
+            self.current_motion_value = max(self.current_motion_value, current_motion_for_decay) / decay_power
             
-            # Intelligenter Threshold für sofortigen Reset
-            if self.current_motion_value < 1.0:
+            if self.current_motion_value < 5.0:
                 self.current_motion_value = 0.0
         else:
-            # Sofortige Aktualisierung bei steigenden Werten
-            self.current_motion_value = current_motion
+            self.current_motion_value = current_motion_for_decay
         
-        # UI aktualisieren
         self.ui.update_motion(self.current_motion_value)
 
     def process_industrial_workflow(self, frame):

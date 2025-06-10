@@ -42,5 +42,5 @@
     "1": "#ff0000",
     "2": "#808080"
   },
-  "motion_decay_factor": 0.05
+  "motion_decay_factor": 0.5
 }

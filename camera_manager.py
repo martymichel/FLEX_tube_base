@@ -1,6 +1,7 @@
 """
-Kamera-Manager - einfach und zuverlaessig
-Verwaltet Kamera-/Video-Eingabe mit Zeitstempel-Support und IDS Peak Konfiguration
+Kamera-Manager - einfach und zuverlaessig - UPGRADED
+Verwaltet Kamera-/Video-Eingabe mit Zeitstempel-Support und verbesserter IDS Peak Integration
+VERBESSERT: Robuste IDS-Implementierung mit mehreren Versuchen und besserem Error-Handling
 """
 
 import cv2
@@ -17,8 +18,17 @@ except ImportError:
     IDS_AVAILABLE = False
     logging.warning("IDS Peak nicht verfuegbar - nur Standard-Kameras")
 
+# Erweiterte IDS-Imports für bessere Bildkonvertierung
+try:
+    import ids_peak.ids_peak_ipl_extension as ids_ipl_extension
+    import ids_peak_ipl.ids_peak_ipl as ids_ipl
+    IDS_IPL_AVAILABLE = True
+except ImportError:
+    IDS_IPL_AVAILABLE = False
+    logging.info("IDS IPL Extension nicht verfuegbar - verwende Basis-Konvertierung")
+
 class CameraManager:
-    """Einfacher Kamera-Manager mit Zeitstempel-Support und IDS Peak Konfiguration."""
+    """Einfacher Kamera-Manager mit Zeitstempel-Support und verbesserter IDS Peak Integration."""
     
     def __init__(self, camera_config_manager=None):
         self.camera = None
@@ -28,12 +38,18 @@ class CameraManager:
         self.current_frame = None
         self.start_time = None
         
-        # IDS Kamera Setup
+        # IDS Kamera Setup - VERBESSERT
         self.ids_device = None
         self.ids_datastream = None
+        self.remote_device_nodemap = None
+        self.payload_size = None
         
         # Kamera-Konfigurationsmanager
         self.camera_config_manager = camera_config_manager
+        
+        # Auflösungs-Cache
+        self._cached_width = None
+        self._cached_height = None
     
     def set_source(self, source):
         """Kamera/Video-Quelle setzen.
@@ -146,7 +162,7 @@ class CameraManager:
         return True
     
     def _start_ids_camera(self):
-        """IDS Kamera starten."""
+        """IDS Kamera starten - VERBESSERT mit robusterer Konfiguration."""
         if not IDS_AVAILABLE:
             return False
             
@@ -158,29 +174,32 @@ class CameraManager:
             device_manager = ids_peak.DeviceManager.Instance()
             device_manager.Update()
             
-            # Verfuegbare Geraete
+            # Verfügbare Geräte
             devices = device_manager.Devices()
             if self.source_info >= len(devices):
                 logging.error(f"IDS Kamera {self.source_info} nicht gefunden")
                 return False
             
-            # Geraet oeffnen
+            # Gerät öffnen
             device_descriptor = devices[self.source_info]
             self.ids_device = device_descriptor.OpenDevice(ids_peak.DeviceAccessType.Control)
             
-            # Datastream einrichten
-            datastreams = self.ids_device.DataStreams()
-            if not datastreams:
-                logging.error("Keine IDS Datastreams verfuegbar")
-                return False
-                
-            self.ids_datastream = datastreams[0].OpenDataStream()
+            # VERBESSERT: Robustere Nodemap-Behandlung
+            nodemaps = self.ids_device.RemoteDevice().NodeMaps()
+            if len(nodemaps) > 1:
+                # Verwende spezifische Nodemap (wie in Referenz-Code)
+                self.remote_device_nodemap = nodemaps[1]
+            else:
+                # Fallback auf erste Nodemap
+                self.remote_device_nodemap = nodemaps[0]
             
-            # Kamera-Konfiguration anwenden (falls verfuegbar)
+            # VERBESSERT: Erweiterte Basis-Konfiguration
+            self._configure_ids_camera_advanced()
+            
+            # Kamera-Konfiguration anwenden (falls verfügbar)
             if self.camera_config_manager and self.camera_config_manager.is_loaded:
                 try:
-                    remote_device_nodemap = self.ids_device.RemoteDevice().NodeMaps()[0]
-                    config_applied = self.camera_config_manager.apply_to_camera_nodemap(remote_device_nodemap)
+                    config_applied = self.camera_config_manager.apply_to_camera_nodemap(self.remote_device_nodemap)
                     if config_applied:
                         logging.info("IDS Peak Konfiguration erfolgreich angewendet")
                     else:
@@ -188,15 +207,76 @@ class CameraManager:
                 except Exception as config_error:
                     logging.error(f"Fehler beim Anwenden der IDS Peak Konfiguration: {config_error}")
             
-            # Acquisition starten
-            self.ids_device.RemoteDevice().NodeMaps()[0].FindNode("AcquisitionStart").Execute()
+            # Datastream einrichten
+            datastreams = self.ids_device.DataStreams()
+            if not datastreams:
+                logging.error("Keine IDS Datastreams verfügbar")
+                return False
+                
+            self.ids_datastream = datastreams[0].OpenDataStream()
             
-            logging.info(f"IDS Kamera {self.source_info} gestartet")
+            # VERBESSERT: Payload-Size und Buffer-Management
+            self.payload_size = self.remote_device_nodemap.FindNode("PayloadSize").Value()
+            
+            # Buffer für Datastream vorbereiten
+            for i in range(self.ids_datastream.NumBuffersAnnouncedMinRequired()):
+                buffer = self.ids_datastream.AllocAndAnnounceBuffer(self.payload_size)
+                self.ids_datastream.QueueBuffer(buffer)
+            
+            # Acquisition starten
+            self.ids_datastream.StartAcquisition()
+            self.remote_device_nodemap.FindNode("AcquisitionStart").Execute()
+            self.remote_device_nodemap.FindNode("AcquisitionStart").WaitUntilDone()
+            
+            # Auflösung ermitteln und cachen
+            self._cache_camera_resolution()
+            
+            logging.info(f"IDS Kamera {self.source_info} erfolgreich gestartet")
             return True
             
         except Exception as e:
             logging.error(f"Fehler beim Starten der IDS Kamera: {e}")
             return False
+
+    def _configure_ids_camera_advanced(self):
+        """Erweiterte IDS-Kamera-Basis-Konfiguration."""
+        try:
+            # Trigger-Modus konfigurieren (kontinuierlich)
+            self.remote_device_nodemap.FindNode("TriggerSelector").SetCurrentEntry("ExposureStart")
+            self.remote_device_nodemap.FindNode("TriggerSource").SetCurrentEntry("Software")
+            self.remote_device_nodemap.FindNode("TriggerMode").SetCurrentEntry("Off")
+            
+            # Spiegelung standardmäßig aus
+            self.remote_device_nodemap.FindNode("ReverseX").SetValue(False)
+            self.remote_device_nodemap.FindNode("ReverseY").SetValue(False)
+            
+            # Basis-Belichtungszeit setzen (falls keine TOML-Konfiguration vorhanden)
+            if not (self.camera_config_manager and self.camera_config_manager.is_loaded):
+                try:
+                    exposure_node = self.remote_device_nodemap.FindNode("ExposureTime")
+                    if exposure_node and exposure_node.IsWritable():
+                        exposure_node.SetValue(75000)  # 75ms Standard
+                        logging.info("Standard-Belichtungszeit gesetzt: 75ms")
+                except Exception as e:
+                    logging.warning(f"Konnte Standard-Belichtungszeit nicht setzen: {e}")
+            
+            logging.info("IDS-Kamera Basis-Konfiguration abgeschlossen")
+            
+        except Exception as e:
+            logging.error(f"Fehler bei IDS-Kamera Basis-Konfiguration: {e}")
+    
+    def _cache_camera_resolution(self):
+        """Kamera-Auflösung ermitteln und cachen."""
+        if self.source_type == 'ids' and self.remote_device_nodemap:
+            try:
+                width_node = self.remote_device_nodemap.FindNode("Width")
+                height_node = self.remote_device_nodemap.FindNode("Height")
+                if width_node and height_node:
+                    self._cached_width = width_node.Value()
+                    self._cached_height = height_node.Value()
+                    logging.info(f"IDS Kamera-Auflösung gecacht: {self._cached_width}x{self._cached_height}")
+            except Exception as e:
+                logging.warning(f"Konnte IDS-Auflösung nicht ermitteln: {e}")
     
     def get_frame(self):
         """Aktuelles Frame holen.
@@ -236,48 +316,108 @@ class CameraManager:
         return None
     
     def _get_ids_frame(self):
-        """Frame von IDS Kamera holen."""
+        """Frame von IDS Kamera holen - VERBESSERT mit mehreren Versuchen."""
         if not self.ids_datastream:
             return None
-            
-        try:
-            # Warten auf neues Bild
-            buffer = self.ids_datastream.WaitForFinishedBuffer(1000)  # 1s timeout
-            
-            # Bild konvertieren
-            image = ids_peak.BufferTo_IplImage(buffer)
-            
-            # Buffer wieder freigeben
-            self.ids_datastream.QueueBuffer(buffer)
-            
-            # OpenCV-Format konvertieren
-            frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            self.current_frame = frame
-            return frame
-            
-        except Exception as e:
-            logging.error(f"Fehler beim IDS Frame-Abruf: {e}")
-            return None
+        
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                # Warten auf neues Bild mit Timeout
+                buffer = self.ids_datastream.WaitForFinishedBuffer(1000)  # 1s timeout
+                
+                # VERBESSERT: IDS IPL Extension für bessere Konvertierung
+                if IDS_IPL_AVAILABLE:
+                    try:
+                        # Konvertierung mit IDS IPL (robuster)
+                        raw_image = ids_ipl_extension.BufferToImage(buffer)
+                        color_image = raw_image.ConvertTo(ids_ipl.PixelFormatName_RGB8)
+                        
+                        # Buffer wieder freigeben
+                        self.ids_datastream.QueueBuffer(buffer)
+                        
+                        # Zu OpenCV-Format konvertieren
+                        frame = color_image.get_numpy_3D()
+                        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                        frame_norm = cv2.normalize(frame, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+                        
+                        self.current_frame = frame_norm.copy()
+                        return self.current_frame
+                        
+                    except Exception as ipl_error:
+                        logging.warning(f"IPL Extension Konvertierung fehlgeschlagen: {ipl_error}, verwende Fallback")
+                        # Fallback auf alte Methode
+                        self.ids_datastream.QueueBuffer(buffer)
+                        continue
+                
+                # Fallback auf alte Methode wenn IPL Extension nicht verfügbar oder fehlschlägt
+                try:
+                    image = ids_peak.BufferTo_IplImage(buffer)
+                    self.ids_datastream.QueueBuffer(buffer)
+                    frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                    self.current_frame = frame
+                    return frame
+                except Exception as fallback_error:
+                    logging.error(f"Auch Fallback-Konvertierung fehlgeschlagen: {fallback_error}")
+                    self.ids_datastream.QueueBuffer(buffer)
+                    continue
+                
+            except Exception as e:
+                logging.warning(f"IDS Frame-Capture Versuch {attempt+1}/{max_attempts} fehlgeschlagen: {e}")
+                if attempt == max_attempts - 1:
+                    logging.error("Alle IDS Frame-Capture Versuche fehlgeschlagen")
+                    return None
+                
+        return None
     
     def stop(self):
-        """Kamera/Video stoppen."""
+        """Kamera/Video stoppen - VERBESSERT für IDS."""
         try:
             if self.source_type in ['webcam', 'video'] and self.camera:
                 self.camera.release()
                 self.camera = None
                 
             elif self.source_type == 'ids':
-                if self.ids_device:
-                    try:
-                        self.ids_device.RemoteDevice().NodeMaps()[0].FindNode("AcquisitionStop").Execute()
-                    except:
-                        pass
-                    self.ids_device = None
+                # VERBESSERT: Robusteres IDS-Cleanup
+                try:
+                    # Datastream stoppen
+                    if self.ids_datastream:
+                        try:
+                            self.ids_datastream.StopAcquisition(ids_peak.AcquisitionStopMode.Default)
+                        except Exception as e:
+                            logging.error(f"Fehler beim Stoppen der IDS Acquisition: {e}")
+                        self.ids_datastream = None
                     
-                if self.ids_datastream:
-                    self.ids_datastream = None
+                    # Acquisition stoppen
+                    if self.remote_device_nodemap:
+                        try:
+                            self.remote_device_nodemap.FindNode("AcquisitionStop").Execute()
+                        except Exception as e:
+                            logging.error(f"Fehler beim Ausführen von AcquisitionStop: {e}")
+                        self.remote_device_nodemap = None
+                    
+                    # Kurze Verzögerung für sauberes Cleanup
+                    time.sleep(0.1)
+                    
+                    # Device freigeben
+                    if self.ids_device:
+                        self.ids_device = None
+                    
+                    # IDS Library schließen
+                    try:
+                        ids_peak.Library.Close()
+                    except Exception as e:
+                        logging.error(f"Fehler beim Schließen der IDS Library: {e}")
+                        
+                except Exception as e:
+                    logging.error(f"Fehler beim IDS-Cleanup: {e}")
             
+            # Cache zurücksetzen
+            self._cached_width = None
+            self._cached_height = None
+            self.payload_size = None
             self.start_time = None
+            
             logging.info("Kamera gestoppt")
             
         except Exception as e:
@@ -344,8 +484,36 @@ class CameraManager:
                 for i, device in enumerate(devices):
                     name = device.DisplayName()
                     cameras.append(('ids', i, f"IDS: {name}"))
+                
+                # IDS Library wieder schließen nach Suche
+                ids_peak.Library.Close()
                     
             except Exception as e:
                 logging.error(f"Fehler beim Suchen der IDS Kameras: {e}")
         
         return cameras
+    
+    def get_camera_info(self):
+        """Informationen über die aktuelle Kamera.
+        
+        Returns:
+            dict: Kamera-Informationen
+        """
+        info = {
+            'source_type': self.source_type,
+            'source_info': self.source_info,
+            'camera_ready': self.camera_ready,
+            'resolution': None
+        }
+        
+        if self.source_type == 'ids' and self._cached_width and self._cached_height:
+            info['resolution'] = f"{self._cached_width}x{self._cached_height}"
+        elif self.source_type in ['webcam', 'video'] and self.camera:
+            try:
+                width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+                height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                info['resolution'] = f"{width}x{height}"
+            except:
+                pass
+        
+        return info

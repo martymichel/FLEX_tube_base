@@ -127,9 +127,7 @@ class MainUI(QWidget):
         
         # 6. Status Grenzwerte + WAGO Modbus - KOMPAKTER
         self._create_united_status_section(layout)
-        
-        # KEIN Stretch mehr - macht die Sidebar flexibler
-        
+                
         # 7. ESC Hinweis + Footer ganz unten - KOMPAKTER
         self._create_esc_hint(layout)
         
@@ -139,38 +137,7 @@ class MainUI(QWidget):
         sidebar_layout.addWidget(sidebar_content)
             
         return self.sidebar
-    
-    def _create_model_status_section(self, layout):
-        """KI-Modell Status-Button."""
-        self.model_btn = QPushButton("Kein Modell geladen")
-        self.model_btn.setMinimumHeight(45)
-        self.model_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #34495e;
-                color: #bdc3c7;
-                border: 2px solid #5d6d7e;
-                padding: 15px 25px;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                text-align: left;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-                border-color: #2e86de;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-                border-color: #95a5a6;
-            }
-        """)
-        self.model_btn.setToolTip("Klicken um Modell zu laden")
-        layout.addWidget(self.model_btn)
+        
     def _set_flash_red(self):
         """Setze rote Blink-Farben."""
         # Main Area rot
@@ -609,7 +576,7 @@ class MainUI(QWidget):
         layout.addWidget(self.quit_btn)
 
         # ESC-Hinweis - KOMPAKTER
-        esc_hint = QLabel("ESC = Applikation sofort Beenden")
+        esc_hint = QLabel("ESC = Applikation Beenden")
         esc_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         esc_hint.setStyleSheet("""
             color: #7f8c8d; 

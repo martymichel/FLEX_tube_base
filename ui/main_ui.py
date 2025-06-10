@@ -139,6 +139,142 @@ class MainUI(QWidget):
         sidebar_layout.addWidget(sidebar_content)
             
         return self.sidebar
+    
+    def _create_model_status_section(self, layout):
+        """KI-Modell Status-Button."""
+        self.model_btn = QPushButton("Kein Modell geladen")
+        self.model_btn.setMinimumHeight(45)
+        self.model_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #34495e;
+                color: #bdc3c7;
+                border: 2px solid #5d6d7e;
+                padding: 15px 25px;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+                border-color: #2e86de;
+                color: white;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                border-color: #95a5a6;
+            }
+        """)
+        self.model_btn.setToolTip("Klicken um Modell zu laden")
+        layout.addWidget(self.model_btn)
+    def _set_flash_red(self):
+        """Setze rote Blink-Farben."""
+        # Main Area rot
+        self.main_area_frame.setStyleSheet("""
+            QFrame {
+                background-color: #e74c3c;
+                border-radius: 8px;
+            }
+        """)
+        
+        # Video-Label auch rot
+        self.video_label.setStyleSheet("""
+            QLabel {
+                background-color: #e74c3c;
+                color: white;
+                border-radius: 8px;
+                font-size: 18px;
+            }
+        """)
+        
+        # Sidebar komplett rot
+        self.sidebar.setStyleSheet("""
+            QFrame {
+                background-color: #e74c3c !important;
+                color: white;
+                border-radius: 4px;
+            }
+            QPushButton {
+                background-color: #c0392b !important;
+                color: white !important;
+                border: 2px solid #a93226 !important;
+                padding: 15px 20px;
+                border-radius: 4px;
+                font-size: 13px;
+                font-weight: bold;
+                min-height: 15px;
+            }
+            QPushButton:hover {
+                background-color: #a93226 !important;
+            }
+            QPushButton:pressed {
+                background-color: #922b21 !important;
+            }
+            QLabel {
+                color: white;
+                font-size: 13px;
+                background-color: transparent;
+            }
+        """)
+
+    def _reset_flash_colors(self):
+        """Setze normale Farben zurueck."""
+        # Main Area normal
+        self.main_area_frame.setStyleSheet("""
+            QFrame {
+                background-color: #ecf0f1;
+                border-radius: 8px;
+            }
+        """)
+        
+        # Video-Label normal
+        self.video_label.setStyleSheet("""
+            QLabel {
+                background-color: #34495e;
+                color: white;
+                border-radius: 8px;
+                font-size: 18px;
+            }
+        """)
+        
+        # Sidebar normal
+        self.sidebar.setStyleSheet("""
+            QFrame {
+                background-color: #2c3e50;
+                color: white;
+                border-radius: 4px;
+            }
+            QPushButton {
+                background-color: #34495e;
+                color: white;
+                border: none;
+                padding: 5px 15px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+                min-height: 12px;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+            }
+            QPushButton:pressed {
+                background-color: #2980b9;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                border-color: #95a5a6;
+            }
+            QLabel {
+                background-color: transparent;
+                color: white;
+                font-size: 12px;
+            }
+        """)
 
     def _create_login_status_section(self, layout):
         """Login-Status-Button - KOMPAKTER."""
@@ -468,8 +604,8 @@ class MainUI(QWidget):
                 background-color: #0d1b2e;
             }
         """)
-        self.quit_btn.setToolTip("Anwendung beenden (ESC)")
-        self.quit_btn.clicked.connect(self._confirm_quit)  # NEU: Bestätigungsdialog
+        self.quit_btn.setToolTip("Anwendung beenden (ESC druecken)")
+        self.quit_btn.clicked.connect(self._confirm_quit)  # Bestätigungsdialog
         layout.addWidget(self.quit_btn)
 
         # ESC-Hinweis - KOMPAKTER
@@ -502,26 +638,13 @@ class MainUI(QWidget):
                 color: #2980b9;
             }
         """)
-        self.footer_label.setToolTip("Klicken für ein Lächeln 😊")
         self.footer_label.clicked.connect(self._show_smiley)
         layout.addWidget(self.footer_label)
 
     def _confirm_quit(self):
         """Bestätigungsdialog vor dem Beenden der Anwendung."""
-        reply = QMessageBox.question(
-            self,
-            "Anwendung beenden",
-            "Sind Sie sicher, dass Sie die Anwendung beenden möchten?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No  # Standard ist "Nein"
-        )
-        
-        if reply == QMessageBox.StandardButton.Yes:
-            # Hier die ursprüngliche Quit-Logik aufrufen
-            if hasattr(self.app, 'quit_application'):
-                self.app.quit_application()
-            else:
-                self.app.quit()
+        # Einfach an quit_application delegieren - dort ist die Logik
+        self.app.quit_application()
 
     def _show_smiley(self):
         """Zeigt einen kleinen Smiley wenn auf den Footer geklickt wird."""

@@ -1,7 +1,7 @@
 {
   "confidence_threshold": 0.7,
-  "last_model": "C:/Users/miche/Documents/GitHub/FLEX_tube_base/template_ai_modell.pt",
-  "last_source": 2,
+  "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
+  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
   "video_width": 640,
   "video_height": 480,
   "sidebar_width": 350,
@@ -21,7 +21,7 @@
     1
   ],
   "bad_part_min_confidence": 0.6,
-  "last_mode_was_video": false,
+  "last_mode_was_video": true,
   "red_threshold": 1,
   "green_threshold": 4,
   "good_part_classes": [

@@ -58,7 +58,7 @@ class DetectionApp(QMainWindow):
         # Image-Saver
         self.image_saver = ImageSaver(self.settings)
         
-        # NEUER Parquet Detection Logger
+        # Parquet Detection Logger
         self.detection_logger = DetectionLogger(self.settings)
         
         # UI aufbauen
@@ -70,6 +70,7 @@ class DetectionApp(QMainWindow):
         
         # ESC-Taste für schnelles Beenden
         self.setup_exit_shortcuts()
+        self._shutdown_confirmed = False
         
         # Status
         self.running = False
@@ -267,7 +268,29 @@ class DetectionApp(QMainWindow):
         logging.info("Exit shortcuts eingerichtet: ESC und Ctrl+Q")
 
     def quit_application(self):
-        """Anwendung schnell beenden."""
+        """Anwendung beenden - NUR nach Bestätigung."""
+        # Prüfe ob bereits bestätigt
+        if hasattr(self, '_shutdown_confirmed') and self._shutdown_confirmed:
+            # Bereits bestätigt - direkt beenden
+            self._do_quit()
+            return
+        
+        # Zeige Bestätigungsdialog
+        reply = QMessageBox.question(
+            self,
+            "Anwendung beenden",
+            "Sind Sie sicher, dass Sie die Anwendung beenden möchten?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Bestätigt - Flag setzen und beenden
+            self._shutdown_confirmed = True
+            self._do_quit()
+
+    def _do_quit(self):
+        """Tatsächliches Beenden ohne weitere Nachfrage."""
         logging.info("Schnelles Beenden eingeleitet...")
         
         try:
@@ -282,6 +305,10 @@ class DetectionApp(QMainWindow):
             # Detection stoppen
             if self.running:
                 self.stop_detection()
+
+            # Kamerastream stoppen
+            if hasattr(self.camera_manager, 'stop'):
+                self.camera_manager.stop()
             
             # Modbus trennen
             self.modbus_manager.disconnect()
@@ -1014,8 +1041,14 @@ class DetectionApp(QMainWindow):
 
     def closeEvent(self, event):
         """Sauberes Herunterfahren."""
+        if hasattr(self, '_shutdown_confirmed') and self._shutdown_confirmed:
+            # Bereits bestätigt
+            event.accept()
+            return
+        
+        # Bestätigungsdialog zeigen
         self.quit_application()
-        event.accept()
+        event.ignore()
 
 def main():
     """Hauptfunktion."""

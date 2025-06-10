@@ -112,7 +112,19 @@ class SettingsDialog(QDialog):
         self.parent_app = parent  # Referenz zur Hauptanwendung fuer Modbus-Funktionen
         self.setWindowTitle("⚙️ Einstellungen")
         self.setModal(True)
-        self.resize(800, 800) 
+        
+        # Bildschirmgröße abfragen und Dialog entsprechend dimensionieren
+        screen = QApplication.primaryScreen().availableGeometry()
+        
+        # Dialog auf maximal 90% der Bildschirmgröße begrenzen
+        max_width = int(screen.width() * 0.9)
+        max_height = int(screen.height() * 0.9)
+        
+        # Gewünschte Größe, aber nicht größer als Bildschirm
+        dialog_width = min(800, max_width)
+        dialog_height = min(800, max_height)
+        
+        self.resize(dialog_width, dialog_height)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
         # 20 vordefinierte Farben fuer Klassen
@@ -805,7 +817,12 @@ class SettingsDialog(QDialog):
         reset_btn.clicked.connect(self.reset_settings)
         button_layout.addWidget(reset_btn)
         
-        layout.addLayout(button_layout)
+        # ZUSÄTZLICH: Ensure dass Button-Sektion immer sichtbar bleibt
+        button_widget = QWidget()
+        button_widget.setLayout(button_layout)
+        button_widget.setFixedHeight(60)  # Feste Höhe für Button-Bereich
+        
+        layout.addWidget(button_widget)
     
     # Modbus-Aktions-Handler
     def handle_modbus_reset(self):

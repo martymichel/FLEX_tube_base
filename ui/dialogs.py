@@ -1,7 +1,7 @@
 """
 Dialog-Komponenten fuer Kamera-Auswahl und Einstellungen
 Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout, Klassennamen-Support und Farbauswahl
-ERWEITERT: Farbauswahl fuer jede Klasse mit 20 vordefinierten Farben
+ERWEITERT: Editierbare Modbus IP/Port Einstellungen (nur wenn getrennt)
 """
 
 import os
@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QFrame, QFileDialog, QSpinBox, QDoubleSpinBox, QCheckBox, 
     QFormLayout, QMessageBox, QListWidget, QTabWidget, QWidget,
     QScrollArea, QSizePolicy, QComboBox, QApplication, QColorDialog,
-    QGridLayout
+    QGridLayout, QLineEdit
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -103,7 +103,7 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Tab-basierter Einstellungen-Dialog mit Farbauswahl fuer Klassen."""
+    """Tab-basierter Einstellungen-Dialog mit Farbauswahl fuer Klassen und editierbaren Modbus-Einstellungen."""
     
     def __init__(self, settings, class_names=None, parent=None):
         super().__init__(parent)
@@ -167,8 +167,8 @@ class SettingsDialog(QDialog):
         # Tabs erstellen
         self._create_general_tab()
         self._create_classes_assignment_tab()
-        self._create_color_assignment_tab()  # NEU: Farbzuteilung-Tab
-        self._create_interfaces_tab()
+        self._create_color_assignment_tab()
+        self._create_interfaces_tab()  # ERWEITERT: Mit editierbaren Modbus-Einstellungen
         self._create_storage_monitoring_tab()
         
         # Button-Sektion
@@ -199,7 +199,7 @@ class SettingsDialog(QDialog):
         layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
         self._add_spacer(layout)
 
-        # Motion Decay - NEU: MIT INFO
+        # Motion Decay - MIT INFO
         motion_decay_info = self._create_info_label(
             "Abklingfaktor fuer die Motion-Anzeige. Bestimmt, wie schnell der angezeigte Motion-Wert "
             "nach dem Ende einer Bewegung abfaellt. Hoehere Werte = langsameres Abklingen (traeger), "
@@ -506,7 +506,7 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(scroll, "🎨 Farbzuteilung")
         
     def _create_interfaces_tab(self):
-        """Tab 4: 🔌 Schnittstellen (ehemals Hardware)"""
+        """Tab 4: 🔌 Schnittstellen - ERWEITERT: Mit editierbaren Modbus-Einstellungen"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -551,20 +551,60 @@ class SettingsDialog(QDialog):
         
         self._add_spacer(layout)
         
-        # MODBUS-Einstellungen
+        # MODBUS-Einstellungen - ERWEITERT: Mit editierbaren IP/Port
         self._add_section_header(layout, "🔌 WAGO Modbus-Schnittstelle")
         
-        # INFO: Modbus ist immer aktiviert
-        modbus_info = QLabel("Modbus ist fuer den Betrieb immer aktiviert.")
-        modbus_info.setStyleSheet("color: #2c3e50; font-weight: bold; background-color: #ecf0f1; padding: 8px; border-radius: 4px;")
-        layout.addRow(modbus_info)
+        # INFO: Verbindungsstatus
+        self.modbus_connection_info = QLabel("Modbus-Status wird geladen...")
+        self.modbus_connection_info.setStyleSheet("color: #2c3e50; font-weight: bold; background-color: #ecf0f1; padding: 8px; border-radius: 4px;")
+        layout.addRow(self.modbus_connection_info)
         
-        # IP-Adresse (nur Anzeige)
-        self.modbus_ip_input = QLabel("192.168.1.100") # Beispiel-IP wird nur angezeigt, wenn modbus_ip_input leer ist
-        self.modbus_ip_input.setStyleSheet(
-            "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
+        # NEU: IP-Adresse editierbar (nur wenn getrennt)
+        modbus_ip_info = self._create_info_label(
+            "IP-Adresse des WAGO Controllers. Aenderungen sind nur moeglich, wenn die Modbus-Verbindung getrennt ist."
         )
+        layout.addRow(modbus_ip_info)
+        
+        self.modbus_ip_input = QLineEdit()
+        self.modbus_ip_input.setPlaceholderText("192.168.1.100")
+        self.modbus_ip_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 1px solid #bdc3c7;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QLineEdit:disabled {
+                background-color: #ecf0f1;
+                color: #7f8c8d;
+                border-color: #d5dbdb;
+            }
+        """)
         layout.addRow("WAGO IP-Adresse:", self.modbus_ip_input)
+        
+        # NEU: Port editierbar (nur wenn getrennt)
+        modbus_port_info = self._create_info_label(
+            "Modbus-TCP Port des WAGO Controllers (Standard: 502). Aenderungen sind nur moeglich, wenn die Modbus-Verbindung getrennt ist."
+        )
+        layout.addRow(modbus_port_info)
+        
+        self.modbus_port_spin = QSpinBox()
+        self.modbus_port_spin.setRange(1, 65535)
+        self.modbus_port_spin.setValue(502)
+        self.modbus_port_spin.setStyleSheet("""
+            QSpinBox {
+                padding: 8px 12px;
+                border: 1px solid #bdc3c7;
+                border-radius: 4px;
+                font-size: 12px;
+            }
+            QSpinBox:disabled {
+                background-color: #ecf0f1;
+                color: #7f8c8d;
+                border-color: #d5dbdb;
+            }
+        """)
+        layout.addRow("Modbus-TCP Port:", self.modbus_port_spin)
         
         # Ausschuss-Signal Dauer - MIT INFO
         reject_duration_info = self._create_info_label(
@@ -819,6 +859,23 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(button_widget)
     
+    # NEU: Modbus-Verbindungsstatus updaten
+    def update_modbus_connection_status(self, connected):
+        """Modbus-Verbindungsstatus im Dialog aktualisieren."""
+        if connected:
+            self.modbus_connection_info.setText("✅ Modbus verbunden - IP/Port-Einstellungen gesperrt")
+            self.modbus_connection_info.setStyleSheet("color: #27ae60; font-weight: bold; background-color: #d5f4e6; padding: 8px; border-radius: 4px;")
+            # IP/Port sperren
+            self.modbus_ip_input.setEnabled(False)
+            self.modbus_port_spin.setEnabled(False)
+        else:
+            self.modbus_connection_info.setText("❌ Modbus getrennt - IP/Port-Einstellungen editierbar")
+            self.modbus_connection_info.setStyleSheet("color: #e74c3c; font-weight: bold; background-color: #fadbd8; padding: 8px; border-radius: 4px;")
+            # IP/Port freigeben (nur für Admin)
+            can_edit = hasattr(self.parent_app, 'app') and self.parent_app.app.user_manager.can_change_modbus_settings()
+            self.modbus_ip_input.setEnabled(can_edit)
+            self.modbus_port_spin.setEnabled(can_edit)
+    
     # Modbus-Aktions-Handler
     def handle_modbus_reset(self):
         """WAGO Controller Reset aus Einstellungen."""
@@ -881,10 +938,6 @@ class SettingsDialog(QDialog):
                 
                 # UI Status aktualisieren
                 self.parent_app.app.ui.update_modbus_status(True, self.parent_app.app.modbus_manager.ip_address)
-                
-                # App entsperren falls gesperrt
-                if hasattr(self.parent_app.app, 'modbus_critical_failure'):
-                    self.parent_app.app.unlock_app_after_modbus_recovery()
                 
                 QMessageBox.information(
                     self,
@@ -1029,7 +1082,7 @@ class SettingsDialog(QDialog):
     
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
-        # Allgemein (ehemals KI & Workflow) - OHNE allgemeine Konfidenz (verschoben)
+        # Allgemein
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
         self.red_threshold_spin.setValue(self.settings.get('red_threshold', 1))
         self.green_threshold_spin.setValue(self.settings.get('green_threshold', 4))
@@ -1076,19 +1129,24 @@ class SettingsDialog(QDialog):
                 default_color = self.predefined_colors[class_id % len(self.predefined_colors)]
                 self.class_colors[class_id] = QColor(default_color)
         
-        # Schnittstellen (ehemals Hardware)
+        # Schnittstellen - ERWEITERT: Mit IP/Port
         camera_config_path = self.settings.get('camera_config_path', '')
         if camera_config_path:
             self.camera_config_path_label.setText(camera_config_path)
         else:
             self.camera_config_path_label.setText("Keine Konfiguration ausgewaehlt")
         
-        # MODBUS: Nur IP und Dauer laden
+        # NEU: Modbus IP/Port laden
         self.modbus_ip_input.setText(self.settings.get('modbus_ip', '192.168.1.100'))
+        self.modbus_port_spin.setValue(self.settings.get('modbus_port', 502))
         self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
         
-        # Modbus-Buttons je nach Admin-Status aktivieren/deaktivieren
+        # NEU: Modbus-Verbindungsstatus aktualisieren
         if hasattr(self.parent_app, 'app'):
+            is_connected = self.parent_app.app.modbus_manager.is_connected()
+            self.update_modbus_connection_status(is_connected)
+            
+            # Button-Status je nach Admin-Rechten
             is_admin = self.parent_app.app.user_manager.is_admin()
             self.modbus_reset_btn.setEnabled(is_admin)
             self.modbus_reconnect_btn.setEnabled(is_admin)
@@ -1106,7 +1164,7 @@ class SettingsDialog(QDialog):
     
     def save_settings(self):
         """Einstellungen speichern."""
-        # Allgemein - OHNE allgemeine Konfidenz
+        # Allgemein
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
         self.settings.set('motion_decay_factor', self.motion_decay_spin.value())
         self.settings.set('red_threshold', self.red_threshold_spin.value())
@@ -1141,15 +1199,16 @@ class SettingsDialog(QDialog):
             color_dict[str(class_id)] = color.name()
         self.settings.set('class_colors', color_dict)
         
-        # Schnittstellen (ehemals Hardware)
+        # Schnittstellen - ERWEITERT: Mit IP/Port
         camera_config_text = self.camera_config_path_label.text()
         if camera_config_text == "Keine Konfiguration ausgewaehlt":
             self.settings.set('camera_config_path', '')
         else:
             self.settings.set('camera_config_path', camera_config_text)
         
-        # MODBUS: Nur IP und Dauer speichern
+        # NEU: Modbus IP/Port speichern
         self.settings.set('modbus_ip', self.modbus_ip_input.text())
+        self.settings.set('modbus_port', self.modbus_port_spin.value())
         self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         
         # Speicherung & Überwachung
@@ -1162,6 +1221,22 @@ class SettingsDialog(QDialog):
         self.settings.set('brightness_low_threshold', self.brightness_low_spin.value())
         self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
+        
+        # Prüfe ob Modbus-Einstellungen geändert wurden und zeige Warnung
+        if hasattr(self.parent_app, 'app'):
+            current_ip = self.parent_app.app.modbus_manager.ip_address
+            current_port = self.parent_app.app.modbus_manager.port
+            new_ip = self.modbus_ip_input.text()
+            new_port = self.modbus_port_spin.value()
+            
+            if (current_ip != new_ip or current_port != new_port):
+                QMessageBox.information(
+                    self,
+                    "Modbus-Einstellungen geändert",
+                    "IP-Adresse oder Port wurden geändert.\n\n"
+                    "Die neuen Einstellungen werden beim nächsten Neustart der Anwendung oder "
+                    "bei einer manuellen Neuverbindung wirksam."
+                )
         
         self.settings.save()
         self.accept()

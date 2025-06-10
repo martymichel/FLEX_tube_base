@@ -1,6 +1,7 @@
 """
-Benutzer-Manager - einfach und sicher mit Auto-Logout
+Benutzer-Manager - einfach und sicher mit Auto-Logout und PIN-Eingabe
 Verwaltet Benutzerlevel und Berechtigungen mit automatischem Admin-Timeout
+NEUE FUNKTION: PIN-basierte Anmeldung
 """
 
 import logging
@@ -9,16 +10,17 @@ from PyQt6.QtWidgets import QInputDialog, QLineEdit
 from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 
 class UserManager(QObject):
-    """Einfache Benutzerverwaltung mit Auto-Logout."""
+    """Einfache Benutzerverwaltung mit Auto-Logout und PIN-Eingabe."""
     
     # Signal fuer UI-Updates bei Status-Änderungen
     user_status_changed = pyqtSignal(str)  # Sendet neuen Status: "Operator" oder "Admin / Dev"
     
     def __init__(self):
         super().__init__()
-        # Passweort "flex2025" oder "adminoverride" akzeptieren
-        self.admin_password = "flex2025"  # Standard-Admin-Passwort
-        self.admin_override_password = "adminoverride"  # Alternative Admin-Passwort
+        # PIN-Codes für die Anmeldung
+        self.admin_pin = "2025"      # Admin-PIN
+        self.default_pin = "1406"    # Default-PIN (für zukünftige Erweiterungen)
+        
         # Status-Flag fuer Admin-Login
         self.is_admin_logged_in = False
         
@@ -28,34 +30,38 @@ class UserManager(QObject):
         self.auto_logout_timer.timeout.connect(self._auto_logout)
         self.admin_login_time = None
         
-        logging.info("UserManager initialisiert - Standardmodus: Operator")
+        logging.info("UserManager initialisiert - Standardmodus: Operator (PIN-basiert)")
     
     def login(self):
-        """Login-Dialog anzeigen.
+        """PIN-Login-Dialog anzeigen.
         
         Returns:
             bool: True wenn erfolgreich eingeloggt
         """
-        password, ok = QInputDialog.getText(
+        pin, ok = QInputDialog.getText(
             None,
             "Administrator-Login",
-            "Admin-Passwort eingeben:",
+            "Admin-PIN eingeben:",
             QLineEdit.EchoMode.Password
         )
         
-        # Pruefen ob Passwort korrekt ist (Admin oder Override)
-        if ok and (password == self.admin_password or password == self.admin_override_password):
+        # Pruefen ob PIN korrekt ist
+        if ok and pin == self.admin_pin:
             self.is_admin_logged_in = True
             self.admin_login_time = time.time()
             
             # Auto-Logout Timer starten (10 Minuten = 600.000 ms)
             self.auto_logout_timer.start(10 * 60 * 1000)  # 10 Minuten
             
-            logging.info("Administrator-Login erfolgreich - Auto-Logout in 10 Minuten")
+            logging.info("Administrator-Login erfolgreich (PIN: ****) - Auto-Logout in 10 Minuten")
             self.user_status_changed.emit("Benutzerstatus: Admin")
             return True
+        elif ok and pin == self.default_pin:
+            # Default-PIN wurde eingegeben - könnte für zukünftige Erweiterungen genutzt werden
+            logging.info("Default-PIN eingegeben - bleibt im Operator-Modus")
+            return False
         else:
-            logging.warning("Administrator-Login fehlgeschlagen")
+            logging.warning("Administrator-Login fehlgeschlagen - ungueltige PIN")
             return False
     
     def logout(self):
@@ -112,7 +118,13 @@ class UserManager(QObject):
         return self.is_admin_logged_in
     
     def can_reset_counter(self):
-        """Kann Counter zuruecksetzen? (NEU)"""
+        """Kann Counter zuruecksetzen?"""
+        if self.is_admin_logged_in:
+            self.extend_session()  # Session verlaengern bei Aktivitaet
+        return self.is_admin_logged_in
+    
+    def can_change_modbus_settings(self):
+        """Kann Modbus-Einstellungen aendern? (NEU)"""
         if self.is_admin_logged_in:
             self.extend_session()  # Session verlaengern bei Aktivitaet
         return self.is_admin_logged_in

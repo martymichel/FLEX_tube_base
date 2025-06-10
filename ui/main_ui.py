@@ -1,6 +1,6 @@
 """
-Hauptbenutzeroberflaeche - FINALE Version mit einheitlichen Status-Proportionen und rotem Blinken
-Angepasst: Status-Titel ohne farbige Boxen, 1/3 zu 2/3 Proportionen, rotes Blinken bei Schlechtteilen
+Hauptbenutzeroberflaeche - REFACTORED Version mit externen Stylesheets
+Übersichtlicher Code durch Auslagerung der Style-Definitionen
 """
 
 import os
@@ -17,9 +17,10 @@ import logging
 
 # Lokale Importe
 from .dialogs import CameraSelectionDialog, SettingsDialog
+from .styles import UIStyles
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberflaeche mit einheitlichen Status-Proportionen und rotem Blinken."""
+    """Hauptbenutzeroberflaeche mit externen Stylesheets."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -67,346 +68,96 @@ class MainUI(QWidget):
         self.splitter.setSizes([350, 1000])
     
     def create_sidebar(self):
-        """Kompakte Sidebar mit einheitlichen Status-Proportionen erstellen - OPTIMIERT für kleine Bildschirme."""
+        """Kompakte Sidebar erstellen."""
         self.sidebar = QFrame()
-        self.sidebar.setStyleSheet("""
-            QFrame {
-                background-color: #2c3e50;
-                color: white;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #34495e;
-                color: white;
-                border: none;
-                padding: 5px 15px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: bold;
-                min-height: 12px;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-            }
-            QLabel {
-                color: white;
-                font-size: 12px;     /* REDUZIERT: Von 13px */
-            }
-        """)
+        self.sidebar.setStyleSheet(UIStyles.get_sidebar_base_style())
         self.sidebar.setMinimumWidth(300)
         self.sidebar.setMaximumWidth(380)
         
-        # KOMPAKTES Layout - REDUZIERTE Abstände
+        # KOMPAKTES Layout
         sidebar_content = QWidget()
         layout = QVBoxLayout(sidebar_content)
-        layout.setSpacing(15)  # REDUZIERT: Von 25 auf 15
-        layout.setContentsMargins(15, 15, 15, 15)  # REDUZIERT: Von 20 auf 15
+        layout.setSpacing(15)
+        layout.setContentsMargins(15, 15, 15, 15)
         
-        # REIHENFOLGE (kompakter):
-        # 1. Benutzer-Status
+        # Benutzer-Status
         self._create_login_status_section(layout)
         
-        # 2. Aktionen
+        # Aktionen
         self._create_actions_section(layout)
         
-        # 3. KI-Modell
+        # KI-Modell
         self._create_model_status_section(layout)
         
-        # 4. Kamera-Video
+        # Kamera-Video
         self._create_camera_status_section(layout)
         
-        # 5. Letzte Erkennung - KOMPAKTER
+        # Letzte Erkennung
         self._create_stats_section(layout)
         
-        # 6. Status Grenzwerte + WAGO Modbus - KOMPAKTER
+        # Status Grenzwerte + WAGO Modbus
         self._create_united_status_section(layout)
                 
-        # 7. ESC Hinweis + Footer ganz unten - KOMPAKTER
+        # ESC Hinweis + Footer
         self._create_esc_hint(layout)
         
-        # Content direkt zu Sidebar hinzufügen
+        # Content zu Sidebar hinzufügen
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.addWidget(sidebar_content)
             
         return self.sidebar
-        
-    def _set_flash_red(self):
-        """Setze rote Blink-Farben."""
-        # Main Area rot
-        self.main_area_frame.setStyleSheet("""
-            QFrame {
-                background-color: #e74c3c;
-                border-radius: 8px;
-            }
-        """)
-        
-        # Video-Label auch rot
-        self.video_label.setStyleSheet("""
-            QLabel {
-                background-color: #e74c3c;
-                color: white;
-                border-radius: 8px;
-                font-size: 18px;
-            }
-        """)
-        
-        # Sidebar komplett rot
-        self.sidebar.setStyleSheet("""
-            QFrame {
-                background-color: #e74c3c !important;
-                color: white;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #c0392b !important;
-                color: white !important;
-                border: 2px solid #a93226 !important;
-                padding: 15px 20px;
-                border-radius: 4px;
-                font-size: 13px;
-                font-weight: bold;
-                min-height: 15px;
-            }
-            QPushButton:hover {
-                background-color: #a93226 !important;
-            }
-            QPushButton:pressed {
-                background-color: #922b21 !important;
-            }
-            QLabel {
-                color: white;
-                font-size: 13px;
-                background-color: transparent;
-            }
-        """)
-
-    def _reset_flash_colors(self):
-        """Setze normale Farben zurueck."""
-        # Main Area normal
-        self.main_area_frame.setStyleSheet("""
-            QFrame {
-                background-color: #ecf0f1;
-                border-radius: 8px;
-            }
-        """)
-        
-        # Video-Label normal
-        self.video_label.setStyleSheet("""
-            QLabel {
-                background-color: #34495e;
-                color: white;
-                border-radius: 8px;
-                font-size: 18px;
-            }
-        """)
-        
-        # Sidebar normal
-        self.sidebar.setStyleSheet("""
-            QFrame {
-                background-color: #2c3e50;
-                color: white;
-                border-radius: 4px;
-            }
-            QPushButton {
-                background-color: #34495e;
-                color: white;
-                border: none;
-                padding: 5px 15px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: bold;
-                min-height: 12px;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-                border-color: #95a5a6;
-            }
-            QLabel {
-                background-color: transparent;
-                color: white;
-                font-size: 12px;
-            }
-        """)
-
+    
     def _create_login_status_section(self, layout):
-        """Login-Status-Button - KOMPAKTER."""
+        """Login-Status-Button erstellen."""
         self.login_status_btn = QPushButton("Benutzerstatus: Operator")
-        self.login_status_btn.setMinimumHeight(35)  # REDUZIERT: Von 45 auf 35
-        self.login_status_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #34495e;
-                color: white;
-                border: 2px solid #5d6d7e;
-                padding: 5px 20px;
-                border-radius: 4px;
-                font-size: 14px;
-                font-weight: bold;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-                border-color: #2e86de;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-        """)
+        self.login_status_btn.setStyleSheet(UIStyles.get_login_button_operator_style())
         self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
         layout.addWidget(self.login_status_btn)
 
     def _create_model_status_section(self, layout):
-        """KI-Modell Status-Button - KOMPAKTER."""
+        """KI-Modell Status-Button erstellen."""
         self.model_btn = QPushButton("Kein Modell geladen")
-        self.model_btn.setMinimumHeight(35)  # REDUZIERT: Von 45 auf 35
-        self.model_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #34495e;
-                color: #bdc3c7;
-                border: 2px solid #5d6d7e;
-                padding: 5px 20px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: bold;
-                text-align: left;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-                border-color: #2e86de;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-                border-color: #95a5a6;
-            }
-        """)
+        self.model_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
         self.model_btn.setToolTip("Klicken um Modell zu laden")
         layout.addWidget(self.model_btn)
 
     def _create_camera_status_section(self, layout):
-        """Kamera-Video Status-Button - KOMPAKTER."""
+        """Kamera-Video Status-Button erstellen."""
         self.camera_btn = QPushButton("Modus wählen")
-        self.camera_btn.setMinimumHeight(35)  # REDUZIERT: Von 45 auf 35
-        self.camera_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #34495e;
-                color: #bdc3c7;
-                border: 2px solid #5d6d7e;
-                padding: 5px 20px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-weight: bold;
-                text-align: left;
-            }
-            QPushButton:hover {
-                background-color: #3498db;
-                border-color: #2e86de;
-                color: white;
-            }
-            QPushButton:pressed {
-                background-color: #2980b9;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-                border-color: #95a5a6;
-            }
-        """)
+        self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
         self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
         layout.addWidget(self.camera_btn)
 
     def _create_actions_section(self, layout):
-        """Aktionen - KOMPAKTER."""
+        """Aktionen erstellen."""
         actions_layout = QVBoxLayout()
-        actions_layout.setSpacing(8)  # REDUZIERT: Von 12 auf 8
+        actions_layout.setSpacing(8)
 
         self.start_btn = QPushButton("▶ Live Detection STARTEN")
-        self.start_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                font-size: 14px;
-                font-weight: bold;
-                min-height: 30px;
-                padding: 5px 20px;
-                border-radius: 4px;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #2ecc71;
-            }
-        """)
+        self.start_btn.setStyleSheet(UIStyles.get_start_button_style())
         actions_layout.addWidget(self.start_btn)
         
         self.snapshot_btn = QPushButton("Schnappschuss")
-        self.snapshot_btn.setStyleSheet("""
-            QPushButton {
-                padding: 12px 20px;  /* REDUZIERT */
-                border-radius: 4px;
-                min-height: 25px;    /* NEU: Kleinere Mindesthöhe */
-            }
-        """)
+        self.snapshot_btn.setStyleSheet(UIStyles.get_snapshot_button_style())
         actions_layout.addWidget(self.snapshot_btn)
         layout.addLayout(actions_layout)
 
     def _create_stats_section(self, layout):
-        """Statistiken - KOMPAKTER für kleine Bildschirme."""
+        """Statistiken erstellen."""
         self.last_cycle_table = QTableWidget(0, 5)
         self.last_cycle_table.setHorizontalHeaderLabels(["Klasse", "Img", "Min", "Max", "Anz"])
         self.last_cycle_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.last_cycle_table.verticalHeader().hide()
-        self.last_cycle_table.setMaximumHeight(160)  # REDUZIERT: Von 220 auf 160
-        self.last_cycle_table.setMinimumHeight(120)  # REDUZIERT: Von 180 auf 120
-        self.last_cycle_table.setStyleSheet("""
-            QTableWidget {
-                background: rgba(255, 255, 255, 0.05);
-                color: #e2e8f0;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 4px;
-                font-size: 9px;      /* REDUZIERT: Von 10px */
-                gridline-color: rgba(255, 255, 255, 0.1);
-            }
-            QHeaderView::section {
-                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                                        stop: 0 #4a5568, stop: 1 #2d3748);
-                color: white;
-                border: none;
-                padding: 3px;        /* REDUZIERT: Von 4px */
-                font-size: 9px;      /* REDUZIERT: Von 10px */
-                font-weight: 600;
-                text-transform: uppercase;
-            }
-            QTableWidget::item {
-                padding: 2px 3px;   /* REDUZIERT */
-                border: none;
-            }
-            QTableWidget::item:selected {
-                background: rgba(255, 255, 255, 0.1);
-            }
-        """)
+        self.last_cycle_table.setMaximumHeight(160)
+        self.last_cycle_table.setMinimumHeight(120)
+        self.last_cycle_table.setStyleSheet(UIStyles.get_stats_table_style())
         layout.addWidget(self.last_cycle_table)
 
     def _create_united_status_section(self, layout):
-        """VEREINT: Status Grenzwerte + WAGO Modbus - KOMPAKTER für kleine Bildschirme."""
+        """VEREINT: Status Grenzwerte + WAGO Modbus erstellen."""
         status_layout = QVBoxLayout()
-        status_layout.setSpacing(8)  # REDUZIERT: Von 12 auf 8
+        status_layout.setSpacing(8)
         
         # Kompakte Hilfsfunktion für Status-Zeilen
         def _add_compact_status_row(label_text, value_widget, tooltip_text=""):
@@ -414,132 +165,73 @@ class MainUI(QWidget):
             row_layout.setSpacing(5)
             
             label = QLabel(label_text)
-            label.setStyleSheet("color: white; background: transparent; font-size: 11px;")  # Kleinere Schrift
+            label.setStyleSheet(UIStyles.get_compact_status_label_style())
             if tooltip_text:
                 label.setToolTip(tooltip_text)
             row_layout.addWidget(label, 1)
-            
-            value_widget.setStyleSheet(value_widget.styleSheet().replace("padding: 8px 15px", "padding: 6px 12px"))  # Kompakter
             row_layout.addWidget(value_widget, 2)
-            
             status_layout.addLayout(row_layout)
-        
-        # --- STATUS GRENZWERTE TEIL - KOMPAKT ---
         
         # Workflow-Status
         self.workflow_info = QLabel("BEREIT")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.workflow_info.setStyleSheet("""
-            background-color: #34495e;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 11px;
-        """)
+        self.workflow_info.setStyleSheet(UIStyles.get_workflow_status_style("#34495e"))
         _add_compact_status_row("Workflow:", self.workflow_info)
         
         # Motion-Wert
         self.motion_info = QLabel("--")
         self.motion_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.motion_info.setStyleSheet("""
-            background-color: #34495e;
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 11px;
-            min-width: 50px;
-        """)
+        self.motion_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
         _add_compact_status_row("Bewegung:", self.motion_info)
         
         # Helligkeit
         self.brightness_info = QLabel("--")
         self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.brightness_info.setStyleSheet("""
-            background-color: #34495e;
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 11px;
-            min-width: 50px;
-        """)
+        self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
         _add_compact_status_row("Helligkeit:", self.brightness_info)
         
-        # Helligkeitswarnung - KOMPAKTER
+        # Helligkeitswarnung
         self.brightness_warning = QLabel("Beleuchtung prüfen!")
         self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.brightness_warning.setStyleSheet("""
-            background-color: #e74c3c;
-            color: white;
-            padding: 5px 12px;  /* REDUZIERT */
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 10px;    /* REDUZIERT: Von 11px */
-        """)
+        self.brightness_warning.setStyleSheet(UIStyles.get_brightness_warning_style())
         self.brightness_warning.setVisible(False)
         status_layout.addWidget(self.brightness_warning)
-        
-        # --- WAGO MODBUS TEIL - KOMPAKT ---
         
         # WAGO Status
         self.modbus_status = QLabel("Getrennt")
         self.modbus_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.modbus_status.setStyleSheet("""
-            background-color: #e74c3c;
-            color: white;
-            padding: 5px 12px;  /* REDUZIERT */
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 10px;    /* REDUZIERT: Von 11px */
-        """)
+        self.modbus_status.setStyleSheet(UIStyles.get_modbus_status_disconnected_style())
         _add_compact_status_row("WAGO:", self.modbus_status)
         
         # IP-Adresse
         self.modbus_ip = QLabel("192.168.1.100")
         self.modbus_ip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.modbus_ip.setStyleSheet("""
-            background-color: #34495e;
-            padding: 5px 12px;  /* REDUZIERT */
-            border-radius: 4px;
-            font-size: 10px;    /* REDUZIERT: Von 11px */
-        """)
+        self.modbus_ip.setStyleSheet(UIStyles.get_modbus_ip_style())
         _add_compact_status_row("IP:", self.modbus_ip)
         
         # Coils - KOMPAKTER
         coils_layout = QHBoxLayout()
         coils_label = QLabel("Coils:")
-        coils_label.setStyleSheet("color: white; background: transparent; font-size: 11px;")
+        coils_label.setStyleSheet(UIStyles.get_compact_status_label_style())
         coils_layout.addWidget(coils_label, 1)
         
         coil_container = QWidget()
         coil_container_layout = QHBoxLayout(coil_container)
         coil_container_layout.setContentsMargins(0, 0, 0, 0)
-        coil_container_layout.setSpacing(4)  # REDUZIERT: Von 5 auf 4
+        coil_container_layout.setSpacing(4)
         
         # Kleinere Coil-Indikatoren
         self.reject_coil_indicator = QLabel("A")
         self.reject_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.reject_coil_indicator.setFixedSize(18, 18)  # REDUZIERT: Von 22x22 auf 18x18
-        self.reject_coil_indicator.setStyleSheet("""
-            background-color: #7f8c8d;
-            color: white;
-            border-radius: 9px;  /* Angepasst an neue Größe */
-            font-weight: bold;
-            font-size: 8px;      /* REDUZIERT: Von 9px */
-        """)
+        self.reject_coil_indicator.setFixedSize(18, 18)
+        self.reject_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
         self.reject_coil_indicator.setToolTip("Ausschuss Modbus Ausgang")
         coil_container_layout.addWidget(self.reject_coil_indicator)
         
         self.detection_coil_indicator = QLabel("P")
         self.detection_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.detection_coil_indicator.setFixedSize(18, 18)  # REDUZIERT: Von 22x22 auf 18x18
-        self.detection_coil_indicator.setStyleSheet("""
-            background-color: #7f8c8d;
-            color: white;
-            border-radius: 9px;  /* Angepasst an neue Größe */
-            font-weight: bold;
-            font-size: 8px;      /* REDUZIERT: Von 9px */
-        """)
+        self.detection_coil_indicator.setFixedSize(18, 18)
+        self.detection_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
         self.detection_coil_indicator.setToolTip("Detection Active Modbus Ausgang")
         coil_container_layout.addWidget(self.detection_coil_indicator)
         
@@ -550,75 +242,33 @@ class MainUI(QWidget):
         layout.addLayout(status_layout)
 
     def _create_esc_hint(self, layout):    
-        # BEENDEN Button mit Bestätigungsdialog - KOMPAKTER
+        # BEENDEN Button mit Bestätigungsdialog
         self.quit_btn = QPushButton("SOFTWARE BEENDEN")
-        self.quit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #152b4a;
-                color: white;
-                font-size: 12px;
-                font-weight: bold;
-                min-height: 20px;
-                border: 2px solid #0d1b2e;
-                padding: 10px 20px;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #0d1b2e;
-                border: 2px solid #0d1b2e;
-            }
-            QPushButton:pressed {
-                background-color: #0d1b2e;
-            }
-        """)
+        self.quit_btn.setStyleSheet(UIStyles.get_quit_button_style())
         self.quit_btn.setToolTip("Anwendung beenden (ESC druecken)")
-        self.quit_btn.clicked.connect(self._confirm_quit)  # Bestätigungsdialog
+        self.quit_btn.clicked.connect(self._confirm_quit)
         layout.addWidget(self.quit_btn)
 
-        # ESC-Hinweis - KOMPAKTER
+        # ESC-Hinweis
         esc_hint = QLabel("ESC = Applikation Beenden")
         esc_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        esc_hint.setStyleSheet("""
-            color: #7f8c8d; 
-            font-style: italic; 
-            font-size: 10px;
-            padding: 8px;
-            margin: 8px 0;
-        """)
+        esc_hint.setStyleSheet(UIStyles.get_esc_hint_style())
         layout.addWidget(esc_hint)
         
-        # INSPECTUBE Footer - KOMPAKTER
+        # INSPECTUBE Footer
         self.footer_label = QPushButton("INSPECTUBE by Michel Marty")
-        self.footer_label.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #7f8c8d;
-                border: none;
-                font-size: 10px;    
-                padding: 8px; 
-                text-align: center;
-            }
-            QPushButton:hover {
-                color: #3498db;
-            }
-            QPushButton:pressed {
-                color: #2980b9;
-            }
-        """)
+        self.footer_label.setStyleSheet(UIStyles.get_footer_button_style())
         self.footer_label.clicked.connect(self._show_smiley)
         layout.addWidget(self.footer_label)
 
     def _confirm_quit(self):
         """Bestätigungsdialog vor dem Beenden der Anwendung."""
-        # Einfach an quit_application delegieren - dort ist die Logik
         self.app.quit_application()
 
     def _show_smiley(self):
         """Zeigt einen kleinen Smiley wenn auf den Footer geklickt wird."""
         original_text = self.footer_label.text()
         self.footer_label.setText("INSPECTUBE by Michel Marty 😊")
-        
-        # Timer um nach 2 Sekunden zurückzusetzen
         QTimer.singleShot(2000, lambda: self.footer_label.setText(original_text))
     
     def on_user_status_changed(self, new_status):
@@ -628,16 +278,9 @@ class MainUI(QWidget):
             self.app.ui.show_status("Automatischer Logout - Operator-Modus", "warning")
     
     def create_main_area(self):
-        """Hauptbereich mit optimiertem Header-Layout erstellen."""
+        """Hauptbereich erstellen."""
         main_area = QFrame()
-        # Standard-Styling fuer Main Area
-        self.default_main_area_style = """
-            QFrame {
-                background-color: #ecf0f1;
-                border-radius: 8px;
-            }
-        """
-        main_area.setStyleSheet(self.default_main_area_style)
+        main_area.setStyleSheet(UIStyles.get_main_area_base_style())
         
         layout = QVBoxLayout(main_area)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -646,68 +289,26 @@ class MainUI(QWidget):
         header_layout = QHBoxLayout()
         header_layout.setSpacing(20)
         
-        # 1. Sidebar Toggle Button (hoeher wie Status/Counter)
+        # 1. Sidebar Toggle Button
         self.sidebar_toggle_btn = QToolButton()
         self.sidebar_toggle_btn.setText("≡")
-        self.sidebar_toggle_btn.setStyleSheet("""
-            QToolButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                font-size: 20px;
-                padding: 8px;
-                border-radius: 4px;
-                min-width: 60px;
-                min-height: 60px;
-            }
-            QToolButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        self.sidebar_toggle_btn.setStyleSheet(UIStyles.get_sidebar_toggle_button_style())
         header_layout.addWidget(self.sidebar_toggle_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # 2. Einstellungen-Button (hoeher wie Status/Counter)
+        # 2. Einstellungen-Button
         self.settings_btn = QPushButton("⚙️")
-        self.settings_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #8e44ad;
-                color: white;
-                border: none;
-                font-size: 20px;
-                padding: 8px;
-                border-radius: 4px;
-                min-width: 60px;
-                min-height: 60px;
-            }
-            QPushButton:hover {
-                background-color: #7d3c98;
-            }
-            QPushButton:pressed {
-                background-color: #6c3483;
-            }
-            QPushButton:disabled {
-                background-color: #7f8c8d;
-                color: #bdc3c7;
-            }
-        """)
+        self.settings_btn.setStyleSheet(UIStyles.get_settings_button_style())
         self.settings_btn.setToolTip("Einstellungen (Admin-Rechte erforderlich)")
         header_layout.addWidget(self.settings_btn, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # 3. STATUS IN DER MITTE (zwischen Buttons und Counter)
+        # 3. STATUS IN DER MITTE
         self.status_label = QLabel("Bereit")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setFont(QFont("", 16, QFont.Weight.Bold))
-        self.status_label.setStyleSheet("""
-            QLabel {
-                background-color: #95a5a6;
-                color: white;
-                padding: 15px;
-                border-radius: 8px;
-            }
-        """)
-        header_layout.addWidget(self.status_label, 1)  # Stretch factor 1 fuer die Mitte
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style("#95a5a6"))
+        header_layout.addWidget(self.status_label, 1)
         
-        # 4. KOMPAKTER COUNTER (rechts oben)
+        # 4. KOMPAKTER COUNTER
         self._create_compact_counter_section(header_layout)
         
         layout.addLayout(header_layout)
@@ -716,14 +317,7 @@ class MainUI(QWidget):
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setMinimumSize(640, 480)
-        self.video_label.setStyleSheet("""
-            QLabel {
-                background-color: #34495e;
-                color: white;
-                border-radius: 8px;
-                font-size: 18px;
-            }
-        """)
+        self.video_label.setStyleSheet(UIStyles.get_video_label_base_style())
         self.video_label.setText("Kein Stream verfuegbar")
         layout.addWidget(self.video_label, 1)
         
@@ -740,18 +334,7 @@ class MainUI(QWidget):
 
         # Frame mit Schatten und Hintergrund
         self.counter_frame = QFrame()
-        self.counter_frame.setStyleSheet("""
-            QFrame {
-                background-color: #34495e;
-                border-radius: 8px;
-                padding: 4px 8px;
-            }
-            QLabel {
-                color: white;
-                font-weight: bold;
-                background: transparent;
-            }
-        """)
+        self.counter_frame.setStyleSheet(UIStyles.get_counter_frame_style())
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(10)
         shadow.setColor(QColor(80, 80, 80, 80))
@@ -773,7 +356,7 @@ class MainUI(QWidget):
             container = QWidget()
             vbox = QVBoxLayout(container)
             vbox.setContentsMargins(0, 0, 0, 0)
-            vbox.setSpacing(2)  # minimaler Abstand
+            vbox.setSpacing(2)
             vbox.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
             lbl_title = QLabel(title)
@@ -810,23 +393,7 @@ class MainUI(QWidget):
 
         # Reset-Button nur fuer Admin
         self.reset_counter_btn = QPushButton("Reset")
-        self.reset_counter_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #7f8c8d;
-                color: white;
-                border: none;
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-size: 10px;
-            }
-            QPushButton:hover {
-                background-color: #95a5a6;
-            }
-            QPushButton:disabled {
-                background-color: #5d6d7e;
-                color: #bdc3c7;
-            }
-        """)
+        self.reset_counter_btn.setStyleSheet(UIStyles.get_reset_counter_button_style())
         self.reset_counter_btn.clicked.connect(self.reset_session_counter)
         self.reset_counter_btn.setToolTip("Counter zuruecksetzen (Admin-Rechte erforderlich)")
         counter_layout.addWidget(self.reset_counter_btn, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -835,80 +402,71 @@ class MainUI(QWidget):
         self.counter_frame.setMaximumHeight(140)
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
 
-    def update_counters_with_formatting(self, good_count, bad_count, total_count):
-        """Counter mit Formatierung fuer grosse Zahlen aktualisieren."""
-        # Zahlenformatierung mit Tausendertrennzeichen (optional)
-        self.good_parts_counter.setText(f"{good_count:,}")
-        self.bad_parts_counter.setText(f"{bad_count:,}")
-        self.total_cycles_counter.setText(f"{total_count:,}")
-        
-        # Prozentanzeigen aktualisieren
-        if total_count > 0:
-            good_percent = round((good_count / total_count) * 100, 1)
-            bad_percent = round((bad_count / total_count) * 100, 1)
-            self.good_parts_percent.setText(f"{good_percent}%")
-            self.bad_parts_percent.setText(f"{bad_percent}%")
-        else:
-            self.good_parts_percent.setText("--")
-            self.bad_parts_percent.setText("--")
+    # =============================================================================
+    # FLASH ANIMATION METHODEN
+    # =============================================================================
     
     def flash_red_on_bad_part_detection(self):
         """Startet rotes Blinken bei Schlecht-Teil-Erkennung."""
         if self.is_flashing:
-            return  # Bereits am Blinken
+            return
         
         logging.info("Starte rotes Blinken bei Schlecht-Teil-Erkennung")
         self.is_flashing = True
         self.flash_count = 0
-        
-        # Timer fuer 100ms Intervalle (10 Blinks in 1 Sekunde)
         self.flash_timer.start(100)
     
     def _flash_step(self):
         """Ein Schritt des Blinkens (wird alle 100ms aufgerufen)."""
-        if self.flash_count >= 10:  # 10 Blinks = 1 Sekunde
-            # Blinken beenden
+        if self.flash_count >= 10:
             self.flash_timer.stop()
             self.is_flashing = False
             self.flash_count = 0
-            
-            # Zurueck zu normalen Farben
             self._reset_flash_colors()
             return
         
         # Blinken zwischen rot und normal
         if self.flash_count % 2 == 0:
-            # Rote Phase
             self._set_flash_red()
         else:
-            # Normale Phase
             self._reset_flash_colors()
         
         self.flash_count += 1
+        
+    def _set_flash_red(self):
+        """Setze rote Blink-Farben - GLEICHE MARGINS/PADDINGS."""
+        # Main Area rot
+        self.main_area_frame.setStyleSheet(UIStyles.get_main_area_flash_style())
+        
+        # Video-Label auch rot
+        self.video_label.setStyleSheet(UIStyles.get_video_label_flash_style())
+        
+        # Sidebar komplett rot
+        self.sidebar.setStyleSheet(UIStyles.get_sidebar_flash_style())
+
+    def _reset_flash_colors(self):
+        """Setze normale Farben zurueck - GLEICHE MARGINS/PADDINGS."""
+        # Main Area normal
+        self.main_area_frame.setStyleSheet(UIStyles.get_main_area_base_style())
+        
+        # Video-Label normal
+        self.video_label.setStyleSheet(UIStyles.get_video_label_base_style())
+        
+        # Sidebar normal
+        self.sidebar.setStyleSheet(UIStyles.get_sidebar_base_style())
+
+    # =============================================================================
+    # MODBUS UI-UPDATE-METHODEN
+    # =============================================================================
     
-    # MODBUS UI-Update-Methoden
     def update_modbus_status(self, connected, ip_address):
         """WAGO Modbus Status aktualisieren."""
         if connected:
             self.modbus_status.setText("Verbunden")
-            self.modbus_status.setStyleSheet("""
-                background-color: #27ae60;
-                color: white;
-                padding: 6px 15px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 11px;
-            """)
+            self.modbus_status.setStyleSheet(UIStyles.get_modbus_status_connected_style())
         else:
             self.modbus_status.setText("Getrennt")
-            self.modbus_status.setStyleSheet("""
-                background-color: #e74c3c;
-                color: white;
-                padding: 6px 15px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 11px;
-            """)
+            self.modbus_status.setStyleSheet(UIStyles.get_modbus_status_disconnected_style())
         
         self.modbus_ip.setText(ip_address)
     
@@ -916,49 +474,26 @@ class MainUI(QWidget):
         """Coil-Status-Indikatoren aktualisieren."""
         # Reject Coil (Ausschuss)
         if reject_active:
-            self.reject_coil_indicator.setStyleSheet("""
-                background-color: #e74c3c;
-                color: white;
-                border-radius: 11px;
-                font-weight: bold;
-                font-size: 9px;
-            """)
+            self.reject_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_reject_active_style())
         else:
-            self.reject_coil_indicator.setStyleSheet("""
-                background-color: #7f8c8d;
-                color: white;
-                border-radius: 11px;
-                font-weight: bold;
-                font-size: 9px;
-            """)
+            self.reject_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
         
         # Detection Active Coil
         if detection_active:
-            self.detection_coil_indicator.setStyleSheet("""
-                background-color: #27ae60;
-                color: white;
-                border-radius: 11px;
-                font-weight: bold;
-                font-size: 9px;
-            """)
+            self.detection_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_active_style())
         else:
-            self.detection_coil_indicator.setStyleSheet("""
-                background-color: #7f8c8d;
-                color: white;
-                border-radius: 11px;
-                font-weight: bold;
-                font-size: 9px;
-            """)
+            self.detection_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
     
-    # Standard UI-Update-Methoden
+    # =============================================================================
+    # COUNTER & STATUS UPDATE-METHODEN
+    # =============================================================================
+    
     def reset_session_counter(self):
-        """Session-Counter zuruecksetzen - NEU: NUR FÜR ADMIN."""
-        # Pruefe Admin-Rechte
+        """Session-Counter zuruecksetzen - NUR FÜR ADMIN."""
         if not self.app.user_manager.can_reset_counter():
             self.show_status("Admin-Rechte erforderlich fuer Counter-Reset", "error")
             return
         
-        # Bestaetigung anfordern
         reply = QMessageBox.question(
             self,
             "Counter zuruecksetzen",
@@ -975,7 +510,7 @@ class MainUI(QWidget):
             logging.info("Session-Counter von Admin zurueckgesetzt")
     
     def update_counter_display(self):
-        """Counter-Anzeige aktualisieren - ERWEITERT mit Prozentangaben."""
+        """Counter-Anzeige aktualisieren."""
         self.good_parts_counter.setText(str(self.session_good_parts))
         self.bad_parts_counter.setText(str(self.session_bad_parts))
         self.total_cycles_counter.setText(str(self.session_total_cycles))
@@ -997,10 +532,7 @@ class MainUI(QWidget):
         
         if bad_parts_detected:
             self.session_bad_parts += 1
-            # Update Coil-Status fuer visuelles Feedback
             self.update_coil_status(reject_active=True, detection_active=True)
-            
-            # NEU: Rotes Blinken bei Schlecht-Teil-Erkennung
             self.flash_red_on_bad_part_detection()
         else:
             self.session_good_parts += 1
@@ -1010,12 +542,10 @@ class MainUI(QWidget):
     def toggle_sidebar(self):
         """Sidebar ein-/ausblenden."""
         if self.sidebar_visible:
-            # Sidebar ausblenden
             self.splitter.setSizes([0, 1000])
             self.sidebar_visible = False
             self.sidebar_toggle_btn.setText("≡")
         else:
-            # Sidebar einblenden
             self.splitter.setSizes([350, 1000])
             self.sidebar_visible = True
             self.sidebar_toggle_btn.setText("‹")
@@ -1024,61 +554,21 @@ class MainUI(QWidget):
         """UI basierend auf Benutzerlevel aktualisieren."""
         user_level = self.app.user_manager.get_user_level_text()
         
-        # NEU: Breiter Login-Status-Button aktualisieren
+        # Login-Status-Button aktualisieren
         self.login_status_btn.setText(user_level)
         
         if self.app.user_manager.is_admin():
-            # Admin-Style: Gruen
-            self.login_status_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #27ae60;
-                    color: white;
-                    border: 2px solid #229954;
-                    padding: 15px 25px;
-                    border-radius: 4px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #2ecc71;
-                    border-color: #27ae60;
-                }
-                QPushButton:pressed {
-                    background-color: #229954;
-                }
-            """)
+            self.login_status_btn.setStyleSheet(UIStyles.get_login_button_admin_style())
             self.login_status_btn.setToolTip("Admin eingeloggt - Klicken fuer Logout")
         else:
-            # Operator-Style: Grau
-            self.login_status_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #34495e;
-                    color: white;
-                    border: 2px solid #5d6d7e;
-                    padding: 15px 25px;
-                    border-radius: 4px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #3498db;
-                    border-color: #2e86de;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-            """)
+            self.login_status_btn.setStyleSheet(UIStyles.get_login_button_operator_style())
             self.login_status_btn.setToolTip("Operator-Modus - Klicken fuer Admin-Login")
         
         # Buttons aktivieren/deaktivieren
         can_admin = self.app.user_manager.is_admin()
         self.model_btn.setEnabled(can_admin)
         self.camera_btn.setEnabled(can_admin)
-        self.settings_btn.setEnabled(can_admin)  # NEU: Einstellungen-Button im Header
-        
-        # Reset-Button fuer Counter - NEU: NUR FÜR ADMIN
+        self.settings_btn.setEnabled(can_admin)
         self.reset_counter_btn.setEnabled(can_admin)
     
     def update_workflow_status(self, status):
@@ -1087,75 +577,42 @@ class MainUI(QWidget):
         
         # Farbe je nach Status
         colors = {
-            'BEREIT': "#757575",      # Grau
-            'BANDTAKT': '#757575',     # Grau  
-            'AUSSCHWINGEN': "#757575",   # Grau
-            'DETEKTION': "#23aeff",  # Blau
-            'ABBLASEN': '#e74c3c'     # Rot
+            'BEREIT': "#757575",
+            'BANDTAKT': '#757575',
+            'AUSSCHWINGEN': "#757575",
+            'DETEKTION': "#23aeff",
+            'ABBLASEN': '#e74c3c'
         }
         
         color = colors.get(status, '#34495e')
-        self.workflow_info.setStyleSheet(f"""
-            background-color: {color};
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-weight: bold;
-        """)
+        self.workflow_info.setStyleSheet(UIStyles.get_workflow_status_style(color))
     
     def show_status(self, message, status_type="info"):
         """Status im Header anzeigen."""
         self.status_label.setText(message)
         
         colors = {
-            'info': "#757575",      # Grau
-            'success': "#757575",      # Grau
-            'error': '#e74c3c',     # Rot
-            'ready': "#757575",     # Grau
-            'warning': '#f39c12'    # Orange
+            'info': "#757575",
+            'success': "#757575",
+            'error': '#e74c3c',
+            'ready': "#757575",
+            'warning': '#f39c12'
         }
         
         color = colors.get(status_type, '#95a5a6')
-        self.status_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {color};
-                color: white;
-                padding: 15px;
-                border-radius: 8px;
-            }}
-        """)
+        self.status_label.setStyleSheet(UIStyles.get_status_label_style(color))
     
     def update_motion(self, motion_value):
         """Motion-Wert aktualisieren."""
         self.motion_info.setText(f"{motion_value:.0f}")
-        
-        # Farbe des Hintergrunds immer gleich
-        color = "#878787"
-        
-        self.motion_info.setStyleSheet(f"""
-            background-color: {color};
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-weight: bold;
-            min-width: 60px;
-        """)
+        # Farbe bleibt konstant
+        self.motion_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
     
     def update_brightness(self, brightness):
         """Helligkeitsanzeige aktualisieren."""
         self.brightness_info.setText(f"{brightness:.0f}")
-        
-        # Farbe des Hintergrunds immer gleich
-        color = "#878787"
-        
-        self.brightness_info.setStyleSheet(f"""
-            background-color: {color};
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-weight: bold;
-            min-width: 60px;
-        """)
+        # Farbe bleibt konstant
+        self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
     
     def show_brightness_warning(self, message):
         """Helligkeitswarnung anzeigen."""
@@ -1167,8 +624,7 @@ class MainUI(QWidget):
         self.brightness_warning.setVisible(False)
     
     def update_last_cycle_stats(self, last_cycle_stats):
-        """Letzte Erkennungen aktualisieren - ERWEITERT: Mit Img und Anz-Spalten."""
-        # Detaillierte Tabelle fuer LETZTEN Zyklus aktualisieren - ERWEITERT
+        """Letzte Erkennungen aktualisieren."""
         self.last_cycle_table.setRowCount(len(last_cycle_stats))
         
         for row, (class_name, stats) in enumerate(last_cycle_stats.items()):
@@ -1183,7 +639,7 @@ class MainUI(QWidget):
             
             # Min Konfidenz im letzten Zyklus
             min_conf = stats.get('min_confidence', 0.0)
-            if min_conf == 1.0:  # Kein Wert gesetzt
+            if min_conf == 1.0:
                 min_conf = 0.0
             min_conf_item = QTableWidgetItem(f"{min_conf:.2f}")
             min_conf_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1198,7 +654,7 @@ class MainUI(QWidget):
             total_detections = stats.get('total_detections', 0)
             if cycle_image_count > 0:
                 avg_detections_per_image = total_detections / cycle_image_count
-                avg_rounded = round(avg_detections_per_image)  # Auf Integer runden
+                avg_rounded = round(avg_detections_per_image)
             else:
                 avg_rounded = 0
             
@@ -1231,68 +687,24 @@ class MainUI(QWidget):
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")
     
-    # STATUS-BUTTON UPDATE-METHODEN (NEU: ANGEPASST AUF BLAU)
+    # =============================================================================
+    # STATUS-BUTTON UPDATE-METHODEN
+    # =============================================================================
+    
     def update_model_status(self, model_path):
-        """Model-Status-Button aktualisieren - BLAU statt Gruen."""
+        """Model-Status-Button aktualisieren."""
         if model_path and os.path.exists(model_path):
             model_name = os.path.basename(model_path)
             self.model_btn.setText(f"Modell: {model_name}")
-            self.model_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #3498db;
-                    color: white;
-                    border: 2px solid #2980b9;
-                    padding: 15px 25px;
-                    border-radius: 4px;
-                    font-size: 13px;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #5dade2;
-                    border-color: #3498db;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-                QPushButton:disabled {
-                    background-color: #7f8c8d;
-                    color: #bdc3c7;
-                    border-color: #95a5a6;
-                }
-            """)
+            self.model_btn.setStyleSheet(UIStyles.get_model_button_active_style())
             self.model_btn.setToolTip(f"Modell geladen: {model_name}\nKlicken um zu aendern")
         else:
             self.model_btn.setText("Kein Modell geladen")
-            self.model_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #34495e;
-                    color: #bdc3c7;
-                    border: 2px solid #5d6d7e;
-                    padding: 15px 25px;
-                    border-radius: 4px;
-                    font-size: 13px;
-                    font-weight: bold;
-                    text-align: left;
-                }
-                QPushButton:hover {
-                    background-color: #3498db;
-                    border-color: #2e86de;
-                    color: white;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-                QPushButton:disabled {
-                    background-color: #7f8c8d;
-                    color: #bdc3c7;
-                    border-color: #95a5a6;
-                }
-            """)
+            self.model_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
             self.model_btn.setToolTip("Klicken um Modell zu laden")
     
     def update_camera_status(self, source_info, source_type):
-        """Camera-Status-Button aktualisieren - BLAU statt Gruen."""
+        """Camera-Status-Button aktualisieren."""
         if source_info is not None:
             if source_type == 'webcam':
                 display_text = f"Webcam: {source_info}"
@@ -1305,62 +717,17 @@ class MainUI(QWidget):
                 display_text = f"Quelle: {source_info}"
                 
             self.camera_btn.setText(display_text)
-
-            self.camera_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #3498db;
-                    color: white;
-                    border: 2px solid #2980b9;
-                    padding: 15px 25px;
-                    border-radius: 4px;
-                    font-size: 13px;
-                    font-weight: bold;
-                    text-align: center;
-                }
-                QPushButton:hover {
-                    background-color: #5dade2;
-                    border-color: #3498db;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-                QPushButton:disabled {
-                    background-color: #7f8c8d;
-                    color: #bdc3c7;
-                    border-color: #95a5a6;
-                }
-            """)
+            self.camera_btn.setStyleSheet(UIStyles.get_camera_button_active_style())
             self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu aendern")
         else:
             self.camera_btn.setText("Modus waehlen")
-            self.camera_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #34495e;
-                    color: #bdc3c7;
-                    border: 2px solid #5d6d7e;
-                    padding: 15px 25px;
-                    border-radius: 4px;
-                    font-size: 13px;
-                    font-weight: bold;
-                    text-align: left;
-                }
-                QPushButton:hover {
-                    background-color: #3498db;
-                    border-color: #2e86de;
-                    color: white;
-                }
-                QPushButton:pressed {
-                    background-color: #2980b9;
-                }
-                QPushButton:disabled {
-                    background-color: #7f8c8d;
-                    color: #bdc3c7;
-                    border-color: #95a5a6;
-                }
-            """)
+            self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
             self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
     
-    # Dialog-Handler
+    # =============================================================================
+    # DIALOG-HANDLER
+    # =============================================================================
+    
     def select_model_file(self):
         """Modell-Datei auswaehlen Dialog."""
         from PyQt6.QtWidgets import QFileDialog
@@ -1396,13 +763,19 @@ class MainUI(QWidget):
         return None
     
     def open_settings_dialog(self, settings):
-        """Einstellungen-Dialog oeffnen - ANGEPASST: Mit class_names."""
+        """Einstellungen-Dialog oeffnen - ERWEITERT: Mit Modbus-Status-Update."""
         # Hole die aktuellen Klassennamen vom detection_engine
         class_names = {}
         if hasattr(self.app, 'detection_engine') and hasattr(self.app.detection_engine, 'class_names'):
             class_names = self.app.detection_engine.class_names
         
         dialog = SettingsDialog(settings, class_names, self)
+        
+        # Modbus-Verbindungsstatus vor Dialog-Öffnung aktualisieren
+        if hasattr(self.app, 'modbus_manager'):
+            is_connected = self.app.modbus_manager.is_connected()
+            dialog.update_modbus_connection_status(is_connected)
+        
         if dialog.exec() == QDialog.DialogCode.Accepted:
             # Warnung wenn Erkennung laeuft
             if self.app.running:

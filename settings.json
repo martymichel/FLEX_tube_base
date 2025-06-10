@@ -42,5 +42,6 @@
     "1": "#ff0000",
     "2": "#808080"
   },
-  "motion_decay_factor": 0.5
+  "motion_decay_factor": 0.5,
+  "modbus_port": 502
 }

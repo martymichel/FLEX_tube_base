@@ -497,7 +497,6 @@ class MainUI(QWidget):
             }
             QPushButton:hover {
                 color: #3498db;
-                text-decoration: underline;
             }
             QPushButton:pressed {
                 color: #2980b9;

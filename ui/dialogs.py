@@ -553,7 +553,7 @@ class SettingsDialog(QDialog):
         layout.addRow(modbus_info)
         
         # IP-Adresse (nur Anzeige)
-        self.modbus_ip_input = QLabel("192.168.1.100")
+        self.modbus_ip_input = QLabel("192.168.1.100") # Beispiel-IP wird nur angezeigt, wenn modbus_ip_input leer ist
         self.modbus_ip_input.setStyleSheet(
             "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
         )

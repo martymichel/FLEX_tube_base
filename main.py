@@ -1046,8 +1046,6 @@ class DetectionApp(QMainWindow):
             event.accept()
             return
         
-        # Bestätigungsdialog zeigen
-        self.quit_application()
         event.ignore()
 
 def main():

@@ -113,19 +113,14 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("⚙️ Einstellungen")
         self.setModal(True)
         
-        # Bildschirmgröße abfragen und Dialog entsprechend dimensionieren
-        screen = QApplication.primaryScreen().availableGeometry()
-        
-        # Dialog auf maximal 90% der Bildschirmgröße begrenzen
-        max_width = int(screen.width() * 0.9)
-        max_height = int(screen.height() * 0.9)
-        
-        # Gewünschte Größe, aber nicht größer als Bildschirm
-        dialog_width = min(800, max_width)
-        dialog_height = min(800, max_height)
-        
-        self.resize(dialog_width, dialog_height)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
+        # Bildschirmgröße abfragen und vermeiden, dass der Dialog zu groß wird
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        max_width = int(screen_geometry.width() * 0.4)
+        max_height = int(screen_geometry.height() * 0.5)
+        self.setFixedSize(max_width, max_height)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(600, 400)  # Mindestgröße für bessere Lesbarkeit
 
         # 20 vordefinierte Farben fuer Klassen
         self.predefined_colors = [

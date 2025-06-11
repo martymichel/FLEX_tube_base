@@ -1,7 +1,10 @@
 {
-  "confidence_threshold": 0.7,
-  "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
-  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
+  "confidence_threshold": 0.8,
+  "last_model": "C:/Users/hag_s052/Documents/KI Modelle/(B) M Tube inner 05387.041.pt",
+  "last_source": [
+    "ids",
+    0
+  ],
   "video_width": 640,
   "video_height": 480,
   "sidebar_width": 350,
@@ -9,24 +12,25 @@
   "show_class_names": false,
   "auto_save_snapshots": false,
   "log_level": "INFO",
-  "motion_threshold": 55,
-  "settling_time": 0.8,
-  "capture_time": 1.6,
+  "motion_threshold": 125,
+  "settling_time": 0.3,
+  "capture_time": 4.0,
   "clearing_time": 1.0,
-  "brightness_low_threshold": 123,
-  "brightness_high_threshold": 140,
+  "brightness_low_threshold": 180,
+  "brightness_high_threshold": 210,
   "brightness_duration_threshold": 3.0,
-  "blow_off_time": 1.0,
+  "blow_off_time": 1.2,
   "bad_part_classes": [
-    1
+    0
   ],
-  "bad_part_min_confidence": 0.6,
-  "last_mode_was_video": true,
+  "bad_part_min_confidence": 0.8,
+  "last_mode_was_video": false,
   "red_threshold": 1,
   "green_threshold": 4,
   "good_part_classes": [
-    0,
-    2
+    2,
+    1,
+    3
   ],
   "save_bad_images": false,
   "save_good_images": false,
@@ -35,13 +39,14 @@
   "max_image_files": 10000,
   "modbus_enabled": true,
   "modbus_ip": "192.168.1.100",
-  "reject_coil_duration_seconds": 1.5,
-  "camera_config_path": "",
+  "reject_coil_duration_seconds": 0.5,
+  "camera_config_path": "C:/Users/hag_s052/Documents/IDS Kamera Setup/IDS_setup 11.06.25.toml",
   "class_colors": {
-    "0": "#00ff00",
-    "1": "#ff0000",
-    "2": "#808080"
+    "0": "#800000",
+    "1": "#800080",
+    "2": "#808080",
+    "3": "#008000"
   },
-  "motion_decay_factor": 0.5,
+  "motion_decay_factor": 0.1,
   "modbus_port": 502
 }

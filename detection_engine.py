@@ -162,7 +162,8 @@ class DetectionEngine:
         
         try:
             # Erkennung durchfuehren
-            results = self.model(frame, verbose=False)
+            results = self.model(frame,
+                                 verbose=False)
             
             detections = []
             for result in results:

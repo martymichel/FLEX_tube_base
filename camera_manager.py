@@ -10,6 +10,7 @@ import time
 import logging
 from datetime import datetime
 from pathlib import Path
+import numpy as np
 
 try:
     import ids_peak.ids_peak as ids_peak
@@ -145,8 +146,8 @@ class CameraManager:
             return False
         
         # Aufloesung setzen
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640) # 1280x720 Standard
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) # 1280x720 Standard
         
         logging.info(f"Webcam {self.source_info} gestartet")
         return True
@@ -182,7 +183,7 @@ class CameraManager:
             
             # Gerät öffnen
             device_descriptor = devices[self.source_info]
-            self.ids_device = device_descriptor.OpenDevice(ids_peak.DeviceAccessType.Control)
+            self.ids_device = device_descriptor.OpenDevice(ids_peak.DeviceAccessType_Control)
             
             # VERBESSERT: Robustere Nodemap-Behandlung
             nodemaps = self.ids_device.RemoteDevice().NodeMaps()
@@ -246,21 +247,14 @@ class CameraManager:
             self.remote_device_nodemap.FindNode("TriggerSource").SetCurrentEntry("Software")
             self.remote_device_nodemap.FindNode("TriggerMode").SetCurrentEntry("Off")
             
-            # Spiegelung standardmäßig aus
+            # Spiegelung standardmässig aus
             self.remote_device_nodemap.FindNode("ReverseX").SetValue(False)
             self.remote_device_nodemap.FindNode("ReverseY").SetValue(False)
             
-            # Basis-Belichtungszeit setzen (falls keine TOML-Konfiguration vorhanden)
-            if not (self.camera_config_manager and self.camera_config_manager.is_loaded):
-                try:
-                    exposure_node = self.remote_device_nodemap.FindNode("ExposureTime")
-                    if exposure_node and exposure_node.IsWritable():
-                        exposure_node.SetValue(75000)  # 75ms Standard
-                        logging.info("Standard-Belichtungszeit gesetzt: 75ms")
-                except Exception as e:
-                    logging.warning(f"Konnte Standard-Belichtungszeit nicht setzen: {e}")
-            
-            logging.info("IDS-Kamera Basis-Konfiguration abgeschlossen")
+            # Wenn keine Einstellungen vorhanden sind, abbruch. Meldung ausgeben:"Laden Sie eine Kamera-Konfiguration, um Einstellungen anzuwenden."
+            if not self.camera_config_manager or not self.camera_config_manager.is_loaded:
+                logging.info("Laden Sie eine Kamera-Konfiguration, um Einstellungen anzuwenden.")
+                return
             
         except Exception as e:
             logging.error(f"Fehler bei IDS-Kamera Basis-Konfiguration: {e}")
@@ -324,7 +318,7 @@ class CameraManager:
         for attempt in range(max_attempts):
             try:
                 # Warten auf neues Bild mit Timeout
-                buffer = self.ids_datastream.WaitForFinishedBuffer(1000)  # 1s timeout
+                buffer = self.ids_datastream.WaitForFinishedBuffer(10)  # 1s timeout
                 
                 # VERBESSERT: IDS IPL Extension für bessere Konvertierung
                 if IDS_IPL_AVAILABLE:

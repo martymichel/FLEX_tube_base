@@ -508,7 +508,7 @@ class DetectionApp(QMainWindow):
                     }
                 """)
                 
-                self.ui.show_status("Detection läuft", "success")
+                self.ui.show_status("Kamera aktiv - warte auf Bandtakt", "success")
                 self.ui.update_workflow_status("BEREIT")
                 
                 # Log Detection Started

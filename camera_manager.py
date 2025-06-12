@@ -146,8 +146,8 @@ class CameraManager:
             return False
         
         # Aufloesung setzen
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640) # 1280x720 Standard
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480) # 1280x720 Standard
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1936) # 1280x720 Standard
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1216) # 1280x720 Standard
         
         logging.info(f"Webcam {self.source_info} gestartet")
         return True

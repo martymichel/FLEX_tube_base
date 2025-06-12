@@ -3,7 +3,7 @@
 Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT
 MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme
 FIXED: Modbus-Bedingungen implementiert
-ERWEITERT: Parquet-basiertes Event-Logging und Referenzlinien-Overlay
+ERWEITERT: Parquet-basiertes Event-Logging, Referenzlinien-Overlay und erweiterte Klassenzuteilung
 """
 
 import sys
@@ -40,6 +40,7 @@ logging.basicConfig(
 class DetectionApp(QMainWindow):
     """
     Hauptanwendung - VEREINFACHT ohne komplexe Threading-Probleme.
+    ERWEITERT: Mit verbesserter Klassenzuteilung und Anzahl-Überwachung.
     """
 
     def __init__(self):
@@ -342,10 +343,8 @@ class DetectionApp(QMainWindow):
             last_model = self.settings.get('last_model', '')
             if last_model and os.path.exists(last_model):
                 if self.detection_engine.load_model(last_model):
-                    # Farben aus Settings laden
-                    class_colors = self.settings.get('class_colors', {})
-                    if class_colors:
-                        self.detection_engine.set_class_colors(class_colors)
+                    # Erweiterte Klassenzuteilung laden
+                    self.apply_class_assignments_to_engine()
                     
                     self.ui.update_model_status(last_model)
                     
@@ -390,6 +389,30 @@ class DetectionApp(QMainWindow):
                 
         except Exception as e:
             logging.error(f"Fehler beim Auto-Loading: {e}")
+    
+    def apply_class_assignments_to_engine(self):
+        """Erweiterte Klassenzuteilungen an die Detection Engine übertragen."""
+        try:
+            class_assignments = self.settings.get('class_assignments', {})
+            if not class_assignments:
+                return
+            
+            # Farben für Detection Engine setzen
+            class_colors = {}
+            for class_id_str, assignment_data in class_assignments.items():
+                try:
+                    class_id = int(class_id_str)
+                    color = assignment_data.get('color', '#808080')
+                    class_colors[class_id] = color
+                except ValueError:
+                    continue
+            
+            if class_colors:
+                self.detection_engine.set_class_colors(class_colors)
+                logging.info(f"Erweiterte Klassenzuteilung geladen: {len(class_colors)} Klassen konfiguriert")
+                
+        except Exception as e:
+            logging.error(f"Fehler beim Anwenden der erweiterten Klassenzuteilung: {e}")
 
     def setup_connections(self):
         """Signale verbinden."""
@@ -420,11 +443,11 @@ class DetectionApp(QMainWindow):
                     if old_camera_config != new_camera_config and new_camera_config and os.path.exists(new_camera_config):
                         self.camera_config_manager.load_config(new_camera_config)
                     
-                    # Update Klassen-Farben nur bei Änderung
-                    old_colors = old_settings.get('class_colors', {})
-                    new_colors = self.settings.get('class_colors', {})
-                    if old_colors != new_colors and new_colors and hasattr(self.detection_engine, 'set_class_colors'):
-                        self.detection_engine.set_class_colors_quietly(new_colors)
+                    # Update erweiterte Klassenzuteilungen bei Änderung
+                    old_class_assignments = old_settings.get('class_assignments', {})
+                    new_class_assignments = self.settings.get('class_assignments', {})
+                    if old_class_assignments != new_class_assignments and self.detection_engine.model_loaded:
+                        self.apply_class_assignments_to_engine()
 
                     # Motion Decay Factor bei Änderung aktualisieren
                     old_decay = old_settings.get('motion_decay_factor', 0.1)
@@ -766,7 +789,7 @@ class DetectionApp(QMainWindow):
         if self.detection_running:
             if current_time - self.detection_start_time >= capture_time:
                 self.detection_running = False
-                bad_parts_detected = self.evaluate_detection_results()
+                bad_parts_detected = self.evaluate_detection_results_advanced()
                 
                 # Bilderspeicherung
                 self.save_detection_result_image(frame, bad_parts_detected)
@@ -873,8 +896,88 @@ class DetectionApp(QMainWindow):
             confidences = stats['confidences']
             stats['avg_confidence'] = sum(confidences) / len(confidences)
 
-    def evaluate_detection_results(self):
-        """Erkennungsergebnisse auswerten."""
+    def evaluate_detection_results_advanced(self):
+        """ERWEITERTE Erkennungsauswertung mit Anzahl-Überwachung für Gut-Teile."""
+        try:
+            class_assignments = self.settings.get('class_assignments', {})
+            if not class_assignments:
+                # Fallback auf alte Logik
+                return self.evaluate_detection_results_legacy()
+            
+            bad_parts_found = False
+            evaluation_details = []
+            
+            for class_id_str, assignment_data in class_assignments.items():
+                try:
+                    class_id = int(class_id_str)
+                    assignment = assignment_data.get('assignment', 'ignore')
+                    expected_count = assignment_data.get('expected_count', -1)
+                    min_confidence = assignment_data.get('min_confidence', 0.5)
+                    
+                    if assignment == 'ignore':
+                        continue
+                    
+                    # Suche Erkennungen für diese Klasse
+                    class_name = self.detection_engine.class_names.get(class_id, f"Class {class_id}")
+                    class_stats = self.last_cycle_detections.get(class_name, {})
+                    total_detections = class_stats.get('total_detections', 0)
+                    max_confidence = class_stats.get('max_confidence', 0.0)
+                    
+                    evaluation_details.append({
+                        'class_id': class_id,
+                        'class_name': class_name,
+                        'assignment': assignment,
+                        'expected_count': expected_count,
+                        'actual_count': total_detections,
+                        'max_confidence': max_confidence,
+                        'min_confidence_required': min_confidence
+                    })
+                    
+                    # Bewertung je nach Zuteilung
+                    if assignment == 'bad':
+                        # Schlechte Teile: Wenn erkannt UND Konfidenz ausreichend → Ausschuss
+                        if total_detections > 0 and max_confidence >= min_confidence:
+                            bad_parts_found = True
+                            logging.info(f"Schlechtes Teil erkannt: {class_name} (Anzahl: {total_detections}, Konfidenz: {max_confidence:.2f})")
+                    
+                    elif assignment == 'good':
+                        # Gute Teile: Prüfe Anzahl-Erwartung
+                        if expected_count > 0:  # Erwartete Anzahl definiert
+                            if total_detections != expected_count:
+                                bad_parts_found = True
+                                logging.info(f"Gut-Teil Anzahl-Abweichung: {class_name} (Erwartet: {expected_count}, Gefunden: {total_detections})")
+                            elif max_confidence < min_confidence:
+                                bad_parts_found = True
+                                logging.info(f"Gut-Teil unzureichende Konfidenz: {class_name} (Konfidenz: {max_confidence:.2f} < {min_confidence})")
+                        else:
+                            # Beliebige Anzahl (-1) → Nur Konfidenz prüfen falls vorhanden
+                            if total_detections > 0 and max_confidence < min_confidence:
+                                bad_parts_found = True
+                                logging.info(f"Gut-Teil unzureichende Konfidenz: {class_name} (Konfidenz: {max_confidence:.2f} < {min_confidence})")
+                
+                except (ValueError, KeyError) as e:
+                    logging.warning(f"Fehler bei Auswertung von Klasse {class_id_str}: {e}")
+            
+            # Log Advanced Detection Cycle Result
+            self.detection_logger.log_detection_cycle(
+                bad_parts_detected=bad_parts_found,
+                cycle_detections=self.last_cycle_detections,
+                cycle_stats={
+                    'cycle_image_count': self.cycle_image_count,
+                    'evaluation_details': evaluation_details,
+                    'evaluation_method': 'advanced'
+                }
+            )
+            
+            return bad_parts_found
+            
+        except Exception as e:
+            logging.error(f"Fehler bei erweiterter Erkennungsauswertung: {e}")
+            # Fallback auf alte Logik
+            return self.evaluate_detection_results_legacy()
+
+    def evaluate_detection_results_legacy(self):
+        """Legacy Erkennungsergebnisse auswerten (Fallback)."""
         bad_part_classes = self.settings.get('bad_part_classes', [])
         red_threshold = self.settings.get('red_threshold', 1)
         min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
@@ -889,10 +992,10 @@ class DetectionApp(QMainWindow):
             if (class_id in bad_part_classes and 
                 total_detections >= red_threshold and 
                 max_conf >= min_confidence):
-                logging.info(f"Schlechtes Teil: {class_name}")
+                logging.info(f"Schlechtes Teil (Legacy): {class_name}")
                 bad_parts_found = True
         
-        # Log Detection Cycle Result
+        # Log Legacy Detection Cycle Result
         self.detection_logger.log_detection_cycle(
             bad_parts_detected=bad_parts_found,
             cycle_detections=self.last_cycle_detections,
@@ -900,7 +1003,8 @@ class DetectionApp(QMainWindow):
                 'cycle_image_count': self.cycle_image_count,
                 'red_threshold': red_threshold,
                 'min_confidence': min_confidence,
-                'bad_part_classes': bad_part_classes
+                'bad_part_classes': bad_part_classes,
+                'evaluation_method': 'legacy'
             }
         )
         
@@ -991,10 +1095,8 @@ class DetectionApp(QMainWindow):
         model_path = self.ui.select_model_file()
         if model_path:
             if self.detection_engine.load_model(model_path):
-                # Farben aus Settings laden
-                class_colors = self.settings.get('class_colors', {})
-                if class_colors:
-                    self.detection_engine.set_class_colors(class_colors)
+                # Erweiterte Klassenzuteilungen anwenden
+                self.apply_class_assignments_to_engine()
                 
                 self.ui.show_status(f"Modell geladen", "success")
                 self.ui.update_model_status(model_path)
@@ -1031,6 +1133,8 @@ class DetectionApp(QMainWindow):
                     self.ui.update_camera_status(source, 'webcam')
                 elif isinstance(source, str):
                     self.ui.update_camera_status(source, 'video')
+                elif isinstance(source, tuple):
+                    self.ui.update_camera_status(source[1], 'ids')
                 
                 self.settings.set('last_source', source)
                 self.settings.set('last_mode_was_video', isinstance(source, str))

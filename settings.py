@@ -1,5 +1,5 @@
 """
-Einstellungs-Manager - einfach und zuverlässig Verwaltet alle Anwendungseinstellungen für industrllen Workflow mit Auto-Loading, Modbus, Bilderspeicherung und Referenzlinien
+Einstellungs-Manager - einfach und zuverlässig Verwaltet alle Anwendungseinstellungen für industrllen Workflow mit Auto-Loading, Modbus, Bilderspeicherung, Referenzlinien und erweiterte Klassenzuteilung
 """
 
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 
 class Settings:
     """
-    Einfache Einstellungsverwaltung für Workflow mit Auto-Loading, Modbus, Bilderspeicherung und Referenzlinien.
+    Einfache Einstellungsverwaltung für Workflow mit Auto-Loading, Modbus, Bilderspeicherung, Referenzlinien und erweiterte Klassenzuteilung.
     """
 
     def __init__(self, filename="settings.json"):
@@ -75,7 +75,7 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
 
     def get_defaults(self):
-        """Standardeinstellungen für Workflow mit Auto-Loading, Modbus, Bilderspeicherung und Referenzlinien.
+        """Standardeinstellungen für Workflow mit Auto-Loading, Modbus, Bilderspeicherung, Referenzlinien und erweiterte Klassenzuteilung.
         
         Returns:
             dict: Standardeinstellungen
@@ -97,16 +97,27 @@ class Settings:
             'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)
             'blow_off_time': 5.0,         # Wartezeit nach Abblasen (Sekunden)
             
-            # Schlecht-Teil Erkennung
-            'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
-            'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile
+            # ERWEITERTE Klassen-Konfiguration - NEUE STRUKTUR
+            'class_assignments': {
+                # Format: {class_id: {assignment, expected_count, min_confidence, color}}
+                # Beispiel:
+                # "0": {
+                #     "assignment": "good",     # "good", "bad", "ignore"
+                #     "expected_count": 4,      # Erwartete Anzahl (-1 = beliebig)
+                #     "min_confidence": 0.7,    # Mindest-Konfidenz für diese Klasse
+                #     "color": "#00FF00"        # Hex-Farbe für Bounding Box
+                # }
+            },
             
-            # Gut-Teil Erkennung
-            'good_part_classes': [0],     # Klassen-IDs die als "gut" gelten
-            
-            # Rahmen-Schwellenwerte
+            # Rahmen-Schwellenwerte (bestehend)
             'red_threshold': 1,           # Mindestanzahl für roten Rahmen (schlechte Teile)
             'green_threshold': 4,         # Mindestanzahl für grünen Rahmen (gute Teile)
+            
+            # DEPRECATED - Wird durch class_assignments ersetzt, aber für Kompatibilität beibehalten
+            'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
+            'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile
+            'good_part_classes': [0],     # Klassen-IDs die als "gut" gelten
+            'class_colors': {},           # Wird durch class_assignments.color ersetzt
             
             # Helligkeitsüberwachung
             'brightness_low_threshold': 30,      # Untere Helligkeitsschwelle
@@ -135,7 +146,7 @@ class Settings:
             'parquet_log_directory': 'logs/detection_events',  # Verzeichnis für Parquet-Logs
             'parquet_log_max_files': 1000000,               # Maximale Anzahl Log-Dateien
             
-            # REFERENZLINIEN-Einstellungen - NEU
+            # REFERENZLINIEN-Einstellungen
             'reference_lines': [
                 {
                     'enabled': False,
@@ -173,7 +184,6 @@ class Settings:
             'show_class_names': True,
             
             # Sonstige
-            
             'auto_save_snapshots': False,
             'log_level': 'INFO'
         }
@@ -191,3 +201,51 @@ class Settings:
         """Alle Einstellungen auf Standardwerte zurücksetzen."""
         self.data = self.get_defaults()
         logging.info("Einstellungen auf Standardwerte zurückgesetzt")
+    
+    def migrate_legacy_settings(self):
+        """Migriere alte Einstellungen zur neuen class_assignments Struktur."""
+        # Prüfe ob Migration nötig ist
+        if 'class_assignments' in self.data and self.data['class_assignments']:
+            return  # Bereits migriert
+        
+        logging.info("Migriere alte Klassenzuteilungen zur neuen Struktur...")
+        
+        class_assignments = {}
+        
+        # Migriere bad_part_classes
+        bad_classes = self.data.get('bad_part_classes', [])
+        bad_confidence = self.data.get('bad_part_min_confidence', 0.5)
+        
+        for class_id in bad_classes:
+            class_assignments[str(class_id)] = {
+                'assignment': 'bad',
+                'expected_count': -1,  # Beliebige Anzahl
+                'min_confidence': bad_confidence,
+                'color': '#FF0000'  # Rot für schlechte Teile
+            }
+        
+        # Migriere good_part_classes
+        good_classes = self.data.get('good_part_classes', [])
+        
+        for class_id in good_classes:
+            if str(class_id) not in class_assignments:  # Nicht überschreiben wenn bereits als bad definiert
+                class_assignments[str(class_id)] = {
+                    'assignment': 'good',
+                    'expected_count': -1,  # Beliebige Anzahl
+                    'min_confidence': self.data.get('confidence_threshold', 0.5),
+                    'color': '#00FF00'  # Grün für gute Teile
+                }
+        
+        # Migriere class_colors
+        class_colors = self.data.get('class_colors', {})
+        for class_id, color in class_colors.items():
+            if str(class_id) in class_assignments:
+                class_assignments[str(class_id)]['color'] = color
+        
+        # Setze die migrierten Einstellungen
+        self.data['class_assignments'] = class_assignments
+        
+        logging.info(f"Migration abgeschlossen: {len(class_assignments)} Klassen migriert")
+        
+        # Speichere migrierte Einstellungen
+        self.save()

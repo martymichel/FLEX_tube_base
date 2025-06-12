@@ -127,15 +127,15 @@
       "enabled": true,
       "type": "horizontal",
       "position": 38,
-      "color": "red",
-      "thickness": 2
+      "color": "green",
+      "thickness": 1
     },
     {
       "enabled": false,
-      "type": "horizontal",
-      "position": 50,
+      "type": "vertical",
+      "position": 81,
       "color": "red",
-      "thickness": 2
+      "thickness": 5
     },
     {
       "enabled": false,
@@ -151,5 +151,37 @@
       "color": "red",
       "thickness": 2
     }
-  ]
+  ],
+  "class_assignments": {
+    "0": {
+      "assignment": "bad",
+      "expected_count": -1,
+      "min_confidence": 0.8,
+      "color": "#800000"
+    },
+    "2": {
+      "assignment": "good",
+      "expected_count": -1,
+      "min_confidence": 0.8,
+      "color": "#808080"
+    },
+    "1": {
+      "assignment": "good",
+      "expected_count": -1,
+      "min_confidence": 0.8,
+      "color": "#800080"
+    },
+    "3": {
+      "assignment": "good",
+      "expected_count": -1,
+      "min_confidence": 0.8,
+      "color": "#ffff00"
+    },
+    "15": {
+      "assignment": "good",
+      "expected_count": 5,
+      "min_confidence": 0.5,
+      "color": "#FF0000"
+    }
+  }
 }

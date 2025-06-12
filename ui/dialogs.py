@@ -1,7 +1,7 @@
 """
 Dialog-Komponenten für Kamera-Auswahl und Einstellungen
-Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout und erweiterter tabellarischer Klassenzuteilung
-ERWEITERT: Tabellarische Klassenzuteilung mit Gut/Schlecht, Anzahl, Farbe und Konfidenz in einem Tab
+Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout, erweiterte Klassenzuteilung und Referenzlinien
+ERWEITERT: Tabellarische Klassenzuteilung mit dunklem Hintergrund und Referenzlinien-Einstellungen
 """
 
 import os
@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
     QFrame, QFileDialog, QSpinBox, QDoubleSpinBox, QCheckBox, 
     QFormLayout, QMessageBox, QListWidget, QTabWidget, QWidget,
     QScrollArea, QSizePolicy, QComboBox, QApplication, QColorDialog,
-    QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
-    QLineEdit, QSlider
+    QGridLayout, QTableWidget, QTableWidgetItem, QHeaderView, 
+    QAbstractItemView, QLineEdit, QGroupBox, QScrollArea
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -106,7 +106,7 @@ class CameraSelectionDialog(QDialog):
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Tab-basierter Einstellungen-Dialog mit erweiterter tabellarischer Klassenzuteilung."""
+    """Tab-basierter Einstellungen-Dialog mit erweiterter tabellarischer Klassenzuteilung und Referenzlinien."""
     
     def __init__(self, settings, class_names=None, parent=None):
         super().__init__(parent)
@@ -115,10 +115,10 @@ class SettingsDialog(QDialog):
         self.parent_app = parent  # Referenz zur Hauptanwendung für Modbus-Funktionen
         self.setWindowTitle("⚙️ Einstellungen")
         self.setModal(True)
-        self.resize(1000, 900)  # Breiter für Tabelle
+        self.resize(1000, 800) 
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
-        # Vordefinierte Farben für Klassen
+        # 20 vordefinierte Farben für Klassen
         self.predefined_colors = [
             "#FF0000",  # Rot
             "#00FF00",  # Grün
@@ -142,8 +142,8 @@ class SettingsDialog(QDialog):
             "#FFD700"   # Gold
         ]
         
-        # Migration ausführen falls nötig
-        self.settings.migrate_legacy_settings()
+        # Speichere Klassenzuteilungsdaten
+        self.class_assignments_data = {}
         
         self.setup_ui()
         self.load_settings()
@@ -162,10 +162,10 @@ class SettingsDialog(QDialog):
         
         # Tabs erstellen
         self._create_general_tab()
-        self._create_advanced_class_assignment_tab()  # NEUER erweiterte Klassen-Tab
+        self._create_class_assignments_tab()  # NEUE erweiterte tabellarische Klassenzuteilung
+        self._create_reference_lines_tab()    # NEUE Referenzlinien
         self._create_interfaces_tab()
         self._create_storage_monitoring_tab()
-        self._create_reference_lines_tab()  # Referenzlinien in eigenen Tab
         
         # Button-Sektion
         self._create_button_section(layout)
@@ -195,7 +195,7 @@ class SettingsDialog(QDialog):
         layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
         self._add_spacer(layout)
 
-        # Motion Decay - MIT INFO
+        # Motion Decay - NEU: MIT INFO
         motion_decay_info = self._create_info_label(
             "Abklingfaktor für die Motion-Anzeige. Bestimmt, wie schnell der angezeigte Motion-Wert "
             "nach dem Ende einer Bewegung abfällt. Höhere Werte = langsameres Abklingen (träger), "
@@ -208,20 +208,6 @@ class SettingsDialog(QDialog):
         self.motion_decay_spin.setSingleStep(0.001)
         self.motion_decay_spin.setDecimals(3)
         layout.addRow("Motion Abklingfaktor (0.001-0.999):", self.motion_decay_spin)
-        self._add_spacer(layout)
-
-        # Allgemeine Konfidenz - MIT INFO
-        general_conf_info = self._create_info_label(
-            "Grundschwellwert für alle KI-Erkennungen. Nur Erkennungen über diesem Wert werden berücksichtigt. "
-            "Höhere Werte = weniger falsche Erkennungen, aber eventuell werden echte Objekte übersehen."
-        )
-        layout.addRow(general_conf_info)
-        
-        self.confidence_spin = QDoubleSpinBox()
-        self.confidence_spin.setRange(0.1, 1.0)
-        self.confidence_spin.setSingleStep(0.1)
-        self.confidence_spin.setDecimals(2)
-        layout.addRow("Allgemeine Konfidenz-Schwelle:", self.confidence_spin)
         self._add_spacer(layout)
 
         # Roter Rahmen Schwellwert - MIT INFO
@@ -287,240 +273,282 @@ class SettingsDialog(QDialog):
         layout.addRow("Abblas-Wartezeit (Sekunden):", self.blow_off_time_spin)
         self._add_spacer(layout)
         
+        # Allgemeine Konfidenz
+        general_conf_info = self._create_info_label(
+            "Grundschwellwert für alle KI-Erkennungen. Nur Erkennungen über diesem Wert werden berücksichtigt. "
+            "Höhere Werte = weniger falsche Erkennungen, aber eventuell werden echte Objekte übersehen."
+        )
+        layout.addRow(general_conf_info)
+        
+        self.confidence_spin = QDoubleSpinBox()
+        self.confidence_spin.setRange(0.1, 1.0)
+        self.confidence_spin.setSingleStep(0.1)
+        self.confidence_spin.setDecimals(2)
+        layout.addRow("Allgemeine Konfidenz-Schwelle:", self.confidence_spin)
+        
         self.tab_widget.addTab(scroll, "⚙️ Allgemein")
     
-    def _create_advanced_class_assignment_tab(self):
-        """Tab 2: 🎯 Erweiterte Klassen-Zuteilung - TABELLARISCH mit allen Funktionen"""
+    def _create_class_assignments_tab(self):
+        """Tab 2: 🎯 Klassenzuteilung - TABELLARISCH mit dunklem Hintergrund"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setSpacing(20)
+        layout.setSpacing(15)
         
-        # Header
-        header_label = QLabel("🎯 Erweiterte Klassen-Zuteilung")
-        header_label.setFont(QFont("", 16, QFont.Weight.Bold))
+        # Header mit Info
+        header_label = QLabel("🎯 Klassenzuteilung")
+        header_label.setFont(QFont("", 16, QFont.Weight.Bold))  # Größere Schrift
         layout.addWidget(header_label)
         
         # Info-Text
-        info_text = self._create_info_label(
-            "Konfigurieren Sie jede Klasse einzeln: Zuteilung (Gut/Schlecht/Ignorieren), erwartete Anzahl, "
-            "Mindest-Konfidenz und Bounding Box-Farbe. Abweichungen von der erwarteten Anzahl bei Gut-Teilen "
-            "können ebenfalls als Ausschuss behandelt werden."
+        info_label = self._create_info_label(
+            "Konfigurieren Sie für jede Klasse die Zuteilung (Gut/Schlecht/Ignorieren), erwartete Anzahl, "
+            "Mindest-Konfidenz und Bounding-Box-Farbe. Gut-Teile können auch überwacht werden - bei "
+            "Abweichung von der erwarteten Anzahl wird ein Ausschuss-Signal ausgelöst."
         )
-        layout.addWidget(info_text)
+        layout.addWidget(info_label)
         
-        # Tabelle für Klassenzuteilung
-        self._create_class_assignment_table(layout)
-        
-        # Buttons unter der Tabelle
-        button_layout = QHBoxLayout()
-        
-        self.add_class_btn = QPushButton("➕ Klasse hinzufügen")
-        self.add_class_btn.clicked.connect(self.add_class_assignment)
-        button_layout.addWidget(self.add_class_btn)
-        
-        self.remove_class_btn = QPushButton("➖ Klasse entfernen")
-        self.remove_class_btn.clicked.connect(self.remove_class_assignment)
-        button_layout.addWidget(self.remove_class_btn)
-        
-        button_layout.addStretch()
-        
-        self.reset_table_btn = QPushButton("🔄 Tabelle zurücksetzen")
-        self.reset_table_btn.clicked.connect(self.reset_class_table)
-        button_layout.addWidget(self.reset_table_btn)
-        
-        layout.addLayout(button_layout)
-        
-        # Legende
-        legend_label = QLabel("""
-        <b>Legende:</b><br>
-        • <b>Zuteilung:</b> Gut = positive Teile, Schlecht = Ausschuss, Ignorieren = nicht bewerten<br>
-        • <b>Erwartete Anzahl:</b> -1 = beliebig, >0 = exakte Anzahl erwartet<br>
-        • <b>Konfidenz:</b> Mindest-Konfidenz für diese Klasse (überschreibt allgemeine Einstellung)<br>
-        • <b>Farbe:</b> Bounding Box-Farbe für diese Klasse
-        """)
-        legend_label.setWordWrap(True)
-        legend_label.setStyleSheet("color: #7f8c8d; font-size: 11px; background-color: #f8f9fa; padding: 10px; border-radius: 4px;")
-        layout.addWidget(legend_label)
-        
-        self.tab_widget.addTab(tab, "🎯 Klassen-Zuteilung")
-    
-    def _create_class_assignment_table(self, layout):
-        """Erstelle die Klassenzuteilungs-Tabelle."""
-        self.class_table = QTableWidget(0, 5)
-        self.class_table.setHorizontalHeaderLabels([
+        # Tabelle für Klassenzuteilungen - MIT DUNKLEM HINTERGRUND
+        self.class_assignments_table = QTableWidget(0, 5)
+        self.class_assignments_table.setHorizontalHeaderLabels([
             "Klassename", "Zuteilung", "Erwartete Anzahl", "Min. Konfidenz", "Farbe"
         ])
         
-        # Spaltenbreiten optimieren
-        header = self.class_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Klassename
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # Zuteilung
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Anzahl
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Konfidenz
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Farbe
-        
-        # Tabellen-Eigenschaften
-        self.class_table.setAlternatingRowColors(True)
-        self.class_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.class_table.setMinimumHeight(300)
-        
-        # Style für bessere Sichtbarkeit
-        self.class_table.setStyleSheet("""
+        # DUNKLER TABELLEN-STYLE mit größerer Schrift und touch-freundlichen Elementen
+        self.class_assignments_table.setStyleSheet("""
             QTableWidget {
-                gridline-color: #ddd;
-                background-color: white;
-                border: 1px solid #ccc;
+                background: rgba(44, 62, 80, 0.95);
+                color: #e2e8f0;
+                border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 4px;
+                font-size: 14px;
+                gridline-color: rgba(255, 255, 255, 0.1);
+                selection-background-color: rgba(52, 152, 219, 0.3);
             }
             QHeaderView::section {
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-                padding: 8px;
-                font-weight: bold;
+                background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                        stop: 0 #4a5568, stop: 1 #2d3748);
+                color: white;
+                border: none;
+                padding: 12px;
+                font-size: 14px;
+                font-weight: 600;
+                text-transform: uppercase;
+                min-height: 45px;
+            }
+            QTableWidget::item {
+                padding: 6px;
+                border: none;
+                color: white;
+                min-height: 45px;
+                text-align: center;
+            }
+            QTableWidget::item:selected {
+                background: rgba(52, 152, 219, 0.4);
+                color: white;
+            }
+            QComboBox, QSpinBox, QDoubleSpinBox, QPushButton {
+                background-color: #34495e;
+                color: white;
+                border: 1px solid #7f8c8d;
+                padding: 0px 12px;
+                border-radius: 4px;
+                font-size: 14px;
+                min-height: 38px;
+                max-height: 38px;
+            }
+            QComboBox {
+                padding-right: 35px;
+            }
+            QComboBox:drop-down {
+                border: none;
+                width: 30px;
+                border-left: 1px solid #7f8c8d;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 8px solid transparent;
+                border-right: 8px solid transparent;
+                border-top: 8px solid white;
+                margin: 5px;
+            }
+            QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QPushButton:hover {
+                background-color: #3e5368;
+                border-color: #95a5a6;
+            }
+            QSpinBox::up-button, QSpinBox::down-button,
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                width: 25px;
+                height: 15px;
+                border: none;
+                background-color: #4a5568;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+            QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
+                background-color: #5a6878;
+            }
+            QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {
+                image: none;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-bottom: 6px solid white;
+            }
+            QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
+                image: none;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-top: 6px solid white;
             }
         """)
         
-        layout.addWidget(self.class_table)
-    
-    def add_class_assignment(self):
-        """Neue Klassenzuteilung hinzufügen."""
-        # Verfügbare Klassen ermitteln (die noch nicht in der Tabelle sind)
-        used_classes = set()
-        for row in range(self.class_table.rowCount()):
-            class_item = self.class_table.item(row, 0)
-            if class_item and hasattr(class_item, 'class_id'):
-                used_classes.add(class_item.class_id)
+        # Tabellen-Konfiguration mit angepassten Zeilenhöhen
+        header = self.class_assignments_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)  # Klassename
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)    # Zuteilung
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)    # Anzahl
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)    # Konfidenz
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)    # Farbe
         
-        available_classes = []
-        for class_id, class_name in self.class_names.items():
-            if class_id not in used_classes:
-                available_classes.append((class_id, class_name))
+        self.class_assignments_table.setColumnWidth(1, 220)  # Zuteilung (breiter für größere Schrift)
+        self.class_assignments_table.setColumnWidth(2, 200)  # Anzahl (breiter)
+        self.class_assignments_table.setColumnWidth(3, 200)  # Konfidenz (breiter)
+        self.class_assignments_table.setColumnWidth(4, 100)  # Farbe (breiter für Color Box)
+
+        # Zeilenhöhe auf mindestens 45px setzen
+        vertical_header = self.class_assignments_table.verticalHeader()
+        vertical_header.setDefaultSectionSize(48)
+        vertical_header.setMinimumSectionSize(45)
         
-        if not available_classes:
-            QMessageBox.information(self, "Info", "Alle verfügbaren Klassen sind bereits zugewiesen.")
-            return
+        # Sicherstellen, dass Widgets in Zellen zentriert werden
+        self.class_assignments_table.setWordWrap(False)
+
+        self.class_assignments_table.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked |
+                                                    QAbstractItemView.EditTrigger.SelectedClicked)
         
-        # Dialog zur Klassenwahl
-        from PyQt6.QtWidgets import QInputDialog
-        class_choices = [f"{name} (ID: {id})" for id, name in available_classes]
-        choice, ok = QInputDialog.getItem(
-            self, "Klasse auswählen", "Welche Klasse hinzufügen?", class_choices, 0, False
+        self.class_assignments_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.class_assignments_table.setShowGrid(True)
+
+        self.class_assignments_table.setMinimumHeight(400)
+        
+        layout.addWidget(self.class_assignments_table)
+        
+        # Button-Leiste für Tabelle mit größeren, touch-freundlicheren Buttons
+        table_buttons_layout = QHBoxLayout()
+        
+        self.add_class_btn = QPushButton("➕ Klasse hinzufügen")
+        self.add_class_btn.setFont(QFont("", 14))
+        self.add_class_btn.setMinimumHeight(45)
+        self.add_class_btn.clicked.connect(self.add_class_assignment)
+        table_buttons_layout.addWidget(self.add_class_btn)
+        
+        self.remove_class_btn = QPushButton("➖ Klasse entfernen")
+        self.remove_class_btn.setFont(QFont("", 14))
+        self.remove_class_btn.setMinimumHeight(45)
+        self.remove_class_btn.clicked.connect(self.remove_class_assignment)
+        table_buttons_layout.addWidget(self.remove_class_btn)
+        
+        self.reset_table_btn = QPushButton("🔄 Zurücksetzen")
+        self.reset_table_btn.setFont(QFont("", 14))
+        self.reset_table_btn.setMinimumHeight(45)
+        self.reset_table_btn.clicked.connect(self.reset_class_assignments)
+        table_buttons_layout.addWidget(self.reset_table_btn)
+        
+        table_buttons_layout.addStretch()
+        layout.addLayout(table_buttons_layout)
+        
+        # Legende mit größerer Schrift
+        legend_label = self._create_info_label(
+            "💡 Legende:\n"
+            "• Gut: Bei Abweichung von erwarteter Anzahl → Ausschuss\n"
+            "• Schlecht: Bei Erkennung → sofortiger Ausschuss\n"
+            "• Ignorieren: Klasse wird nicht bewertet\n"
+            "• Erwartete Anzahl: -1 = beliebig, >0 = exakte Anzahl"
         )
+        # Schriftgröße für Legende anpassen falls _create_info_label das nicht bereits macht
+        legend_font = legend_label.font()
+        legend_font.setPointSize(13)
+        legend_label.setFont(legend_font)
+        layout.addWidget(legend_label)
         
-        if ok and choice:
-            # Extrahiere class_id aus der Auswahl
-            selected_class_id = available_classes[class_choices.index(choice)][0]
-            selected_class_name = available_classes[class_choices.index(choice)][1]
-            
-            # Neue Zeile hinzufügen
-            self._add_table_row(selected_class_id, selected_class_name, 'ignore', -1, 0.5, '#808080')
+        self.tab_widget.addTab(tab, "🎯 Klassenzuteilung")
     
-    def remove_class_assignment(self):
-        """Ausgewählte Klassenzuteilung entfernen."""
-        current_row = self.class_table.currentRow()
-        if current_row >= 0:
-            self.class_table.removeRow(current_row)
-        else:
-            QMessageBox.information(self, "Info", "Bitte wählen Sie eine Zeile zum Entfernen aus.")
-    
-    def reset_class_table(self):
-        """Tabelle zurücksetzen."""
-        reply = QMessageBox.question(
-            self, "Tabelle zurücksetzen", 
-            "Alle Klassenzuteilungen zurücksetzen und von verfügbaren Klassen neu aufbauen?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+    def _create_reference_lines_tab(self):
+        """Tab 3: 📏 Referenzlinien"""
+        tab = QWidget()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(tab)
+        
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(15)
+        
+        # Header
+        header_label = QLabel("📏 Referenzlinien")
+        header_label.setFont(QFont("", 14, QFont.Weight.Bold))
+        layout.addWidget(header_label)
+        
+        # Info-Text
+        info_label = self._create_info_label(
+            "Referenzlinien werden als Laser-ähnliche Linien über das Video gelegt und helfen bei der "
+            "visuellen Ausrichtung und Positionierung von Objekten. Bis zu 4 Linien können konfiguriert werden."
         )
+        layout.addWidget(info_label)
         
-        if reply == QMessageBox.StandardButton.Yes:
-            self.class_table.setRowCount(0)
-            self._populate_table_from_available_classes()
+        # Linien-Konfiguration
+        self.reference_line_widgets = []
+        
+        for i in range(4):
+            line_frame = self._create_reference_line_config(i)
+            layout.addWidget(line_frame)
+        
+        layout.addStretch()
+        
+        self.tab_widget.addTab(scroll, "📏 Referenzlinien")
     
-    def _add_table_row(self, class_id, class_name, assignment, expected_count, min_confidence, color):
-        """Füge eine Zeile zur Klassenzuteilungs-Tabelle hinzu."""
-        row = self.class_table.rowCount()
-        self.class_table.insertRow(row)
+    def _create_reference_line_config(self, line_index):
+        """Konfiguration für eine einzelne Referenzlinie."""
+        frame = QFrame()
+        frame.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
+        layout = QFormLayout(frame)
         
-        # Klassename (nicht editierbar)
-        name_item = QTableWidgetItem(f"{class_name} (ID: {class_id})")
-        name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        name_item.class_id = class_id  # Speichere class_id als Attribut
-        self.class_table.setItem(row, 0, name_item)
+        # Header
+        header = QLabel(f"Linie {line_index + 1}")
+        header.setFont(QFont("", 12, QFont.Weight.Bold))
+        layout.addRow(header)
         
-        # Zuteilung (ComboBox)
-        assignment_combo = QComboBox()
-        assignment_combo.addItems(["ignore", "good", "bad"])
-        assignment_combo.setCurrentText(assignment)
-        self.class_table.setCellWidget(row, 1, assignment_combo)
+        # Widgets für diese Linie
+        widgets = {}
         
-        # Erwartete Anzahl (SpinBox)
-        count_spin = QSpinBox()
-        count_spin.setRange(-1, 999)
-        count_spin.setSpecialValueText("beliebig")
-        count_spin.setValue(expected_count)
-        self.class_table.setCellWidget(row, 2, count_spin)
+        # Aktiviert
+        widgets['enabled'] = QCheckBox("Linie aktivieren")
+        layout.addRow(widgets['enabled'])
         
-        # Min. Konfidenz (DoubleSpinBox)
-        conf_spin = QDoubleSpinBox()
-        conf_spin.setRange(0.1, 1.0)
-        conf_spin.setSingleStep(0.1)
-        conf_spin.setDecimals(2)
-        conf_spin.setValue(min_confidence)
-        self.class_table.setCellWidget(row, 3, conf_spin)
+        # Typ
+        widgets['type'] = QComboBox()
+        widgets['type'].addItems(["horizontal", "vertical"])
+        layout.addRow("Richtung:", widgets['type'])
         
-        # Farbe (Button)
-        color_btn = QPushButton()
-        color_btn.setStyleSheet(f"background-color: {color}; min-height: 25px;")
-        color_btn.clicked.connect(lambda: self._choose_color_for_row(row))
-        color_btn.color_value = color
-        self.class_table.setCellWidget(row, 4, color_btn)
-    
-    def _choose_color_for_row(self, row):
-        """Farbauswahl für eine bestimmte Zeile."""
-        # Hole aktuellen Color-Button
-        color_btn = self.class_table.cellWidget(row, 4)
-        if not color_btn:
-            return
+        # Position
+        widgets['position'] = QSpinBox()
+        widgets['position'].setRange(0, 100)
+        widgets['position'].setSuffix(" %")
+        layout.addRow("Position (0-100%):", widgets['position'])
         
-        # Dialog mit vordefinierten Farben
-        from PyQt6.QtWidgets import QDialog, QGridLayout, QPushButton
+        # Farbe
+        widgets['color'] = QComboBox()
+        widgets['color'].addItems(["red", "green", "blue", "yellow", "cyan", "magenta", "white", "orange"])
+        layout.addRow("Farbe:", widgets['color'])
         
-        color_dialog = QDialog(self)
-        color_dialog.setWindowTitle("Farbe auswählen")
-        color_dialog.setModal(True)
+        # Dicke
+        widgets['thickness'] = QSpinBox()
+        widgets['thickness'].setRange(1, 10)
+        widgets['thickness'].setSuffix(" px")
+        layout.addRow("Dicke:", widgets['thickness'])
         
-        grid_layout = QGridLayout(color_dialog)
+        self.reference_line_widgets.append(widgets)
+        return frame
         
-        # Vordefinierte Farben als Buttons
-        for i, color in enumerate(self.predefined_colors):
-            btn = QPushButton()
-            btn.setStyleSheet(f"background-color: {color}; min-width: 40px; min-height: 40px; border: 2px solid #333;")
-            btn.clicked.connect(lambda checked, c=color: self._set_color_and_close(color_btn, c, color_dialog))
-            
-            row_pos = i // 5
-            col_pos = i % 5
-            grid_layout.addWidget(btn, row_pos, col_pos)
-        
-        color_dialog.exec()
-    
-    def _set_color_and_close(self, color_btn, color, dialog):
-        """Setze Farbe und schließe Dialog."""
-        color_btn.setStyleSheet(f"background-color: {color}; min-height: 25px;")
-        color_btn.color_value = color
-        dialog.accept()
-    
-    def _populate_table_from_available_classes(self):
-        """Befülle Tabelle mit allen verfügbaren Klassen."""
-        for class_id, class_name in self.class_names.items():
-            # Standard-Werte
-            assignment = 'ignore'
-            expected_count = -1
-            min_confidence = 0.5
-            color = self.predefined_colors[class_id % len(self.predefined_colors)]
-            
-            self._add_table_row(class_id, class_name, assignment, expected_count, min_confidence, color)
-    
     def _create_interfaces_tab(self):
-        """Tab 3: 🔌 Schnittstellen (ehemals Hardware)"""
+        """Tab 4: 🔌 Schnittstellen (ehemals Hardware)"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -701,7 +729,7 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(scroll, "🔌 Schnittstellen")
     
     def _create_storage_monitoring_tab(self):
-        """Tab 4: 💾 Speicherung & Überwachung"""
+        """Tab 5: 💾 Speicherung & Überwachung"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -802,104 +830,6 @@ class SettingsDialog(QDialog):
         
         self.tab_widget.addTab(scroll, "💾 Speicherung & Überwachung")
     
-    def _create_reference_lines_tab(self):
-        """Tab 5: 📏 Referenzlinien"""
-        tab = QWidget()
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(tab)
-        
-        layout = QVBoxLayout(tab)
-        layout.setSpacing(20)
-        
-        # Header
-        header_label = QLabel("📏 Referenzlinien-Konfiguration")
-        header_label.setFont(QFont("", 16, QFont.Weight.Bold))
-        layout.addWidget(header_label)
-        
-        # Info-Text
-        info_text = self._create_info_label(
-            "Konfigurieren Sie bis zu 4 Referenzlinien, die als Overlay über den Video-Stream gelegt werden. "
-            "Diese helfen bei der visuellen Orientierung und zeigen optimale Objektpositionen an."
-        )
-        layout.addWidget(info_text)
-        
-        # Container für alle 4 Linien
-        self.reference_line_widgets = []
-        
-        for i in range(4):
-            line_group = self._create_reference_line_group(i + 1)
-            layout.addWidget(line_group)
-            
-        layout.addStretch()
-        
-        self.tab_widget.addTab(scroll, "📏 Referenzlinien")
-    
-    def _create_reference_line_group(self, line_number):
-        """Erstelle Gruppe für eine Referenzlinie."""
-        group = QFrame()
-        group.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
-        
-        layout = QFormLayout(group)
-        
-        # Header
-        header = QLabel(f"Linie {line_number}")
-        header.setFont(QFont("", 12, QFont.Weight.Bold))
-        layout.addRow(header)
-        
-        # Enabled Checkbox
-        enabled_check = QCheckBox("Aktiviert")
-        layout.addRow("Status:", enabled_check)
-        
-        # Typ (Horizontal/Vertikal)
-        type_combo = QComboBox()
-        type_combo.addItems(["horizontal", "vertical"])
-        layout.addRow("Typ:", type_combo)
-        
-        # Position (Slider + SpinBox kombiniert)
-        position_layout = QHBoxLayout()
-        position_slider = QSlider(Qt.Orientation.Horizontal)
-        position_slider.setRange(0, 100)
-        position_slider.setValue(50)
-        position_layout.addWidget(position_slider, 3)
-        
-        position_spin = QSpinBox()
-        position_spin.setRange(0, 100)
-        position_spin.setSuffix("%")
-        position_spin.setValue(50)
-        position_layout.addWidget(position_spin, 1)
-        
-        # Slider und SpinBox verknüpfen
-        position_slider.valueChanged.connect(position_spin.setValue)
-        position_spin.valueChanged.connect(position_slider.setValue)
-        
-        layout.addRow("Position:", position_layout)
-        
-        # Farbe
-        color_combo = QComboBox()
-        color_combo.addItems(["red", "green", "blue", "yellow", "cyan", "magenta", "white", "orange"])
-        layout.addRow("Farbe:", color_combo)
-        
-        # Dicke
-        thickness_spin = QSpinBox()
-        thickness_spin.setRange(1, 10)
-        thickness_spin.setValue(2)
-        layout.addRow("Dicke (Pixel):", thickness_spin)
-        
-        # Widgets speichern für späteren Zugriff
-        widgets = {
-            'enabled': enabled_check,
-            'type': type_combo,
-            'position_slider': position_slider,
-            'position_spin': position_spin,
-            'color': color_combo,
-            'thickness': thickness_spin
-        }
-        
-        self.reference_line_widgets.append(widgets)
-        
-        return group
-    
     def _create_info_label(self, text):
         """Erstelle ein Info-Label mit einheitlichem Styling."""
         label = QLabel(text)
@@ -957,7 +887,131 @@ class SettingsDialog(QDialog):
         
         layout.addLayout(button_layout)
     
-    # Modbus-Aktions-Handler
+    # =============================================================================
+    # ERWEITERTE KLASSENZUTEILUNG - TABELLEN-MANAGEMENT
+    # =============================================================================
+    
+    def add_class_assignment(self):
+        """Neue Klassenzeile hinzufügen."""
+        if not self.class_names:
+            QMessageBox.warning(self, "Keine Klassen", "Bitte laden Sie zuerst ein Modell mit Klassen.")
+            return
+        
+        # Verfügbare Klassen finden (noch nicht in Tabelle)
+        used_classes = set()
+        for row in range(self.class_assignments_table.rowCount()):
+            class_item = self.class_assignments_table.item(row, 0)
+            if class_item:
+                # Extrahiere Class ID aus Text wie "person (ID: 0)"
+                try:
+                    text = class_item.text()
+                    if "(ID: " in text:
+                        class_id = int(text.split("(ID: ")[1].split(")")[0])
+                        used_classes.add(class_id)
+                except:
+                    pass
+        
+        available_classes = [(id, name) for id, name in self.class_names.items() if id not in used_classes]
+        
+        if not available_classes:
+            QMessageBox.information(self, "Alle Klassen zugewiesen", 
+                                  "Alle verfügbaren Klassen sind bereits in der Tabelle.")
+            return
+        
+        # Erste verfügbare Klasse verwenden
+        class_id, class_name = available_classes[0]
+        self._add_class_row(class_id, class_name, 'ignore', -1, 0.5, '#808080')
+    
+    def _add_class_row(self, class_id, class_name, assignment, expected_count, min_confidence, color):
+        """Einzelne Klassenzeile zur Tabelle hinzufügen."""
+        row = self.class_assignments_table.rowCount()
+        self.class_assignments_table.insertRow(row)
+        
+        # Spalte 0: Klassename (nicht editierbar)
+        name_item = QTableWidgetItem(f"{class_name} (ID: {class_id})")
+        name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        self.class_assignments_table.setItem(row, 0, name_item)
+        
+        # Spalte 1: Zuteilung (ComboBox)
+        assignment_combo = QComboBox()
+        assignment_combo.addItems(["ignore", "good", "bad"])
+        assignment_combo.setCurrentText(assignment)
+        self.class_assignments_table.setCellWidget(row, 1, assignment_combo)
+        
+        # Spalte 2: Erwartete Anzahl (SpinBox)
+        count_spin = QSpinBox()
+        count_spin.setRange(-1, 100)
+        count_spin.setSpecialValueText("beliebig")
+        count_spin.setValue(expected_count)
+        self.class_assignments_table.setCellWidget(row, 2, count_spin)
+        
+        # Spalte 3: Min. Konfidenz (DoubleSpinBox)
+        conf_spin = QDoubleSpinBox()
+        conf_spin.setRange(0.1, 1.0)
+        conf_spin.setSingleStep(0.1)
+        conf_spin.setDecimals(2)
+        conf_spin.setValue(min_confidence)
+        self.class_assignments_table.setCellWidget(row, 3, conf_spin)
+        
+        # Spalte 4: Farbe (Button)
+        color_btn = QPushButton()
+        color_btn.setStyleSheet(f"background-color: {color}; min-height: 25px;")
+        color_btn.clicked.connect(lambda: self._select_color_for_row(row))
+        self.class_assignments_table.setCellWidget(row, 4, color_btn)
+    
+    def _select_color_for_row(self, row):
+        """Farbauswahl für bestimmte Zeile."""
+        # Einfache Farbauswahl aus vordefinierten Farben
+        from PyQt6.QtWidgets import QInputDialog
+        
+        colors = {
+            "Rot": "#FF0000",
+            "Grün": "#00FF00", 
+            "Blau": "#0000FF",
+            "Gelb": "#FFFF00",
+            "Magenta": "#FF00FF",
+            "Cyan": "#00FFFF",
+            "Orange": "#FFA500",
+            "Lila": "#800080",
+            "Pink": "#FFC0CB",
+            "Braun": "#A52A2A",
+            "Grau": "#808080",
+            "Schwarz": "#000000",
+            "Weiß": "#FFFFFF"
+        }
+        
+        color_name, ok = QInputDialog.getItem(
+            self, "Farbe wählen", "Wählen Sie eine Farbe:", 
+            list(colors.keys()), 0, False
+        )
+        
+        if ok and color_name:
+            color_hex = colors[color_name]
+            color_btn = self.class_assignments_table.cellWidget(row, 4)
+            if color_btn:
+                color_btn.setStyleSheet(f"background-color: {color_hex}; min-height: 25px;")
+    
+    def remove_class_assignment(self):
+        """Ausgewählte Klassenzeile entfernen."""
+        current_row = self.class_assignments_table.currentRow()
+        if current_row >= 0:
+            self.class_assignments_table.removeRow(current_row)
+    
+    def reset_class_assignments(self):
+        """Klassenzuteilungen zurücksetzen."""
+        reply = QMessageBox.question(
+            self, "Zurücksetzen", 
+            "Alle Klassenzuteilungen zurücksetzen?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.class_assignments_table.setRowCount(0)
+    
+    # =============================================================================
+    # MODBUS-AKTIONS-HANDLER
+    # =============================================================================
+    
     def handle_modbus_reset(self):
         """WAGO Controller Reset aus Einstellungen."""
         # Prüfe Admin-Rechte
@@ -1038,7 +1092,26 @@ class SettingsDialog(QDialog):
                 f"Fehler bei Neuverbindung:\n{str(e)}"
             )
     
-    # Event Handler-Methoden
+    def update_modbus_connection_status(self, connected):
+        """Modbus-Verbindungsstatus in den Buttons aktualisieren."""
+        # Buttons nur aktivieren wenn Admin und verbunden
+        is_admin = hasattr(self.parent_app, 'app') and self.parent_app.app.user_manager.is_admin()
+        
+        self.modbus_reset_btn.setEnabled(is_admin)
+        self.modbus_reconnect_btn.setEnabled(is_admin)
+        
+        # Tooltips entsprechend aktualisieren
+        if connected:
+            self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen (Admin)")
+            self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden (Admin)")
+        else:
+            self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen (Admin) - GETRENNT")
+            self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden (Admin) - GETRENNT")
+    
+    # =============================================================================
+    # EVENT HANDLER-METHODEN
+    # =============================================================================
+    
     def browse_camera_config_file(self):
         """IDS Peak Kamera-Konfigurationsdatei auswählen."""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -1127,29 +1200,12 @@ class SettingsDialog(QDialog):
         self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
         self.motion_decay_spin.setValue(self.settings.get('motion_decay_factor', 0.1))
         self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
-
-        # Erweiterte Klassenzuteilung - Lade aus class_assignments
-        self.class_table.setRowCount(0)  # Tabelle zurücksetzen
         
-        class_assignments = self.settings.get('class_assignments', {})
-        if class_assignments:
-            # Lade aus neuer Struktur
-            for class_id_str, assignment_data in class_assignments.items():
-                try:
-                    class_id = int(class_id_str)
-                    if class_id in self.class_names:
-                        class_name = self.class_names[class_id]
-                        assignment = assignment_data.get('assignment', 'ignore')
-                        expected_count = assignment_data.get('expected_count', -1)
-                        min_confidence = assignment_data.get('min_confidence', 0.5)
-                        color = assignment_data.get('color', '#808080')
-                        
-                        self._add_table_row(class_id, class_name, assignment, expected_count, min_confidence, color)
-                except (ValueError, KeyError) as e:
-                    logging.warning(f"Fehler beim Laden der Klassenzuteilung für {class_id_str}: {e}")
-        else:
-            # Fallback: Befülle mit allen verfügbaren Klassen
-            self._populate_table_from_available_classes()
+        # Erweiterte Klassenzuteilungen laden
+        self._load_class_assignments()
+        
+        # Referenzlinien laden
+        self._load_reference_lines()
         
         # Schnittstellen
         camera_config_path = self.settings.get('camera_config_path', '')
@@ -1183,17 +1239,44 @@ class SettingsDialog(QDialog):
         self.brightness_low_spin.setValue(self.settings.get('brightness_low_threshold', 30))
         self.brightness_high_spin.setValue(self.settings.get('brightness_high_threshold', 220))
         self.brightness_duration_spin.setValue(self.settings.get('brightness_duration_threshold', 3.0))
+    
+    def _load_class_assignments(self):
+        """Erweiterte Klassenzuteilungen in die Tabelle laden."""
+        self.class_assignments_table.setRowCount(0)
         
-        # Referenzlinien
+        class_assignments = self.settings.get('class_assignments', {})
+        
+        if not class_assignments and self.class_names:
+            # Fallback: Migration von alten Einstellungen
+            self.settings.migrate_legacy_settings()
+            class_assignments = self.settings.get('class_assignments', {})
+        
+        # Lade Daten in Tabelle
+        for class_id_str, assignment_data in class_assignments.items():
+            try:
+                class_id = int(class_id_str)
+                if class_id in self.class_names:
+                    class_name = self.class_names[class_id]
+                    assignment = assignment_data.get('assignment', 'ignore')
+                    expected_count = assignment_data.get('expected_count', -1)
+                    min_confidence = assignment_data.get('min_confidence', 0.5)
+                    color = assignment_data.get('color', '#808080')
+                    
+                    self._add_class_row(class_id, class_name, assignment, expected_count, min_confidence, color)
+            except (ValueError, KeyError):
+                continue
+    
+    def _load_reference_lines(self):
+        """Referenzlinien-Einstellungen laden."""
         reference_lines = self.settings.get('reference_lines', [])
-        for i, line_config in enumerate(reference_lines):
+        
+        for i, line_config in enumerate(reference_lines[:4]):  # Max 4 Linien
             if i < len(self.reference_line_widgets):
                 widgets = self.reference_line_widgets[i]
+                
                 widgets['enabled'].setChecked(line_config.get('enabled', False))
                 widgets['type'].setCurrentText(line_config.get('type', 'horizontal'))
-                position = line_config.get('position', 50)
-                widgets['position_slider'].setValue(position)
-                widgets['position_spin'].setValue(position)
+                widgets['position'].setValue(line_config.get('position', 50))
                 widgets['color'].setCurrentText(line_config.get('color', 'red'))
                 widgets['thickness'].setValue(line_config.get('thickness', 2))
     
@@ -1209,32 +1292,11 @@ class SettingsDialog(QDialog):
         self.settings.set('blow_off_time', self.blow_off_time_spin.value())
         self.settings.set('confidence_threshold', self.confidence_spin.value())
         
-        # Erweiterte Klassenzuteilung - Speichere in class_assignments
-        class_assignments = {}
+        # Erweiterte Klassenzuteilungen speichern
+        self._save_class_assignments()
         
-        for row in range(self.class_table.rowCount()):
-            # Hole class_id aus erstem Item
-            name_item = self.class_table.item(row, 0)
-            if not name_item or not hasattr(name_item, 'class_id'):
-                continue
-                
-            class_id = name_item.class_id
-            
-            # Hole Widgets aus den Zellen
-            assignment_combo = self.class_table.cellWidget(row, 1)
-            count_spin = self.class_table.cellWidget(row, 2)
-            conf_spin = self.class_table.cellWidget(row, 3)
-            color_btn = self.class_table.cellWidget(row, 4)
-            
-            if all([assignment_combo, count_spin, conf_spin, color_btn]):
-                class_assignments[str(class_id)] = {
-                    'assignment': assignment_combo.currentText(),
-                    'expected_count': count_spin.value(),
-                    'min_confidence': conf_spin.value(),
-                    'color': getattr(color_btn, 'color_value', '#808080')
-                }
-        
-        self.settings.set('class_assignments', class_assignments)
+        # Referenzlinien speichern
+        self._save_reference_lines()
         
         # Schnittstellen
         camera_config_text = self.camera_config_path_label.text()
@@ -1258,13 +1320,65 @@ class SettingsDialog(QDialog):
         self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
         
-        # Referenzlinien
+        self.settings.save()
+        self.accept()
+    
+    def _save_class_assignments(self):
+        """Klassenzuteilungen aus Tabelle speichern."""
+        class_assignments = {}
+        
+        for row in range(self.class_assignments_table.rowCount()):
+            try:
+                # Extrahiere Class ID aus Klassename
+                name_item = self.class_assignments_table.item(row, 0)
+                if not name_item:
+                    continue
+                
+                text = name_item.text()
+                if "(ID: " not in text:
+                    continue
+                
+                class_id = int(text.split("(ID: ")[1].split(")")[0])
+                
+                # Hole Werte aus Widgets
+                assignment_combo = self.class_assignments_table.cellWidget(row, 1)
+                count_spin = self.class_assignments_table.cellWidget(row, 2)
+                conf_spin = self.class_assignments_table.cellWidget(row, 3)
+                color_btn = self.class_assignments_table.cellWidget(row, 4)
+                
+                if not all([assignment_combo, count_spin, conf_spin, color_btn]):
+                    continue
+                
+                # Extrahiere Farbe aus Button-Style
+                style = color_btn.styleSheet()
+                color = '#808080'  # Default
+                if 'background-color:' in style:
+                    try:
+                        color = style.split('background-color:')[1].split(';')[0].strip()
+                    except:
+                        pass
+                
+                class_assignments[str(class_id)] = {
+                    'assignment': assignment_combo.currentText(),
+                    'expected_count': count_spin.value(),
+                    'min_confidence': conf_spin.value(),
+                    'color': color
+                }
+                
+            except (ValueError, AttributeError) as e:
+                continue
+        
+        self.settings.set('class_assignments', class_assignments)
+    
+    def _save_reference_lines(self):
+        """Referenzlinien-Konfiguration speichern."""
         reference_lines = []
+        
         for widgets in self.reference_line_widgets:
             line_config = {
                 'enabled': widgets['enabled'].isChecked(),
                 'type': widgets['type'].currentText(),
-                'position': widgets['position_spin'].value(),
+                'position': widgets['position'].value(),
                 'color': widgets['color'].currentText(),
                 'thickness': widgets['thickness'].value()
             }

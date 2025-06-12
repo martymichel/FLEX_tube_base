@@ -1,7 +1,7 @@
 """
 Hauptbenutzeroberflaeche - REFACTORED Version mit Referenzlinien-Overlay
 Übersichtlicher Code durch Auslagerung der Style-Definitionen
-ERWEITERT: Referenzlinien-Overlay über Video-Stream
+ERWEITERT: Referenzlinien-Overlay über Video-Stream und 50% höhere Sidebar-Tabelle
 """
 
 import os
@@ -94,7 +94,7 @@ class MainUI(QWidget):
         # Kamera-Video
         self._create_camera_status_section(layout)
         
-        # Letzte Erkennung
+        # Letzte Erkennung - ERWEITERT: 50% höher
         self._create_stats_section(layout)
         
         # Status Grenzwerte + WAGO Modbus
@@ -146,13 +146,15 @@ class MainUI(QWidget):
         layout.addLayout(actions_layout)
 
     def _create_stats_section(self, layout):
-        """Statistiken erstellen."""
+        """Statistiken erstellen - ERWEITERT: 50% höher."""
         self.last_cycle_table = QTableWidget(0, 5)
         self.last_cycle_table.setHorizontalHeaderLabels(["Klasse", "Img", "Min", "Max", "Anz"])
         self.last_cycle_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.last_cycle_table.verticalHeader().hide()
-        self.last_cycle_table.setMaximumHeight(160)
-        self.last_cycle_table.setMinimumHeight(120)
+        
+        self.last_cycle_table.setMaximumHeight(240) 
+        self.last_cycle_table.setMinimumHeight(180)
+        
         self.last_cycle_table.setStyleSheet(UIStyles.get_stats_table_style())
         layout.addWidget(self.last_cycle_table)
 

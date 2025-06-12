@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-""" Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme FIXED: Modbus-Bedingungen implementiert ERWEITERT: Parquet-basiertes Event-Logging """
+"""
+Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT
+MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme
+FIXED: Modbus-Bedingungen implementiert
+ERWEITERT: Parquet-basiertes Event-Logging und Referenzlinien-Overlay
+"""
 
 import sys
 import os
@@ -14,7 +19,6 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 # Eigene Module
 from detection_engine import DetectionEngine
 from camera_manager import CameraManager
-
 from camera_config_manager import CameraConfigManager
 from settings import Settings
 from ui.main_ui import MainUI
@@ -372,6 +376,9 @@ class DetectionApp(QMainWindow):
                     if self.camera_manager.set_source(last_source):
                         self.ui.update_camera_status(last_source, 'webcam')
             
+            # Referenzlinien laden und anzeigen
+            self.ui.update_reference_lines()
+            
             # Status setzen basierend auf Modbus-Verbindung
             if self.detection_engine.model_loaded and self.camera_manager.camera_ready:
                 if self.modbus_manager.connected:
@@ -424,7 +431,14 @@ class DetectionApp(QMainWindow):
                     new_decay = self.settings.get('motion_decay_factor', 0.1)
                     if old_decay != new_decay:
                         self.motion_decay_factor = new_decay
-                        logging.info(f"Motion Decay Factor aktualisiert: {new_decay}")                        
+                        logging.info(f"Motion Decay Factor aktualisiert: {new_decay}")
+                    
+                    # Referenzlinien bei Änderung aktualisieren
+                    old_reference_lines = old_settings.get('reference_lines', [])
+                    new_reference_lines = self.settings.get('reference_lines', [])
+                    if old_reference_lines != new_reference_lines:
+                        self.ui.update_reference_lines()
+                        logging.debug("Referenzlinien aktualisiert")
         except:
             pass
 

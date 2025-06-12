@@ -1,7 +1,7 @@
 """
-Dialog-Komponenten fuer Kamera-Auswahl und Einstellungen
+Dialog-Komponenten für Kamera-Auswahl und Einstellungen
 Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout, Klassennamen-Support und Farbauswahl
-ERWEITERT: Editierbare Modbus IP/Port Einstellungen (nur wenn getrennt)
+ERWEITERT: Referenzlinien-Konfiguration
 """
 
 import os
@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QFrame, QFileDialog, QSpinBox, QDoubleSpinBox, QCheckBox, 
     QFormLayout, QMessageBox, QListWidget, QTabWidget, QWidget,
     QScrollArea, QSizePolicy, QComboBox, QApplication, QColorDialog,
-    QGridLayout, QLineEdit
+    QGridLayout, QSlider, QGroupBox, QLineEdit
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
@@ -21,7 +21,7 @@ class CameraSelectionDialog(QDialog):
     def __init__(self, camera_manager, parent=None):
         super().__init__(parent)
         self.camera_manager = camera_manager
-        self.setWindowTitle("📹 Kamera/Video auswaehlen")
+        self.setWindowTitle("📹 Kamera/Video auswählen")
         self.setModal(True)
         self.resize(500, 400)
         
@@ -40,7 +40,7 @@ class CameraSelectionDialog(QDialog):
         webcam_label.setFont(QFont("", 12, QFont.Weight.Bold))
         webcam_layout.addWidget(webcam_label)
         
-        # Verfuegbare Kameras anzeigen
+        # Verfügbare Kameras anzeigen
         cameras = self.camera_manager.get_available_cameras()
         for cam_type, index, name in cameras:
             btn = QPushButton(name)
@@ -60,7 +60,7 @@ class CameraSelectionDialog(QDialog):
         video_label.setFont(QFont("", 12, QFont.Weight.Bold))
         video_layout.addWidget(video_label)
         
-        video_btn = QPushButton("Video-Datei auswaehlen...")
+        video_btn = QPushButton("Video-Datei auswählen...")
         video_btn.clicked.connect(self.select_video)
         video_layout.addWidget(video_btn)
         
@@ -76,20 +76,20 @@ class CameraSelectionDialog(QDialog):
         layout.addLayout(button_layout)
     
     def select_webcam(self, index):
-        """Webcam auswaehlen."""
+        """Webcam auswählen."""
         self.selected_source = index
         self.accept()
     
     def select_ids_camera(self, index):
-        """IDS Kamera auswaehlen."""
+        """IDS Kamera auswählen."""
         self.selected_source = ('ids', index)
         self.accept()
     
     def select_video(self):
-        """Video-Datei auswaehlen."""
+        """Video-Datei auswählen."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Video-Datei auswaehlen",
+            "Video-Datei auswählen",
             "",
             "Video-Dateien (*.mp4 *.avi *.mkv *.mov);;Alle Dateien (*)"
         )
@@ -99,33 +99,26 @@ class CameraSelectionDialog(QDialog):
             self.accept()
     
     def get_selected_source(self):
-        """Ausgewaehlte Quelle zurueckgeben."""
+        """Ausgewählte Quelle zurückgeben."""
         return self.selected_source
 
 class SettingsDialog(QDialog):
-    """Tab-basierter Einstellungen-Dialog mit Farbauswahl fuer Klassen und editierbaren Modbus-Einstellungen."""
+    """Tab-basierter Einstellungen-Dialog mit Farbauswahl für Klassen und Referenzlinien."""
     
     def __init__(self, settings, class_names=None, parent=None):
         super().__init__(parent)
         self.settings = settings
         self.class_names = class_names or {}  # Dictionary {id: name}
-        self.parent_app = parent  # Referenz zur Hauptanwendung fuer Modbus-Funktionen
+        self.parent_app = parent  # Referenz zur Hauptanwendung für Modbus-Funktionen
         self.setWindowTitle("⚙️ Einstellungen")
         self.setModal(True)
-        
-        # Bildschirmgröße abfragen und vermeiden, dass der Dialog zu groß wird
-        screen = QApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()
-        max_width = int(screen_geometry.width() * 0.4)
-        max_height = int(screen_geometry.height() * 0.5)
-        self.setFixedSize(max_width, max_height)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.setMinimumSize(600, 400)  # Mindestgröße für bessere Lesbarkeit
+        self.resize(800, 800) 
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.FramelessWindowHint)
 
-        # 20 vordefinierte Farben fuer Klassen
+        # 20 vordefinierte Farben für Klassen
         self.predefined_colors = [
             "#FF0000",  # Rot
-            "#00FF00",  # Gruen
+            "#00FF00",  # Grün
             "#0000FF",  # Blau
             "#FFFF00",  # Gelb
             "#FF00FF",  # Magenta
@@ -136,18 +129,21 @@ class SettingsDialog(QDialog):
             "#A52A2A",  # Braun
             "#808080",  # Grau
             "#000000",  # Schwarz
-            "#FFFFFF",  # Weiss
-            "#008000",  # Dunkelgruen
+            "#FFFFFF",  # Weiß
+            "#008000",  # Dunkelgrün
             "#000080",  # Dunkelblau
             "#800000",  # Bordeaux
             "#808000",  # Olive
-            "#008080",  # Tuerkis
+            "#008080",  # Türkis
             "#C0C0C0",  # Silber
             "#FFD700"   # Gold
         ]
         
-        # Speichere ausgewaehlte Farben fuer jede Klasse
+        # Speichere ausgewählte Farben für jede Klasse
         self.class_colors = {}
+        
+        # Referenzlinien-Konfiguration
+        self.reference_lines_config = []
         
         self.setup_ui()
         self.load_settings()
@@ -158,7 +154,7 @@ class SettingsDialog(QDialog):
         
         # Tab-Widget erstellen
         self.tab_widget = QTabWidget()
-        # — doppelte Tabhoehe —
+        # — doppelte Tabhöhe —
         tabbar = self.tab_widget.tabBar()
         tabbar.setStyleSheet("QTabBar::tab { min-height: 44px; }")
 
@@ -168,7 +164,8 @@ class SettingsDialog(QDialog):
         self._create_general_tab()
         self._create_classes_assignment_tab()
         self._create_color_assignment_tab()
-        self._create_interfaces_tab()  # ERWEITERT: Mit editierbaren Modbus-Einstellungen
+        self._create_reference_lines_tab()  # NEU: Referenzlinien-Tab
+        self._create_interfaces_tab()
         self._create_storage_monitoring_tab()
         
         # Button-Sektion
@@ -189,8 +186,8 @@ class SettingsDialog(QDialog):
         
         # Motion Threshold - MIT INFO
         motion_info = self._create_info_label(
-            "Schwellwert fuer Erkennung des Foerderband-Takts. Niedrigere Werte = empfindlicher fuer Bewegung. "
-            "Bestimmt, wann das Foerderband als 'in Bewegung' erkannt wird."
+            "Schwellwert für Erkennung des Förderband-Takts. Niedrigere Werte = empfindlicher für Bewegung. "
+            "Bestimmt, wann das Förderband als 'in Bewegung' erkannt wird."
         )
         layout.addRow(motion_info)
         
@@ -199,10 +196,10 @@ class SettingsDialog(QDialog):
         layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
         self._add_spacer(layout)
 
-        # Motion Decay - MIT INFO
+        # Motion Decay - NEU: MIT INFO
         motion_decay_info = self._create_info_label(
-            "Abklingfaktor fuer die Motion-Anzeige. Bestimmt, wie schnell der angezeigte Motion-Wert "
-            "nach dem Ende einer Bewegung abfaellt. Hoehere Werte = langsameres Abklingen (traeger), "
+            "Abklingfaktor für die Motion-Anzeige. Bestimmt, wie schnell der angezeigte Motion-Wert "
+            "nach dem Ende einer Bewegung abfällt. Höhere Werte = langsameres Abklingen (träger), "
             "niedrigere Werte = schnelleres Abklingen (reaktiver)."
         )
         layout.addRow(motion_decay_info)
@@ -217,7 +214,7 @@ class SettingsDialog(QDialog):
         # Roter Rahmen Schwellwert - MIT INFO
         red_info = self._create_info_label(
             "Mindestanzahl von schlechten Teilen, ab der der rote Rahmen angezeigt wird. "
-            "Bestimmt, wann ein Ausschuss-Signal ausgeloest wird."
+            "Bestimmt, wann ein Ausschuss-Signal ausgelöst wird."
         )
         layout.addRow(red_info)
         
@@ -226,22 +223,22 @@ class SettingsDialog(QDialog):
         layout.addRow("Roter Rahmen Schwellwert:", self.red_threshold_spin)
         self._add_spacer(layout)
         
-        # Gruener Rahmen Schwellwert - MIT INFO
+        # Grüner Rahmen Schwellwert - MIT INFO
         green_info = self._create_info_label(
-            "Mindestanzahl von guten Teilen, ab der der gruene Rahmen angezeigt wird. "
-            "Bestaetigt, dass ausreichend gute Teile erkannt wurden."
+            "Mindestanzahl von guten Teilen, ab der der grüne Rahmen angezeigt wird. "
+            "Bestätigt, dass ausreichend gute Teile erkannt wurden."
         )
         layout.addRow(green_info)
         
         self.green_threshold_spin = QSpinBox()
         self.green_threshold_spin.setRange(1, 20)
-        layout.addRow("Gruener Rahmen Schwellwert:", self.green_threshold_spin)
+        layout.addRow("Grüner Rahmen Schwellwert:", self.green_threshold_spin)
         self._add_spacer(layout)
         
         # Ausschwingzeit - MIT INFO
         settling_info = self._create_info_label(
-            "Wartezeit nach Stillstand des Foerderbands, bevor die KI-Erkennung startet. "
-            "Verhindert Erkennungen waehrend des Ausschwingvorgangs."
+            "Wartezeit nach Stillstand des Förderbands, bevor die KI-Erkennung startet. "
+            "Verhindert Erkennungen während des Ausschwingvorgangs."
         )
         layout.addRow(settling_info)
         
@@ -253,7 +250,7 @@ class SettingsDialog(QDialog):
 
         # Aufnahmezeit - MIT INFO
         capture_info = self._create_info_label(
-            "Dauer der KI-Erkennung pro Zyklus. Laengere Zeit = mehr Bilder analysiert, "
+            "Dauer der KI-Erkennung pro Zyklus. Längere Zeit = mehr Bilder analysiert, "
             "aber langsamerer Durchsatz."
         )
         layout.addRow(capture_info)
@@ -266,8 +263,8 @@ class SettingsDialog(QDialog):
         
         # Abblas-Wartezeit - MIT INFO
         blow_off_info = self._create_info_label(
-            "Wartezeit nach Ausschuss-Signal, bevor der naechste Zyklus beginnt. "
-            "Muss lang genug sein, damit das Abblasen vollstaendig beendet ist. "
+            "Wartezeit nach Ausschuss-Signal, bevor der nächste Zyklus beginnt. "
+            "Muss lang genug sein, damit das Abblasen vollständig beendet ist. "
         )
         layout.addRow(blow_off_info)
         
@@ -300,8 +297,8 @@ class SettingsDialog(QDialog):
         
         # Allgemeine Konfidenz
         general_conf_info = self._create_info_label(
-            "Grundschwellwert fuer alle KI-Erkennungen. Nur Erkennungen ueber diesem Wert werden beruecksichtigt. "
-            "Hoehere Werte = weniger falsche Erkennungen, aber eventuell werden echte Objekte uebersehen."
+            "Grundschwellwert für alle KI-Erkennungen. Nur Erkennungen über diesem Wert werden berücksichtigt. "
+            "Höhere Werte = weniger falsche Erkennungen, aber eventuell werden echte Objekte übersehen."
         )
         confidence_layout.addWidget(general_conf_info)
         
@@ -316,8 +313,8 @@ class SettingsDialog(QDialog):
         
         # Schlecht-Teil spezifische Konfidenz
         bad_conf_info = self._create_info_label(
-            "Zusaetzliche Mindest-Konfidenz fuer Schlecht-Teile. Verhindert faelschliche Ausschuss-Signale "
-            "durch unsichere Erkennungen. Sollte hoeher als die allgemeine Konfidenz sein."
+            "Zusätzliche Mindest-Konfidenz für Schlecht-Teile. Verhindert fälschliche Ausschuss-Signale "
+            "durch unsichere Erkennungen. Sollte höher als die allgemeine Konfidenz sein."
         )
         confidence_layout.addWidget(bad_conf_info)
         
@@ -343,23 +340,23 @@ class SettingsDialog(QDialog):
         
         # Info-Text
         bad_info = self._create_info_label(
-            "Waehlen Sie die Klassen aus, die als fehlerhafte/schlechte Teile behandelt werden sollen. "
-            "Bei Erkennung dieser Klassen wird ein Ausschuss-Signal ausgeloest."
+            "Wählen Sie die Klassen aus, die als fehlerhafte/schlechte Teile behandelt werden sollen. "
+            "Bei Erkennung dieser Klassen wird ein Ausschuss-Signal ausgelöst."
         )
         bad_parts_layout.addWidget(bad_info)
         
-        # Klassenliste fuer schlechte Teile
+        # Klassenliste für schlechte Teile
         self.bad_part_classes_list = QListWidget()
         self.bad_part_classes_list.setMaximumHeight(120)
         bad_parts_layout.addWidget(QLabel("Zugeteilte Schlecht-Teil Klassen:"))
         bad_parts_layout.addWidget(self.bad_part_classes_list)
         
-        # Buttons fuer schlechte Teile
+        # Buttons für schlechte Teile
         bad_buttons_layout = QHBoxLayout()
         self.bad_class_combo = self._create_class_combo()
         bad_buttons_layout.addWidget(self.bad_class_combo)
         
-        add_bad_btn = QPushButton("Hinzufuegen")
+        add_bad_btn = QPushButton("Hinzufügen")
         add_bad_btn.clicked.connect(self.add_bad_class)
         bad_buttons_layout.addWidget(add_bad_btn)
         
@@ -382,23 +379,23 @@ class SettingsDialog(QDialog):
         
         # Info-Text
         good_info = self._create_info_label(
-            "Waehlen Sie die Klassen aus, die als fehlerfreie/gute Teile behandelt werden sollen. "
+            "Wählen Sie die Klassen aus, die als fehlerfreie/gute Teile behandelt werden sollen. "
             "Bei ausreichender Erkennung dieser Klassen wird ein Gut-Signal generiert."
         )
         good_parts_layout.addWidget(good_info)
         
-        # Klassenliste fuer gute Teile
+        # Klassenliste für gute Teile
         self.good_part_classes_list = QListWidget()
         self.good_part_classes_list.setMaximumHeight(120)
         good_parts_layout.addWidget(QLabel("Zugeteilte Gut-Teil Klassen:"))
         good_parts_layout.addWidget(self.good_part_classes_list)
         
-        # Buttons fuer gute Teile
+        # Buttons für gute Teile
         good_buttons_layout = QHBoxLayout()
         self.good_class_combo = self._create_class_combo()
         good_buttons_layout.addWidget(self.good_class_combo)
         
-        add_good_btn = QPushButton("Hinzufuegen")
+        add_good_btn = QPushButton("Hinzufügen")
         add_good_btn.clicked.connect(self.add_good_class)
         good_buttons_layout.addWidget(add_good_btn)
         
@@ -434,14 +431,14 @@ class SettingsDialog(QDialog):
         
         # Info-Text
         color_info = self._create_info_label(
-            "Waehlen Sie fuer jede Klasse eine Farbe aus der vordefinierten Auswahl. "
+            "Wählen Sie für jede Klasse eine Farbe aus der vordefinierten Auswahl. "
             "Die Farben werden in der Erkennung zur besseren Unterscheidung der Klassen verwendet."
         )
         color_layout.addWidget(color_info)
         
-        # Farbraster fuer jede Klasse - NUR mit Dropdown
+        # Farbraster für jede Klasse - NUR mit Dropdown
         if self.class_names:
-            # Grid fuer Klassenfarben
+            # Grid für Klassenfarben
             grid_widget = QWidget()
             grid_layout = QGridLayout(grid_widget)
             grid_layout.setSpacing(15)
@@ -464,10 +461,10 @@ class SettingsDialog(QDialog):
                 default_color = self.predefined_colors[class_id % len(self.predefined_colors)]
                 self.class_colors[class_id] = QColor(default_color)
                 
-                # Dropdown mit Farben fuellen
+                # Dropdown mit Farben füllen
                 for i, preset_color in enumerate(self.predefined_colors):
                     color_preset_combo.addItem(f"Farbe {i+1}", preset_color)
-                    # Setze Farbe als Hintergrund fuer das Item
+                    # Setze Farbe als Hintergrund für das Item
                     color_preset_combo.setItemData(i, QColor(preset_color), Qt.ItemDataRole.BackgroundRole)
                     color_preset_combo.setItemData(i, QColor("white"), Qt.ItemDataRole.ForegroundRole)
                 
@@ -475,7 +472,7 @@ class SettingsDialog(QDialog):
                 default_index = class_id % len(self.predefined_colors)
                 color_preset_combo.setCurrentIndex(default_index)
                 
-                # Event-Handler fuer Farbauswahl
+                # Event-Handler für Farbauswahl
                 def make_color_selector(class_id, combo):
                     def select_color():
                         selected_color = combo.currentData()
@@ -495,7 +492,7 @@ class SettingsDialog(QDialog):
             color_layout.addWidget(grid_widget)
         else:
             # Fallback wenn keine Klassen geladen
-            no_classes_label = QLabel("Keine Klassen verfuegbar. Bitte zuerst ein Modell laden.")
+            no_classes_label = QLabel("Keine Klassen verfügbar. Bitte zuerst ein Modell laden.")
             no_classes_label.setStyleSheet("color: #888888; font-style: italic; text-align: center;")
             no_classes_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             color_layout.addWidget(no_classes_label)
@@ -504,9 +501,129 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         
         self.tab_widget.addTab(scroll, "🎨 Farbzuteilung")
+    
+    def _create_reference_lines_tab(self):
+        """Tab 4: 📏 Referenzlinien - NEU"""
+        tab = QWidget()
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(tab)
+        
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(20)
+        
+        # Referenzlinien-Gruppe
+        reference_group = QFrame()
+        reference_group.setStyleSheet("QFrame { border: 1px solid #ccc; border-radius: 5px; padding: 10px; }")
+        reference_layout = QVBoxLayout(reference_group)
+        
+        reference_title = QLabel("📏 Referenzlinien-Konfiguration")
+        reference_title.setFont(QFont("", 14, QFont.Weight.Bold))
+        reference_layout.addWidget(reference_title)
+        
+        # Info-Text
+        reference_info = self._create_info_label(
+            "Referenzlinien werden als Laser-Linien über den Video-Stream gelegt und geben visuell die "
+            "optimale Position von Objekten im Kamerabild an. Sie können bis zu 4 Linien konfigurieren."
+        )
+        reference_layout.addWidget(reference_info)
+        
+        # 4 Referenzlinien-Konfigurationen
+        self.reference_line_widgets = []
+        
+        for i in range(4):
+            line_group = self._create_reference_line_group(i + 1)
+            reference_layout.addWidget(line_group)
+            
+        layout.addWidget(reference_group)
+        layout.addStretch()
+        
+        self.tab_widget.addTab(scroll, "📏 Referenzlinien")
+    
+    def _create_reference_line_group(self, line_number):
+        """Erstelle Konfigurationsgruppe für eine Referenzlinie."""
+        group = QGroupBox(f"Linie {line_number}")
+        group.setCheckable(True)
+        group.setChecked(False)
+        
+        layout = QFormLayout(group)
+        layout.setSpacing(10)
+        
+        # Typ (Horizontal/Vertikal)
+        type_combo = QComboBox()
+        type_combo.addItem("Horizontal", "horizontal")
+        type_combo.addItem("Vertikal", "vertical")
+        layout.addRow("Typ:", type_combo)
+        
+        # Position (0-100%)
+        position_layout = QHBoxLayout()
+        
+        position_slider = QSlider(Qt.Orientation.Horizontal)
+        position_slider.setRange(0, 100)
+        position_slider.setValue(50)
+        position_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        position_slider.setTickInterval(25)
+        
+        position_spinbox = QSpinBox()
+        position_spinbox.setRange(0, 100)
+        position_spinbox.setValue(50)
+        position_spinbox.setSuffix("%")
+        
+        # Slider und SpinBox verknüpfen
+        position_slider.valueChanged.connect(position_spinbox.setValue)
+        position_spinbox.valueChanged.connect(position_slider.setValue)
+        
+        position_layout.addWidget(position_slider, 3)
+        position_layout.addWidget(position_spinbox, 1)
+        
+        layout.addRow("Position:", position_layout)
+        
+        # Farbe
+        color_combo = QComboBox()
+        color_options = [
+            ("Rot", "red"),
+            ("Grün", "green"), 
+            ("Blau", "blue"),
+            ("Gelb", "yellow"),
+            ("Cyan", "cyan"),
+            ("Magenta", "magenta"),
+            ("Weiß", "white"),
+            ("Orange", "orange")
+        ]
+        
+        for name, value in color_options:
+            color_combo.addItem(name, value)
+        
+        # Standard-Farbe je nach Linie
+        default_colors = ['red', 'green', 'blue', 'yellow']
+        if line_number <= len(default_colors):
+            color_combo.setCurrentText(default_colors[line_number - 1].capitalize())
+        
+        layout.addRow("Farbe:", color_combo)
+        
+        # Dicke
+        thickness_spinbox = QSpinBox()
+        thickness_spinbox.setRange(1, 10)
+        thickness_spinbox.setValue(2)
+        thickness_spinbox.setSuffix(" px")
+        layout.addRow("Dicke:", thickness_spinbox)
+        
+        # Widgets für späteren Zugriff speichern
+        line_config = {
+            'group': group,
+            'type_combo': type_combo,
+            'position_slider': position_slider,
+            'position_spinbox': position_spinbox,
+            'color_combo': color_combo,
+            'thickness_spinbox': thickness_spinbox
+        }
+        
+        self.reference_line_widgets.append(line_config)
+        
+        return group
         
     def _create_interfaces_tab(self):
-        """Tab 4: 🔌 Schnittstellen - ERWEITERT: Mit editierbaren Modbus-Einstellungen"""
+        """Tab 5: 🔌 Schnittstellen (ehemals Hardware)"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -520,8 +637,8 @@ class SettingsDialog(QDialog):
         
         # Info-Text
         info_label = QLabel(
-            "Waehlen Sie eine IDS Peak Kamera-Konfigurationsdatei (.toml), um erweiterte "
-            "Kameraeinstellungen wie Belichtung, Gamma und Weissabgleich zu verwenden."
+            "Wählen Sie eine IDS Peak Kamera-Konfigurationsdatei (.toml), um erweiterte "
+            "Kameraeinstellungen wie Belichtung, Gamma und Weißabgleich zu verwenden."
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #7f8c8d; font-style: italic; margin-bottom: 10px;")
@@ -529,7 +646,7 @@ class SettingsDialog(QDialog):
         
         # Konfigurationspfad
         config_path_layout = QHBoxLayout()
-        self.camera_config_path_label = QLabel("Keine Konfiguration ausgewaehlt")
+        self.camera_config_path_label = QLabel("Keine Konfiguration ausgewählt")
         self.camera_config_path_label.setStyleSheet(
             "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
         )
@@ -551,20 +668,21 @@ class SettingsDialog(QDialog):
         
         self._add_spacer(layout)
         
-        # MODBUS-Einstellungen - ERWEITERT: Mit editierbaren IP/Port
+        # MODBUS-Einstellungen
         self._add_section_header(layout, "🔌 WAGO Modbus-Schnittstelle")
         
-        # INFO: Verbindungsstatus
-        self.modbus_connection_info = QLabel("Modbus-Status wird geladen...")
-        self.modbus_connection_info.setStyleSheet("color: #2c3e50; font-weight: bold; background-color: #ecf0f1; padding: 8px; border-radius: 4px;")
-        layout.addRow(self.modbus_connection_info)
+        # INFO: Modbus ist immer aktiviert
+        modbus_info = QLabel("Modbus ist für den Betrieb immer aktiviert.")
+        modbus_info.setStyleSheet("color: #2c3e50; font-weight: bold; background-color: #ecf0f1; padding: 8px; border-radius: 4px;")
+        layout.addRow(modbus_info)
         
-        # NEU: IP-Adresse editierbar (nur wenn getrennt)
-        modbus_ip_info = self._create_info_label(
-            "IP-Adresse des WAGO Controllers. Aenderungen sind nur moeglich, wenn die Modbus-Verbindung getrennt ist."
+        # IP-Adresse (nur Anzeige)
+        self.modbus_ip_input = QLabel("192.168.1.100")
+        self.modbus_ip_input.setStyleSheet(
+            "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
         )
-        layout.addRow(modbus_ip_info)
-        
+        layout.addRow(modbus_info, self.modbus_ip_input)
+        # NEU: Modbus IP-Adresse editierbar
         self.modbus_ip_input = QLineEdit()
         self.modbus_ip_input.setPlaceholderText("192.168.1.100")
         self.modbus_ip_input.setStyleSheet("""
@@ -647,7 +765,7 @@ class SettingsDialog(QDialog):
                 color: #bdc3c7;
             }
         """)
-        self.modbus_reset_btn.setToolTip("WAGO Controller zuruecksetzen (Admin-Rechte erforderlich)")
+        self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen (Admin-Rechte erforderlich)")
         self.modbus_reset_btn.clicked.connect(self.handle_modbus_reset)
         modbus_actions_layout.addWidget(self.modbus_reset_btn)
         
@@ -678,7 +796,7 @@ class SettingsDialog(QDialog):
         layout.addRow("Aktionen:", modbus_actions_layout)
         
         # Status-Info
-        modbus_status_info = QLabel("Diese Aktionen sind nur fuer Administratoren verfuegbar und helfen bei Verbindungsproblemen.")
+        modbus_status_info = QLabel("Diese Aktionen sind nur für Administratoren verfügbar und helfen bei Verbindungsproblemen.")
         modbus_status_info.setStyleSheet("color: #7f8c8d; font-style: italic; font-size: 11px;")
         modbus_status_info.setWordWrap(True)
         layout.addRow(modbus_status_info)
@@ -686,7 +804,7 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(scroll, "🔌 Schnittstellen")
     
     def _create_storage_monitoring_tab(self):
-        """Tab 5: 💾 Speicherung & Überwachung"""
+        """Tab 6: 💾 Speicherung & Überwachung"""
         tab = QWidget()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -700,7 +818,7 @@ class SettingsDialog(QDialog):
         
         # Bilderspeicherung Info
         storage_info = self._create_info_label(
-            "Speichert Bilder zur spaeteren Analyse oder Dokumentation. "
+            "Speichert Bilder zur späteren Analyse oder Dokumentation. "
             "Schlechtbilder: Bilder mit erkannten Fehlern. Gutbilder: Bilder ohne erkannte Fehler."
         )
         layout.addRow(storage_info)
@@ -760,13 +878,13 @@ class SettingsDialog(QDialog):
         
         self._add_spacer(layout)
         
-        # Helligkeitsueberwachung
-        self._add_section_header(layout, "💡 Helligkeitsueberwachung")
+        # Helligkeitsüberwachung
+        self._add_section_header(layout, "💡 Helligkeitsüberwachung")
         
-        # Helligkeitsueberwachung Info
+        # Helligkeitsüberwachung Info
         brightness_info = self._create_info_label(
-            "Überwacht die Bildhelligkeit und stoppt die Erkennung automatisch bei schlechten Lichtverhaeltnissen. "
-            "Verhindert fehlerhafte Erkennungen durch zu dunkle oder ueberbelichtete Bilder."
+            "Überwacht die Bildhelligkeit und stoppt die Erkennung automatisch bei schlechten Lichtverhältnissen. "
+            "Verhindert fehlerhafte Erkennungen durch zu dunkle oder überbelichtete Bilder."
         )
         layout.addRow(brightness_info)
         
@@ -805,9 +923,9 @@ class SettingsDialog(QDialog):
         return label
     
     def _create_class_combo(self):
-        """ComboBox mit verfuegbaren Klassen erstellen."""
+        """ComboBox mit verfügbaren Klassen erstellen."""
         combo = QComboBox()
-        combo.addItem("Klasse auswaehlen...", -1)
+        combo.addItem("Klasse auswählen...", -1)
         
         for class_id, class_name in self.class_names.items():
             combo.addItem(f"{class_name} (ID: {class_id})", class_id)
@@ -826,7 +944,7 @@ class SettingsDialog(QDialog):
         layout.addRow(header)
     
     def _add_spacer(self, layout):
-        """Trennlinie hinzufuegen."""
+        """Trennlinie hinzufügen."""
         spacer = QFrame()
         spacer.setFrameShape(QFrame.Shape.HLine)
         spacer.setFrameShadow(QFrame.Shadow.Sunken)
@@ -847,52 +965,30 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
         
-        reset_btn = QPushButton("🔄 Zuruecksetzen")
+        reset_btn = QPushButton("🔄 Zurücksetzen")
         reset_btn.setMinimumHeight(40)
         reset_btn.clicked.connect(self.reset_settings)
         button_layout.addWidget(reset_btn)
         
-        # ZUSÄTZLICH: Ensure dass Button-Sektion immer sichtbar bleibt
-        button_widget = QWidget()
-        button_widget.setLayout(button_layout)
-        button_widget.setFixedHeight(60)  # Feste Höhe für Button-Bereich
-        
-        layout.addWidget(button_widget)
-    
-    # NEU: Modbus-Verbindungsstatus updaten
-    def update_modbus_connection_status(self, connected):
-        """Modbus-Verbindungsstatus im Dialog aktualisieren."""
-        if connected:
-            self.modbus_connection_info.setText("✅ Modbus verbunden - IP/Port-Einstellungen gesperrt")
-            self.modbus_connection_info.setStyleSheet("color: #27ae60; font-weight: bold; background-color: #d5f4e6; padding: 8px; border-radius: 4px;")
-            # IP/Port sperren
-            self.modbus_ip_input.setEnabled(False)
-            self.modbus_port_spin.setEnabled(False)
-        else:
-            self.modbus_connection_info.setText("❌ Modbus getrennt - IP/Port-Einstellungen editierbar")
-            self.modbus_connection_info.setStyleSheet("color: #e74c3c; font-weight: bold; background-color: #fadbd8; padding: 8px; border-radius: 4px;")
-            # IP/Port freigeben (nur für Admin)
-            can_edit = hasattr(self.parent_app, 'app') and self.parent_app.app.user_manager.can_change_modbus_settings()
-            self.modbus_ip_input.setEnabled(can_edit)
-            self.modbus_port_spin.setEnabled(can_edit)
+        layout.addLayout(button_layout)
     
     # Modbus-Aktions-Handler
     def handle_modbus_reset(self):
         """WAGO Controller Reset aus Einstellungen."""
-        # Pruefe Admin-Rechte
+        # Prüfe Admin-Rechte
         if not hasattr(self.parent_app, 'app') or not self.parent_app.app.user_manager.is_admin():
             QMessageBox.warning(
                 self,
                 "Zugriff verweigert",
-                "Admin-Rechte erforderlich fuer Controller-Reset."
+                "Admin-Rechte erforderlich für Controller-Reset."
             )
             return
         
-        # Bestaetigung anfordern
+        # Bestätigung anfordern
         reply = QMessageBox.question(
             self,
             "Controller Reset",
-            "WAGO Controller zuruecksetzen?\n\nDies kann Verbindungsprobleme beheben.",
+            "WAGO Controller zurücksetzen?\n\nDies kann Verbindungsprobleme beheben.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
@@ -902,7 +998,7 @@ class SettingsDialog(QDialog):
                     QMessageBox.information(
                         self,
                         "Reset erfolgreich",
-                        "WAGO Controller wurde zurueckgesetzt.\nVerbindung wird neu aufgebaut..."
+                        "WAGO Controller wurde zurückgesetzt.\nVerbindung wird neu aufgebaut..."
                     )
                     # Automatische Neuverbindung nach Reset
                     self.handle_modbus_reconnect()
@@ -910,7 +1006,7 @@ class SettingsDialog(QDialog):
                     QMessageBox.critical(
                         self,
                         "Reset fehlgeschlagen",
-                        "Controller-Reset konnte nicht durchgefuehrt werden.\nPruefen Sie die Verbindung."
+                        "Controller-Reset konnte nicht durchgeführt werden.\nPrüfen Sie die Verbindung."
                     )
             except Exception as e:
                 QMessageBox.critical(
@@ -921,12 +1017,12 @@ class SettingsDialog(QDialog):
     
     def handle_modbus_reconnect(self):
         """Modbus Neuverbindung aus Einstellungen."""
-        # Pruefe Admin-Rechte
+        # Prüfe Admin-Rechte
         if not hasattr(self.parent_app, 'app') or not self.parent_app.app.user_manager.is_admin():
             QMessageBox.warning(
                 self,
                 "Zugriff verweigert",
-                "Admin-Rechte erforderlich fuer Neuverbindung."
+                "Admin-Rechte erforderlich für Neuverbindung."
             )
             return
         
@@ -939,6 +1035,10 @@ class SettingsDialog(QDialog):
                 # UI Status aktualisieren
                 self.parent_app.app.ui.update_modbus_status(True, self.parent_app.app.modbus_manager.ip_address)
                 
+                # App entsperren falls gesperrt
+                if hasattr(self.parent_app.app, 'modbus_critical_failure'):
+                    self.parent_app.app.unlock_app_after_modbus_recovery()
+                
                 QMessageBox.information(
                     self,
                     "Neuverbindung erfolgreich",
@@ -948,7 +1048,7 @@ class SettingsDialog(QDialog):
                 QMessageBox.critical(
                     self,
                     "Neuverbindung fehlgeschlagen",
-                    "Modbus-Neuverbindung konnte nicht hergestellt werden.\nPruefen Sie die Netzwerkverbindung."
+                    "Modbus-Neuverbindung konnte nicht hergestellt werden.\nPrüfen Sie die Netzwerkverbindung."
                 )
         except Exception as e:
             QMessageBox.critical(
@@ -959,10 +1059,10 @@ class SettingsDialog(QDialog):
     
     # Event Handler-Methoden
     def browse_camera_config_file(self):
-        """IDS Peak Kamera-Konfigurationsdatei auswaehlen."""
+        """IDS Peak Kamera-Konfigurationsdatei auswählen."""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "IDS Peak Kamera-Konfigurationsdatei auswaehlen",
+            "IDS Peak Kamera-Konfigurationsdatei auswählen",
             "",
             "TOML-Dateien (*.toml);;Alle Dateien (*)"
         )
@@ -973,15 +1073,15 @@ class SettingsDialog(QDialog):
                     self.camera_config_path_label.setText(file_path)
                     QMessageBox.information(
                         self,
-                        "Konfiguration ausgewaehlt",
-                        f"IDS Peak Konfigurationsdatei ausgewaehlt:\n{os.path.basename(file_path)}\n\n"
-                        "Die Konfiguration wird beim naechsten Kamera-Start angewendet."
+                        "Konfiguration ausgewählt",
+                        f"IDS Peak Konfigurationsdatei ausgewählt:\n{os.path.basename(file_path)}\n\n"
+                        "Die Konfiguration wird beim nächsten Kamera-Start angewendet."
                     )
                 else:
                     QMessageBox.warning(
                         self,
-                        "Ungueltige Datei",
-                        "Bitte waehlen Sie eine .toml Datei aus."
+                        "Ungültige Datei",
+                        "Bitte wählen Sie eine .toml Datei aus."
                     )
             except Exception as e:
                 QMessageBox.critical(
@@ -991,29 +1091,29 @@ class SettingsDialog(QDialog):
                 )
     
     def clear_camera_config(self):
-        """Kamera-Konfiguration loeschen."""
-        self.camera_config_path_label.setText("Keine Konfiguration ausgewaehlt")
+        """Kamera-Konfiguration löschen."""
+        self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
         QMessageBox.information(
             self,
-            "Konfiguration geloescht",
+            "Konfiguration gelöscht",
             "Die Kamera-Konfiguration wurde entfernt.\nStandard-Kameraeinstellungen werden verwendet."
         )
     
     def browse_bad_images_directory(self):
-        """Verzeichnis fuer Schlechtbilder auswaehlen."""
+        """Verzeichnis für Schlechtbilder auswählen."""
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Verzeichnis fuer Schlechtbilder auswaehlen",
+            "Verzeichnis für Schlechtbilder auswählen",
             self.bad_images_dir_input.text()
         )
         if directory:
             self.bad_images_dir_input.setText(directory)
     
     def browse_good_images_directory(self):
-        """Verzeichnis fuer Gutbilder auswaehlen."""
+        """Verzeichnis für Gutbilder auswählen."""
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Verzeichnis fuer Gutbilder auswaehlen",
+            "Verzeichnis für Gutbilder auswählen",
             self.good_images_dir_input.text()
         )
         if directory:
@@ -1031,15 +1131,15 @@ class SettingsDialog(QDialog):
                 self.brightness_low_spin.setValue(high_value - 1)
     
     def add_bad_class(self):
-        """Schlecht-Teil Klasse hinzufuegen."""
+        """Schlecht-Teil Klasse hinzufügen."""
         selected_id = self.bad_class_combo.currentData()
-        if selected_id == -1:  # "Klasse auswaehlen..." gewaehlt
+        if selected_id == -1:  # "Klasse auswählen..." gewählt
             return
         
         class_name = self.class_names.get(selected_id, f"Class {selected_id}")
         display_text = f"{class_name} (ID: {selected_id})"
         
-        # Pruefe ob bereits vorhanden
+        # Prüfe ob bereits vorhanden
         for i in range(self.bad_part_classes_list.count()):
             if self.bad_part_classes_list.item(i).data(Qt.ItemDataRole.UserRole) == selected_id:
                 return  # Bereits vorhanden
@@ -1050,21 +1150,21 @@ class SettingsDialog(QDialog):
         self.bad_part_classes_list.addItem(item)
     
     def remove_bad_class(self):
-        """Ausgewaehlte Schlecht-Teil Klasse entfernen."""
+        """Ausgewählte Schlecht-Teil Klasse entfernen."""
         current_row = self.bad_part_classes_list.currentRow()
         if current_row >= 0:
             self.bad_part_classes_list.takeItem(current_row)
     
     def add_good_class(self):
-        """Gut-Teil Klasse hinzufuegen."""
+        """Gut-Teil Klasse hinzufügen."""
         selected_id = self.good_class_combo.currentData()
-        if selected_id == -1:  # "Klasse auswaehlen..." gewaehlt
+        if selected_id == -1:  # "Klasse auswählen..." gewählt
             return
         
         class_name = self.class_names.get(selected_id, f"Class {selected_id}")
         display_text = f"{class_name} (ID: {selected_id})"
         
-        # Pruefe ob bereits vorhanden
+        # Prüfe ob bereits vorhanden
         for i in range(self.good_part_classes_list.count()):
             if self.good_part_classes_list.item(i).data(Qt.ItemDataRole.UserRole) == selected_id:
                 return  # Bereits vorhanden
@@ -1075,14 +1175,19 @@ class SettingsDialog(QDialog):
         self.good_part_classes_list.addItem(item)
     
     def remove_good_class(self):
-        """Ausgewaehlte Gut-Teil Klasse entfernen."""
+        """Ausgewählte Gut-Teil Klasse entfernen."""
         current_row = self.good_part_classes_list.currentRow()
         if current_row >= 0:
             self.good_part_classes_list.takeItem(current_row)
     
+    def update_modbus_connection_status(self, connected):
+        """Update Modbus connection status for dialog buttons."""
+        # Implementierung falls notwendig für zukünftige Erweiterungen
+        pass
+    
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
-        # Allgemein
+        # Allgemein (ehemals KI & Workflow) - OHNE allgemeine Konfidenz (verschoben)
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
         self.red_threshold_spin.setValue(self.settings.get('red_threshold', 1))
         self.green_threshold_spin.setValue(self.settings.get('green_threshold', 4))
@@ -1129,19 +1234,39 @@ class SettingsDialog(QDialog):
                 default_color = self.predefined_colors[class_id % len(self.predefined_colors)]
                 self.class_colors[class_id] = QColor(default_color)
         
-        # Schnittstellen - ERWEITERT: Mit IP/Port
+        # Referenzlinien laden
+        reference_lines = self.settings.get('reference_lines', [])
+        for i, line_config in enumerate(reference_lines[:4]):  # Maximal 4 Linien
+            if i < len(self.reference_line_widgets):
+                widget_config = self.reference_line_widgets[i]
+                
+                widget_config['group'].setChecked(line_config.get('enabled', False))
+                widget_config['type_combo'].setCurrentText(
+                    "Horizontal" if line_config.get('type', 'horizontal') == 'horizontal' else "Vertikal"
+                )
+                widget_config['position_slider'].setValue(line_config.get('position', 50))
+                widget_config['position_spinbox'].setValue(line_config.get('position', 50))
+                
+                # Farbe setzen
+                color_name = line_config.get('color', 'red')
+                color_display = color_name.capitalize()
+                widget_config['color_combo'].setCurrentText(color_display)
+                
+                widget_config['thickness_spinbox'].setValue(line_config.get('thickness', 2))
+        
+        # Schnittstellen (ehemals Hardware)
         camera_config_path = self.settings.get('camera_config_path', '')
         if camera_config_path:
             self.camera_config_path_label.setText(camera_config_path)
         else:
-            self.camera_config_path_label.setText("Keine Konfiguration ausgewaehlt")
+            self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
         
-        # NEU: Modbus IP/Port laden
+        # MODBUS: Nur IP und Dauer laden
         self.modbus_ip_input.setText(self.settings.get('modbus_ip', '192.168.1.100'))
         self.modbus_port_spin.setValue(self.settings.get('modbus_port', 502))
         self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
         
-        # NEU: Modbus-Verbindungsstatus aktualisieren
+        # Modbus-Buttons je nach Admin-Status aktivieren/deaktivieren
         if hasattr(self.parent_app, 'app'):
             is_connected = self.parent_app.app.modbus_manager.is_connected()
             self.update_modbus_connection_status(is_connected)
@@ -1164,7 +1289,7 @@ class SettingsDialog(QDialog):
     
     def save_settings(self):
         """Einstellungen speichern."""
-        # Allgemein
+        # Allgemein - OHNE allgemeine Konfidenz
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
         self.settings.set('motion_decay_factor', self.motion_decay_spin.value())
         self.settings.set('red_threshold', self.red_threshold_spin.value())
@@ -1199,16 +1324,29 @@ class SettingsDialog(QDialog):
             color_dict[str(class_id)] = color.name()
         self.settings.set('class_colors', color_dict)
         
-        # Schnittstellen - ERWEITERT: Mit IP/Port
+        # Referenzlinien speichern
+        reference_lines = []
+        for widget_config in self.reference_line_widgets:
+            line_data = {
+                'enabled': widget_config['group'].isChecked(),
+                'type': 'horizontal' if widget_config['type_combo'].currentText() == 'Horizontal' else 'vertical',
+                'position': widget_config['position_spinbox'].value(),
+                'color': widget_config['color_combo'].currentData(),
+                'thickness': widget_config['thickness_spinbox'].value()
+            }
+            reference_lines.append(line_data)
+        
+        self.settings.set('reference_lines', reference_lines)
+        
+        # Schnittstellen (ehemals Hardware)
         camera_config_text = self.camera_config_path_label.text()
-        if camera_config_text == "Keine Konfiguration ausgewaehlt":
+        if camera_config_text == "Keine Konfiguration ausgewählt":
             self.settings.set('camera_config_path', '')
         else:
             self.settings.set('camera_config_path', camera_config_text)
         
-        # NEU: Modbus IP/Port speichern
+        # MODBUS: Nur IP und Dauer speichern
         self.settings.set('modbus_ip', self.modbus_ip_input.text())
-        self.settings.set('modbus_port', self.modbus_port_spin.value())
         self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         
         # Speicherung & Überwachung
@@ -1222,31 +1360,15 @@ class SettingsDialog(QDialog):
         self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
         
-        # Prüfe ob Modbus-Einstellungen geändert wurden und zeige Warnung
-        if hasattr(self.parent_app, 'app'):
-            current_ip = self.parent_app.app.modbus_manager.ip_address
-            current_port = self.parent_app.app.modbus_manager.port
-            new_ip = self.modbus_ip_input.text()
-            new_port = self.modbus_port_spin.value()
-            
-            if (current_ip != new_ip or current_port != new_port):
-                QMessageBox.information(
-                    self,
-                    "Modbus-Einstellungen geändert",
-                    "IP-Adresse oder Port wurden geändert.\n\n"
-                    "Die neuen Einstellungen werden beim nächsten Neustart der Anwendung oder "
-                    "bei einer manuellen Neuverbindung wirksam."
-                )
-        
         self.settings.save()
         self.accept()
     
     def reset_settings(self):
-        """Einstellungen zuruecksetzen."""
+        """Einstellungen zurücksetzen."""
         reply = QMessageBox.question(
             self,
-            "Einstellungen zuruecksetzen",
-            "Alle Einstellungen auf Standardwerte zuruecksetzen?",
+            "Einstellungen zurücksetzen",
+            "Alle Einstellungen auf Standardwerte zurücksetzen?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         

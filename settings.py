@@ -1,5 +1,5 @@
 """
-Einstellungs-Manager - einfach und zuverlässig Verwaltet alle Anwendungseinstellungen für industrllen Workflow mit Auto-Loading, Modbus und Bilderspeicherung
+Einstellungs-Manager - einfach und zuverlässig Verwaltet alle Anwendungseinstellungen für industrllen Workflow mit Auto-Loading, Modbus, Bilderspeicherung und Referenzlinien
 """
 
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 
 class Settings:
     """
-    Einfache Einstellungsverwaltung für Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
+    Einfache Einstellungsverwaltung für Workflow mit Auto-Loading, Modbus, Bilderspeicherung und Referenzlinien.
     """
 
     def __init__(self, filename="settings.json"):
@@ -75,7 +75,7 @@ class Settings:
         logging.debug(f"Einstellung gesetzt: {key} = {value}")
 
     def get_defaults(self):
-        """Standardeinstellungen für Workflow mit Auto-Loading, Modbus und Bilderspeicherung.
+        """Standardeinstellungen für Workflow mit Auto-Loading, Modbus, Bilderspeicherung und Referenzlinien.
         
         Returns:
             dict: Standardeinstellungen
@@ -135,12 +135,45 @@ class Settings:
             'parquet_log_directory': 'logs/detection_events',  # Verzeichnis für Parquet-Logs
             'parquet_log_max_files': 1000000,               # Maximale Anzahl Log-Dateien
             
+            # REFERENZLINIEN-Einstellungen - NEU
+            'reference_lines': [
+                {
+                    'enabled': False,
+                    'type': 'horizontal',     # 'horizontal' oder 'vertical'
+                    'position': 50,           # Position in % (0-100)
+                    'color': 'red',           # Farbe: red, green, blue, yellow, cyan, magenta, white, orange
+                    'thickness': 2            # Dicke in Pixeln
+                },
+                {
+                    'enabled': False,
+                    'type': 'vertical',
+                    'position': 50,
+                    'color': 'green',
+                    'thickness': 2
+                },
+                {
+                    'enabled': False,
+                    'type': 'horizontal',
+                    'position': 25,
+                    'color': 'blue',
+                    'thickness': 2
+                },
+                {
+                    'enabled': False,
+                    'type': 'horizontal',
+                    'position': 75,
+                    'color': 'yellow',
+                    'thickness': 2
+                }
+            ],
+            
             # UI-Einstellungen
             'sidebar_width': 350,
             'show_confidence': True,
             'show_class_names': True,
             
             # Sonstige
+            
             'auto_save_snapshots': False,
             'log_level': 'INFO'
         }

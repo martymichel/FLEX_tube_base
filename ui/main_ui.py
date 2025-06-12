@@ -1,6 +1,7 @@
 """
-Hauptbenutzeroberflaeche - REFACTORED Version mit externen Stylesheets
+Hauptbenutzeroberflaeche - REFACTORED Version mit Referenzlinien-Overlay
 Übersichtlicher Code durch Auslagerung der Style-Definitionen
+ERWEITERT: Referenzlinien-Overlay über Video-Stream
 """
 
 import os
@@ -18,9 +19,10 @@ import logging
 # Lokale Importe
 from .dialogs import CameraSelectionDialog, SettingsDialog
 from .styles import UIStyles
+from .reference_line_overlay import ReferenceLineOverlay
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberflaeche mit externen Stylesheets."""
+    """Hauptbenutzeroberflaeche mit externen Stylesheets und Referenzlinien-Overlay."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -313,18 +315,47 @@ class MainUI(QWidget):
         
         layout.addLayout(header_layout)
         
-        # Video-Bereich
-        self.video_label = QLabel()
-        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.video_label.setMinimumSize(640, 480)
-        self.video_label.setStyleSheet(UIStyles.get_video_label_base_style())
-        self.video_label.setText("Kein Stream verfuegbar")
-        layout.addWidget(self.video_label, 1)
+        # Video-Bereich mit Referenzlinien-Overlay
+        self._create_video_area(layout)
         
         # Referenz fuer das Main Area Frame speichern (fuer Blinken)
         self.main_area_frame = main_area
         
         return main_area
+    
+    def _create_video_area(self, layout):
+        """Video-Bereich mit Referenzlinien-Overlay erstellen."""
+        # Container für Video + Overlay
+        self.video_container = QWidget()
+        self.video_container.setMinimumSize(640, 480)
+        
+        # Video-Label
+        self.video_label = QLabel(self.video_container)
+        self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_label.setMinimumSize(640, 480)
+        self.video_label.setStyleSheet(UIStyles.get_video_label_base_style())
+        self.video_label.setText("Kein Stream verfuegbar")
+        
+        # Referenzlinien-Overlay
+        self.reference_overlay = ReferenceLineOverlay(self.video_container)
+        
+        # Layout für Video-Container
+        video_layout = QVBoxLayout(self.video_container)
+        video_layout.setContentsMargins(0, 0, 0, 0)
+        video_layout.addWidget(self.video_label)
+        
+        # Overlay über Video legen
+        self.video_label.resizeEvent = self._on_video_resize
+        
+        layout.addWidget(self.video_container, 1)
+    
+    def _on_video_resize(self, event):
+        """Video-Label wurde resized - Overlay anpassen."""
+        # Overlay exakt über Video-Label positionieren
+        self.reference_overlay.setGeometry(self.video_label.geometry())
+        
+        # Original resizeEvent aufrufen
+        QLabel.resizeEvent(self.video_label, event)
     
     def _create_compact_counter_section(self, header_layout):
         """KOMPAKTER Counter-Sektion im Header erstellen"""
@@ -401,6 +432,20 @@ class MainUI(QWidget):
         # Hohe begrenzen
         self.counter_frame.setMaximumHeight(140)
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
+
+    # =============================================================================
+    # REFERENZLINIEN-MANAGEMENT
+    # =============================================================================
+    
+    def update_reference_lines(self):
+        """Referenzlinien aus Settings aktualisieren."""
+        try:
+            if hasattr(self, 'reference_overlay'):
+                reference_lines = self.app.settings.get('reference_lines', [])
+                self.reference_overlay.update_reference_lines(reference_lines)
+                logging.debug(f"Referenzlinien aktualisiert: {len(reference_lines)} Linien")
+        except Exception as e:
+            logging.error(f"Fehler beim Aktualisieren der Referenzlinien: {e}")
 
     # =============================================================================
     # FLASH ANIMATION METHODEN
@@ -684,6 +729,9 @@ class MainUI(QWidget):
             
             self.video_label.setPixmap(scaled_pixmap)
             
+            # Overlay an Video-Label-Größe anpassen
+            self.reference_overlay.setGeometry(self.video_label.geometry())
+            
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")
     
@@ -763,7 +811,7 @@ class MainUI(QWidget):
         return None
     
     def open_settings_dialog(self, settings):
-        """Einstellungen-Dialog oeffnen - ERWEITERT: Mit Modbus-Status-Update."""
+        """Einstellungen-Dialog oeffnen - ERWEITERT: Mit Referenzlinien-Update."""
         # Hole die aktuellen Klassennamen vom detection_engine
         class_names = {}
         if hasattr(self.app, 'detection_engine') and hasattr(self.app.detection_engine, 'class_names'):
@@ -777,6 +825,9 @@ class MainUI(QWidget):
             dialog.update_modbus_connection_status(is_connected)
         
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Referenzlinien nach Settings-Änderung aktualisieren
+            self.update_reference_lines()
+            
             # Warnung wenn Erkennung laeuft
             if self.app.running:
                 QMessageBox.information(

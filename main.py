@@ -265,12 +265,25 @@ class DetectionApp(QMainWindow):
     def setup_exit_shortcuts(self):
         """ESC-Taste für schnelles Beenden."""
         self.esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
-        self.esc_shortcut.activated.connect(self.quit_application)
+        self.esc_shortcut.activated.connect(self.confirm_quit_application)
         
         self.quit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self)
-        self.quit_shortcut.activated.connect(self.quit_application)
+        self.quit_shortcut.activated.connect(self.confirm_quit_application)
         
         logging.info("Exit shortcuts eingerichtet: ESC und Ctrl+Q")
+
+    def confirm_quit_application(self):
+        """Bestätigungsabfrage vor dem Beenden der Anwendung."""
+        reply = QMessageBox.question(
+            self,
+            "Anwendung beenden",
+            "Möchten Sie die Anwendung wirklich beenden?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No  # Standard: Nein
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.quit_application()
 
     def quit_application(self):
         """Anwendung schnell beenden."""
@@ -317,19 +330,28 @@ class DetectionApp(QMainWindow):
             sys.exit(0)
 
     def convert_class_assignments_to_colors(self, class_assignments):
-        """Konvertiert class_assignments zu class_colors Format für DetectionEngine.
-        
-        Args:
-            class_assignments (dict): Neue Struktur mit erweiterten Klassenzuteilungen
-            
-        Returns:
-            dict: class_colors Format {class_id: color_hex}
-        """
+        """Konvertiert class_assignments zu class_colors Format für DetectionEngine."""
         class_colors = {}
         for class_id, assignment in class_assignments.items():
             if 'color' in assignment:
                 class_colors[int(class_id)] = assignment['color']
         return class_colors
+
+    def apply_class_settings_to_engine(self):
+        """Wendet alle Klassen-Einstellungen auf die DetectionEngine an."""
+        class_assignments = self.settings.get('class_assignments', {})
+        
+        if class_assignments:
+            # Neue Struktur: Farben extrahieren und übertragen
+            class_colors = self.convert_class_assignments_to_colors(class_assignments)
+            if class_colors:
+                self.detection_engine.set_class_colors_quietly(class_colors)
+                logging.info(f"Klassen-Farben übernommen: {len(class_colors)} Klassen")
+        else:
+            # Fallback auf alte Struktur
+            class_colors = self.settings.get('class_colors', {})
+            if class_colors:
+                self.detection_engine.set_class_colors_quietly(class_colors)
 
     def auto_load_on_startup(self):
         """Auto-Loading beim Start."""
@@ -382,35 +404,6 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Fehler beim Auto-Loading: {e}")
 
-    def apply_class_settings_to_engine(self):
-        """Wendet alle Klassen-Einstellungen auf die DetectionEngine an."""
-        try:
-            # class_assignments aus Settings holen
-            class_assignments = self.settings.get('class_assignments', {})
-            
-            if class_assignments:
-                # Zu class_colors Format konvertieren
-                class_colors = self.convert_class_assignments_to_colors(class_assignments)
-                
-                # An DetectionEngine übertragen
-                if class_colors:
-                    self.detection_engine.set_class_colors_quietly(class_colors)
-                    logging.info(f"Klassen-Farben übernommen: {len(class_colors)} Klassen")
-                
-                # Globale Konfidenz aus class_assignments setzen falls vorhanden
-                confidence_threshold = self.settings.get('confidence_threshold', 0.5)
-                self.detection_engine.set_confidence_threshold(confidence_threshold)
-                
-            else:
-                # Fallback auf alte Struktur
-                class_colors = self.settings.get('class_colors', {})
-                if class_colors:
-                    self.detection_engine.set_class_colors_quietly(class_colors)
-                    logging.info(f"Fallback: Alte Klassen-Farben übernommen: {len(class_colors)} Klassen")
-            
-        except Exception as e:
-            logging.error(f"Fehler beim Anwenden der Klassen-Einstellungen: {e}")
-
     def setup_connections(self):
         """Signale verbinden."""
         self.ui.start_btn.clicked.connect(self.toggle_detection)
@@ -420,10 +413,11 @@ class DetectionApp(QMainWindow):
         self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
         self.ui.login_status_btn.clicked.connect(self.toggle_login)
         self.ui.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
-        self.ui.quit_btn.clicked.connect(self.quit_application)
+        # GEÄNDERT: quit_btn mit Bestätigung
+        self.ui.quit_btn.clicked.connect(self.confirm_quit_application)
 
     def check_settings_changes(self):
-        """Einstellungsänderungen prüfen - ERWEITERT: class_assignments berücksichtigen."""
+        """Einstellungsänderungen prüfen - OPTIMIERT: Weniger Logging."""
         try:
             # Einfache Datei-Änderungsprüfung
             if os.path.exists(self.settings.filename):
@@ -444,15 +438,9 @@ class DetectionApp(QMainWindow):
                     old_class_assignments = old_settings.get('class_assignments', {})
                     new_class_assignments = self.settings.get('class_assignments', {})
                     
-                    # Auch alte class_colors überwachen für Kompatibilität
-                    old_colors = old_settings.get('class_colors', {})
-                    new_colors = self.settings.get('class_colors', {})
-                    
-                    if (old_class_assignments != new_class_assignments or 
-                        old_colors != new_colors):
-                        
+                    if old_class_assignments != new_class_assignments:
                         # Klassen-Einstellungen komplett anwenden
-                        if hasattr(self.detection_engine, 'model_loaded') and self.detection_engine.model_loaded:
+                        if self.detection_engine.model_loaded:
                             self.apply_class_settings_to_engine()
                             logging.info("Klassen-Einstellungen nach Änderung aktualisiert")
 
@@ -473,7 +461,7 @@ class DetectionApp(QMainWindow):
             pass
 
     def toggle_login(self):
-        """Login/Logout umschalten - MIT PIN-DIALOG."""
+        """Login/Logout umschalten - MIT SCHÖNEM PIN-DIALOG."""
         if self.user_manager.is_admin():
             self.user_manager.logout()
             self.ui.update_user_interface()
@@ -790,9 +778,9 @@ class DetectionApp(QMainWindow):
                         # COUNTDOWN STARTEN für Erkennungsphase
                         self.countdown_timer.start(100)  # Alle 100ms aktualisieren
                         
-                        self.ui.show_status("KI-Erkennung aktiv", "success")
+                        self.ui.show_status("Objekterkennung aktiv", "success")
                         self.ui.update_workflow_status("OBJEKTERKENNUNG")
-                        logging.info("KI-Erkennung startet")
+                        logging.info("Objekterkennung startet")
             else:
                 self.motion_clear_time = None
                 self.no_motion_stable_count = 0
@@ -932,77 +920,67 @@ class DetectionApp(QMainWindow):
             stats['avg_confidence'] = sum(confidences) / len(confidences)
 
     def evaluate_detection_results(self):
-        """Erkennungsergebnisse auswerten - ERWEITERT: class_assignments verwenden."""
-        try:
-            # Neue class_assignments Struktur verwenden
-            class_assignments = self.settings.get('class_assignments', {})
-            bad_parts_found = False
-            
-            if class_assignments:
-                # Neue Struktur verwenden
-                for class_name, stats in self.last_cycle_detections.items():
-                    class_id = stats.get('class_id', 0)
-                    max_conf = stats.get('max_confidence', 0.0)
-                    total_detections = stats.get('total_detections', 0)
-                    
-                    # Klassen-Zuordnung finden
-                    assignment = class_assignments.get(str(class_id), {})
-                    assignment_type = assignment.get('assignment', 'ignore')
-                    expected_count = assignment.get('expected_count', -1)
-                    min_confidence = assignment.get('min_confidence', 0.5)
-                    
-                    # Konfidenz prüfen
-                    if max_conf < min_confidence:
-                        continue  # Zu niedrige Konfidenz - ignorieren
-                    
-                    if assignment_type == 'bad':
-                        # Schlecht-Teil erkannt -> sofort Ausschuss
-                        if total_detections > 0:
-                            logging.info(f"Schlechtes Teil: {class_name} (Anzahl: {total_detections})")
-                            bad_parts_found = True
-                    
-                    elif assignment_type == 'good':
-                        # Gut-Teil: Anzahl prüfen
-                        if expected_count != -1:  # -1 = beliebige Anzahl
-                            if total_detections != expected_count:
-                                logging.info(f"Gut-Teil Anzahl-Fehler: {class_name} - erwartet: {expected_count}, gefunden: {total_detections}")
-                                bad_parts_found = True
-                    
-                    # assignment_type == 'ignore' wird ignoriert
-            
-            else:
-                # Fallback auf alte Struktur
-                bad_part_classes = self.settings.get('bad_part_classes', [])
-                red_threshold = self.settings.get('red_threshold', 1)
-                min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
+        """KORRIGIERT: Erkennungsergebnisse auswerten mit durchschnittlicher Anzahl pro Bild."""
+        class_assignments = self.settings.get('class_assignments', {})
+        bad_parts_found = False
+        
+        # NEUE STRUKTUR verwenden wenn verfügbar
+        if class_assignments:
+            for class_name, stats in self.last_cycle_detections.items():
+                class_id = stats.get('class_id', 0)
+                max_conf = stats.get('max_confidence', 0.0)
+                total_detections = stats.get('total_detections', 0)
                 
-                for class_name, stats in self.last_cycle_detections.items():
-                    class_id = stats.get('class_id', 0)
-                    max_conf = stats.get('max_confidence', 0.0)
-                    total_detections = stats.get('total_detections', 0)
+                # KORRIGIERT: Durchschnittliche Anzahl pro Bild berechnen (wie in Sidebar "ANZ")
+                if self.cycle_image_count > 0:
+                    avg_detections_per_image = total_detections / self.cycle_image_count
+                    avg_count = round(avg_detections_per_image)
+                else:
+                    avg_count = 0
+                
+                assignment = class_assignments.get(str(class_id), {})
+                assignment_type = assignment.get('assignment', 'ignore')
+                expected_count = assignment.get('expected_count', -1)
+                min_confidence = assignment.get('min_confidence', 0.5)
+                
+                if assignment_type == 'bad' and max_conf >= min_confidence:
+                    # Schlecht-Teil erkannt mit ausreichender Konfidenz
+                    logging.info(f"Schlecht-Teil erkannt: {class_name} (Konfidenz: {max_conf:.2f})")
+                    bad_parts_found = True
                     
-                    if (class_id in bad_part_classes and 
-                        total_detections >= red_threshold and 
-                        max_conf >= min_confidence):
-                        logging.info(f"Schlechtes Teil (Fallback): {class_name}")
+                elif assignment_type == 'good' and expected_count != -1:
+                    # Gut-Teil mit erwarteter Anzahl prüfen
+                    if avg_count != expected_count and max_conf >= min_confidence:
+                        logging.info(f"Gut-Teil Anzahl-Fehler: {class_name} - erwartet: {expected_count}, gefunden: {avg_count}")
                         bad_parts_found = True
+        else:
+            # FALLBACK auf alte Struktur
+            bad_part_classes = self.settings.get('bad_part_classes', [])
+            red_threshold = self.settings.get('red_threshold', 1)
+            min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
             
-            # Log Detection Cycle Result
-            self.detection_logger.log_detection_cycle(
-                bad_parts_detected=bad_parts_found,
-                cycle_detections=self.last_cycle_detections,
-                cycle_stats={
-                    'cycle_image_count': self.cycle_image_count,
-                    'class_assignments_used': bool(class_assignments),
-                    'assignments_count': len(class_assignments)
-                }
-            )
-            
-            return bad_parts_found
-            
-        except Exception as e:
-            logging.error(f"Fehler bei Erkennungsauswertung: {e}")
-            return False
+            for class_name, stats in self.last_cycle_detections.items():
+                class_id = stats.get('class_id', 0)
+                max_conf = stats.get('max_confidence', 0.0)
+                total_detections = stats.get('total_detections', 0)
+                
+                if (class_id in bad_part_classes and 
+                    total_detections >= red_threshold and 
+                    max_conf >= min_confidence):
+                    logging.info(f"Schlechtes Teil (alte Struktur): {class_name}")
+                    bad_parts_found = True
+        
+        # Log Detection Cycle Result
+        self.detection_logger.log_detection_cycle(
+            bad_parts_detected=bad_parts_found,
+            cycle_detections=self.last_cycle_detections,
+            cycle_stats={
+                'cycle_image_count': self.cycle_image_count,
+                'evaluation_method': 'class_assignments' if class_assignments else 'legacy'
+            }
+        )
+        
+        return bad_parts_found
 
     def save_detection_result_image(self, frame, bad_parts_detected):
         """Bild speichern."""
@@ -1089,7 +1067,7 @@ class DetectionApp(QMainWindow):
         model_path = self.ui.select_model_file()
         if model_path:
             if self.detection_engine.load_model(model_path):
-                # NEUE STRUKTUR: class_assignments anwenden
+                # NEUE STRUKTUR: class_assignments verwenden
                 self.apply_class_settings_to_engine()
                 
                 self.ui.show_status(f"Modell geladen", "success")
@@ -1155,9 +1133,20 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Fehler beim Speichern", "error")
 
     def closeEvent(self, event):
-        """Sauberes Herunterfahren."""
-        self.quit_application()
-        event.accept()
+        """Sauberes Herunterfahren mit Bestätigungsabfrage."""
+        reply = QMessageBox.question(
+            self,
+            "Anwendung beenden",
+            "Möchten Sie die Anwendung wirklich beenden?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No  # Standard: Nein
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.quit_application()
+            event.accept()
+        else:
+            event.ignore()  # Schließvorgang abbrechen
 
 def main():
     """Hauptfunktion."""

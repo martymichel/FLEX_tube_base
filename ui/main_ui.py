@@ -250,6 +250,7 @@ class MainUI(QWidget):
         self.quit_btn = QPushButton("SOFTWARE BEENDEN")
         self.quit_btn.setStyleSheet(UIStyles.get_quit_button_style())
         self.quit_btn.setToolTip("Anwendung beenden (ESC druecken)")
+        # GEÄNDERT: Bestätigungsabfrage hinzugefügt
         self.quit_btn.clicked.connect(self._confirm_quit)
         layout.addWidget(self.quit_btn)
 
@@ -267,7 +268,16 @@ class MainUI(QWidget):
 
     def _confirm_quit(self):
         """Bestätigungsdialog vor dem Beenden der Anwendung."""
-        self.app.quit_application()
+        reply = QMessageBox.question(
+            self,
+            "Anwendung beenden",
+            "Möchten Sie die Anwendung wirklich beenden?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No  # Standard: Nein
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            self.app.quit_application()
 
     def _show_smiley(self):
         """Zeigt einen kleinen Smiley wenn auf den Footer geklickt wird."""
@@ -461,11 +471,11 @@ class MainUI(QWidget):
         logging.info("Starte rotes Blinken bei Schlecht-Teil-Erkennung")
         self.is_flashing = True
         self.flash_count = 0
-        self.flash_timer.start(100)
+        self.flash_timer.start(150)  # 150ms Interval
     
     def _flash_step(self):
         """Ein Schritt des Blinkens (wird alle 100ms aufgerufen)."""
-        if self.flash_count >= 10:
+        if self.flash_count >= 4:
             self.flash_timer.stop()
             self.is_flashing = False
             self.flash_count = 0

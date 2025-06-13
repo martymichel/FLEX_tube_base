@@ -10,8 +10,8 @@
   "auto_save_snapshots": false,
   "log_level": "INFO",
   "motion_threshold": 60,
-  "settling_time": 0.3,
-  "capture_time": 4.0,
+  "settling_time": 0.1,
+  "capture_time": 2.999999999999999,
   "clearing_time": 1.0,
   "brightness_low_threshold": 1,
   "brightness_high_threshold": 210,
@@ -120,7 +120,7 @@
     "78": "#c0c0c0",
     "79": "#ffd700"
   },
-  "motion_decay_factor": 0.8,
+  "motion_decay_factor": 0.4,
   "modbus_port": 502,
   "reference_lines": [
     {

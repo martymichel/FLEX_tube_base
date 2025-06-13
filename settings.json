@@ -1,7 +1,7 @@
 {
   "confidence_threshold": 0.8,
-  "last_model": "P:/PY/yolov8n.pt",
-  "last_source": 0,
+  "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
+  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
   "video_width": 1936,
   "video_height": 1216,
   "sidebar_width": 350,
@@ -9,7 +9,7 @@
   "show_class_names": false,
   "auto_save_snapshots": false,
   "log_level": "INFO",
-  "motion_threshold": 125,
+  "motion_threshold": 60,
   "settling_time": 0.3,
   "capture_time": 4.0,
   "clearing_time": 1.0,
@@ -21,7 +21,7 @@
     0
   ],
   "bad_part_min_confidence": 0.8,
-  "last_mode_was_video": false,
+  "last_mode_was_video": true,
   "red_threshold": 1,
   "green_threshold": 4,
   "good_part_classes": [
@@ -126,7 +126,7 @@
     {
       "enabled": true,
       "type": "horizontal",
-      "position": 38,
+      "position": 70,
       "color": "green",
       "thickness": 1
     },
@@ -154,32 +154,20 @@
   ],
   "class_assignments": {
     "0": {
-      "assignment": "bad",
-      "expected_count": -1,
-      "min_confidence": 0.8,
-      "color": "#800000"
+      "assignment": "good",
+      "expected_count": 4,
+      "min_confidence": 0.6,
+      "color": "#00FF00"
     },
     "2": {
       "assignment": "good",
-      "expected_count": -1,
-      "min_confidence": 0.8,
+      "expected_count": 4,
+      "min_confidence": 0.6,
       "color": "#808080"
     },
     "1": {
-      "assignment": "good",
+      "assignment": "bad",
       "expected_count": -1,
-      "min_confidence": 0.8,
-      "color": "#800080"
-    },
-    "3": {
-      "assignment": "good",
-      "expected_count": -1,
-      "min_confidence": 0.8,
-      "color": "#ffff00"
-    },
-    "15": {
-      "assignment": "good",
-      "expected_count": 5,
       "min_confidence": 0.5,
       "color": "#FF0000"
     }

@@ -2,6 +2,8 @@
 Dialog-Komponenten für Kamera-Auswahl und Einstellungen
 Alle Dialog-Fenster der Anwendung mit Tab-basiertem Layout, erweiterte Klassenzuteilung und Referenzlinien
 ERWEITERT: Tabellarische Klassenzuteilung mit dunklem Hintergrund und Referenzlinien-Einstellungen
+testinhalt
+
 """
 
 import os

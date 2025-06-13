@@ -2,6 +2,7 @@
 Hauptbenutzeroberflaeche - REFACTORED Version mit Detection-Datensatz-Management
 Übersichtlicher Code durch Auslagerung der Style-Definitionen
 ERWEITERT: Detection-Datensatz-Button ersetzt Modell- und Kamera-Auswahl-Buttons
+GEFIXT: Button-Signal-Verbindungen und User-Interface-Updates
 """
 
 import os
@@ -43,10 +44,23 @@ class MainUI(QWidget):
         self.is_flashing = False
         
         self.setup_ui()
+        self.connect_signals()  # NEUE Methode für Signal-Verbindungen
         
         # User Manager Signale verbinden fuer Auto-Updates
         if hasattr(self.app, 'user_manager'):
             self.app.user_manager.user_status_changed.connect(self.on_user_status_changed)
+    
+    def connect_signals(self):
+        """GEFIXT: Alle Button-Signal-Verbindungen herstellen."""
+        # Dataset-Button Signal verbinden
+        self.dataset_btn.clicked.connect(self.open_dataset_dialog)
+        
+        # Andere Signal-Verbindungen
+        self.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
+        self.settings_btn.clicked.connect(lambda: self.open_settings_dialog(self.app.settings))
+        
+        # Login-Status-Button
+        self.login_status_btn.clicked.connect(self.app.user_manager.login)
     
     def setup_ui(self):
         """UI aufbauen."""
@@ -444,57 +458,6 @@ class MainUI(QWidget):
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
 
     # =============================================================================
-    # DETECTION-DATENSATZ-MANAGEMENT
-    # =============================================================================
-    
-    def update_dataset_status(self, dataset_name=None, model_name=None, camera_info=None):
-        """Detection-Datensatz-Status aktualisieren.
-        
-        Args:
-            dataset_name (str): Name des geladenen Datensatzes
-            model_name (str): Name des KI-Modells
-            camera_info (str): Kamera-Information
-        """
-        if dataset_name:
-            self.dataset_btn.setText(f"📊 Datensatz: {dataset_name}")
-            self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_active_style())
-            self.dataset_btn.setToolTip(f"Datensatz '{dataset_name}' geladen\nKlicken um zu wechseln")
-            
-            # Info-Text zusammenstellen
-            info_parts = []
-            if model_name:
-                info_parts.append(f"🤖 {model_name}")
-            if camera_info:
-                info_parts.append(f"📷 {camera_info}")
-            
-            info_text = "\n".join(info_parts) if info_parts else "Datensatz geladen"
-            self.current_dataset_info.setText(info_text)
-            self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_active_style())
-        else:
-            self.dataset_btn.setText("📊 Detection-Datensatz wählen")
-            self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_inactive_style())
-            self.dataset_btn.setToolTip("Kompletten Datensatz für Produkterkennung auswählen")
-            
-            self.current_dataset_info.setText("Kein Datensatz geladen")
-            self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_style())
-    
-    def open_dataset_dialog(self):
-        """Detection-Datensatz-Dialog öffnen."""
-        if hasattr(self.app, 'dataset_manager'):
-            dialog = DetectionDatasetDialog(
-                self.app.dataset_manager, 
-                self.app.camera_manager, 
-                self
-            )
-            
-            # Signal verbinden
-            dialog.dataset_selected.connect(self.app.load_detection_dataset)
-            
-            dialog.exec()
-        else:
-            QMessageBox.warning(self, "Fehler", "Dataset-Manager nicht verfügbar")
-
-    # =============================================================================
     # REFERENZLINIEN-MANAGEMENT
     # =============================================================================
     
@@ -796,11 +759,72 @@ class MainUI(QWidget):
             print(f"Fehler beim Video-Update: {e}")
     
     # =============================================================================
+    # DETECTION-DATENSATZ-MANAGEMENT
+    # =============================================================================
+    
+    def update_dataset_status(self, dataset_name=None, model_name=None, camera_info=None):
+        """Detection-Datensatz-Status aktualisieren.
+        
+        Args:
+            dataset_name (str): Name des geladenen Datensatzes
+            model_name (str): Name des KI-Modells
+            camera_info (str): Kamera-Information
+        """
+        if dataset_name:
+            self.dataset_btn.setText(f"📊 Datensatz: {dataset_name}")
+            self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_active_style())
+            self.dataset_btn.setToolTip(f"Datensatz '{dataset_name}' geladen\nKlicken um zu wechseln")
+            
+            # Info-Text zusammenstellen
+            info_parts = []
+            if model_name:
+                info_parts.append(f"🤖 {model_name}")
+            if camera_info:
+                info_parts.append(f"📷 {camera_info}")
+            
+            info_text = "\n".join(info_parts) if info_parts else "Datensatz geladen"
+            self.current_dataset_info.setText(info_text)
+            self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_active_style())
+        else:
+            self.dataset_btn.setText("📊 Detection-Datensatz wählen")
+            self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_inactive_style())
+            self.dataset_btn.setToolTip("Kompletten Datensatz für Produkterkennung auswählen")
+            
+            self.current_dataset_info.setText("Kein Datensatz geladen")
+            self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_style())
+    
+    def open_dataset_dialog(self):
+        """Detection-Datensatz-Dialog öffnen."""
+        # GEFIXT: Admin-Rechte prüfen
+        if not self.app.user_manager.can_change_model():
+            self.show_status("Admin-Rechte erforderlich für Datensatz-Verwaltung", "error")
+            return
+        
+        if hasattr(self.app, 'dataset_manager'):
+            dialog = DetectionDatasetDialog(
+                self.app.dataset_manager, 
+                self.app.camera_manager, 
+                self
+            )
+            
+            # Signal verbinden
+            dialog.dataset_selected.connect(self.app.load_detection_dataset)
+            
+            dialog.exec()
+        else:
+            QMessageBox.warning(self, "Fehler", "Dataset-Manager nicht verfügbar")
+
+    # =============================================================================
     # DIALOG-HANDLER (VEREINFACHT)
     # =============================================================================
     
     def open_settings_dialog(self, settings):
         """Einstellungen-Dialog oeffnen - ERWEITERT: Mit Referenzlinien-Update."""
+        # GEFIXT: Admin-Rechte prüfen
+        if not self.app.user_manager.can_access_settings():
+            self.show_status("Admin-Rechte erforderlich für Einstellungen", "error")
+            return
+        
         # Hole die aktuellen Klassennamen vom detection_engine
         class_names = {}
         if hasattr(self.app, 'detection_engine') and hasattr(self.app.detection_engine, 'class_names'):

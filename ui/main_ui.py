@@ -1,7 +1,7 @@
 """
-Hauptbenutzeroberflaeche - REFACTORED Version mit Referenzlinien-Overlay
+Hauptbenutzeroberflaeche - REFACTORED Version mit Detection-Datensatz-Management
 Übersichtlicher Code durch Auslagerung der Style-Definitionen
-ERWEITERT: Referenzlinien-Overlay über Video-Stream und 50% höhere Sidebar-Tabelle
+ERWEITERT: Detection-Datensatz-Button ersetzt Modell- und Kamera-Auswahl-Buttons
 """
 
 import os
@@ -17,12 +17,13 @@ import numpy as np
 import logging
 
 # Lokale Importe
-from .dialogs import CameraSelectionDialog, SettingsDialog
+from .dialogs import SettingsDialog
+from .detection_dataset_dialog import DetectionDatasetDialog
 from .styles import UIStyles
 from .reference_line_overlay import ReferenceLineOverlay
 
 class MainUI(QWidget):
-    """Hauptbenutzeroberflaeche mit externen Stylesheets und Referenzlinien-Overlay."""
+    """Hauptbenutzeroberflaeche mit Detection-Datensatz-Management und Referenzlinien-Overlay."""
     
     def __init__(self, parent_app):
         super().__init__()
@@ -85,14 +86,11 @@ class MainUI(QWidget):
         # Benutzer-Status
         self._create_login_status_section(layout)
         
+        # Detection-Datensatz (ersetzt Modell- und Kamera-Auswahl)
+        self._create_detection_dataset_section(layout)
+        
         # Aktionen
         self._create_actions_section(layout)
-        
-        # KI-Modell
-        self._create_model_status_section(layout)
-        
-        # Kamera-Video
-        self._create_camera_status_section(layout)
         
         # Letzte Erkennung - ERWEITERT: 50% höher
         self._create_stats_section(layout)
@@ -117,19 +115,19 @@ class MainUI(QWidget):
         self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
         layout.addWidget(self.login_status_btn)
 
-    def _create_model_status_section(self, layout):
-        """KI-Modell Status-Button erstellen."""
-        self.model_btn = QPushButton("Kein Modell geladen")
-        self.model_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
-        self.model_btn.setToolTip("Klicken um Modell zu laden")
-        layout.addWidget(self.model_btn)
-
-    def _create_camera_status_section(self, layout):
-        """Kamera-Video Status-Button erstellen."""
-        self.camera_btn = QPushButton("Modus wählen")
-        self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
-        self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
-        layout.addWidget(self.camera_btn)
+    def _create_detection_dataset_section(self, layout):
+        """Detection-Datensatz-Sektion erstellen (ersetzt Modell- und Kamera-Buttons)."""
+        # Detection-Datensatz-Button (Hauptbutton)
+        self.dataset_btn = QPushButton("📊 Detection-Datensatz wählen")
+        self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_inactive_style())
+        self.dataset_btn.setToolTip("Kompletten Datensatz für Produkterkennung auswählen")
+        layout.addWidget(self.dataset_btn)
+        
+        # Aktueller Datensatz-Info (kompakt)
+        self.current_dataset_info = QLabel("Kein Datensatz geladen")
+        self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_style())
+        self.current_dataset_info.setWordWrap(True)
+        layout.addWidget(self.current_dataset_info)
 
     def _create_actions_section(self, layout):
         """Aktionen erstellen."""
@@ -446,6 +444,57 @@ class MainUI(QWidget):
         header_layout.addWidget(self.counter_frame, 0, Qt.AlignmentFlag.AlignRight)
 
     # =============================================================================
+    # DETECTION-DATENSATZ-MANAGEMENT
+    # =============================================================================
+    
+    def update_dataset_status(self, dataset_name=None, model_name=None, camera_info=None):
+        """Detection-Datensatz-Status aktualisieren.
+        
+        Args:
+            dataset_name (str): Name des geladenen Datensatzes
+            model_name (str): Name des KI-Modells
+            camera_info (str): Kamera-Information
+        """
+        if dataset_name:
+            self.dataset_btn.setText(f"📊 Datensatz: {dataset_name}")
+            self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_active_style())
+            self.dataset_btn.setToolTip(f"Datensatz '{dataset_name}' geladen\nKlicken um zu wechseln")
+            
+            # Info-Text zusammenstellen
+            info_parts = []
+            if model_name:
+                info_parts.append(f"🤖 {model_name}")
+            if camera_info:
+                info_parts.append(f"📷 {camera_info}")
+            
+            info_text = "\n".join(info_parts) if info_parts else "Datensatz geladen"
+            self.current_dataset_info.setText(info_text)
+            self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_active_style())
+        else:
+            self.dataset_btn.setText("📊 Detection-Datensatz wählen")
+            self.dataset_btn.setStyleSheet(UIStyles.get_dataset_button_inactive_style())
+            self.dataset_btn.setToolTip("Kompletten Datensatz für Produkterkennung auswählen")
+            
+            self.current_dataset_info.setText("Kein Datensatz geladen")
+            self.current_dataset_info.setStyleSheet(UIStyles.get_dataset_info_style())
+    
+    def open_dataset_dialog(self):
+        """Detection-Datensatz-Dialog öffnen."""
+        if hasattr(self.app, 'dataset_manager'):
+            dialog = DetectionDatasetDialog(
+                self.app.dataset_manager, 
+                self.app.camera_manager, 
+                self
+            )
+            
+            # Signal verbinden
+            dialog.dataset_selected.connect(self.app.load_detection_dataset)
+            
+            dialog.exec()
+        else:
+            QMessageBox.warning(self, "Fehler", "Dataset-Manager nicht verfügbar")
+
+    # =============================================================================
     # REFERENZLINIEN-MANAGEMENT
     # =============================================================================
     
@@ -623,8 +672,7 @@ class MainUI(QWidget):
         
         # Buttons aktivieren/deaktivieren
         can_admin = self.app.user_manager.is_admin()
-        self.model_btn.setEnabled(can_admin)
-        self.camera_btn.setEnabled(can_admin)
+        self.dataset_btn.setEnabled(can_admin)
         self.settings_btn.setEnabled(can_admin)
         self.reset_counter_btn.setEnabled(can_admin)
     
@@ -748,79 +796,8 @@ class MainUI(QWidget):
             print(f"Fehler beim Video-Update: {e}")
     
     # =============================================================================
-    # STATUS-BUTTON UPDATE-METHODEN
+    # DIALOG-HANDLER (VEREINFACHT)
     # =============================================================================
-    
-    def update_model_status(self, model_path):
-        """Model-Status-Button aktualisieren."""
-        if model_path and os.path.exists(model_path):
-            model_name = os.path.basename(model_path)
-            self.model_btn.setText(f"Modell: {model_name}")
-            self.model_btn.setStyleSheet(UIStyles.get_model_button_active_style())
-            self.model_btn.setToolTip(f"Modell geladen: {model_name}\nKlicken um zu aendern")
-        else:
-            self.model_btn.setText("Kein Modell geladen")
-            self.model_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
-            self.model_btn.setToolTip("Klicken um Modell zu laden")
-    
-    def update_camera_status(self, source_info, source_type):
-        """Camera-Status-Button aktualisieren."""
-        if source_info is not None:
-            if source_type == 'webcam':
-                display_text = f"Webcam: {source_info}"
-            elif source_type == 'video':
-                video_name = os.path.basename(source_info)
-                display_text = f"Video: {video_name}"
-            elif source_type == 'ids':
-                display_text = f"IDS Kamera: {source_info}"
-            else:
-                display_text = f"Quelle: {source_info}"
-                
-            self.camera_btn.setText(display_text)
-            self.camera_btn.setStyleSheet(UIStyles.get_camera_button_active_style())
-            self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu aendern")
-        else:
-            self.camera_btn.setText("Modus waehlen")
-            self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
-            self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
-    
-    # =============================================================================
-    # DIALOG-HANDLER
-    # =============================================================================
-    
-    def select_model_file(self):
-        """Modell-Datei auswaehlen Dialog."""
-        from PyQt6.QtWidgets import QFileDialog
-        
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "KI-Modell auswaehlen",
-            "",
-            "PyTorch Modelle (*.pt);;Alle Dateien (*)"
-        )
-        
-        if file_path:
-            self.update_model_status(file_path)
-            
-        return file_path
-    
-    def select_camera_source(self):
-        """Kamera/Video-Quelle auswaehlen Dialog."""
-        dialog = CameraSelectionDialog(self.app.camera_manager, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            source = dialog.get_selected_source()
-            if source:
-                # Status-Button aktualisieren basierend auf Quelle
-                if isinstance(source, int):
-                    self.update_camera_status(source, 'webcam')
-                elif isinstance(source, str):
-                    self.update_camera_status(source, 'video')
-                elif isinstance(source, tuple):
-                    self.update_camera_status(source[1], 'ids')
-                
-                return source
-        
-        return None
     
     def open_settings_dialog(self, settings):
         """Einstellungen-Dialog oeffnen - ERWEITERT: Mit Referenzlinien-Update."""

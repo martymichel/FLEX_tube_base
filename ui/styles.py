@@ -1,6 +1,7 @@
 """
 UI-Stylesheets - Zentrale Style-Definitionen
 Alle QSS-Styles für eine übersichtlichere main_ui.py
+ERWEITERT: Styles für Detection-Datensatz-Buttons
 """
 
 class UIStyles:
@@ -133,7 +134,94 @@ class UIStyles:
         """
     
     # =============================================================================
-    # MODEL & CAMERA BUTTON STYLES
+    # DETECTION-DATENSATZ BUTTON STYLES (NEU)
+    # =============================================================================
+    
+    @staticmethod
+    def get_dataset_button_inactive_style():
+        """Style für Detection-Datensatz-Button wenn inaktiv."""
+        return """
+            QPushButton {
+                background-color: #8e44ad;
+                color: #bdc3c7;
+                border: 2px solid #a569bd;
+                padding: 8px 20px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: center;
+                min-height: 35px;
+            }
+            QPushButton:hover {
+                background-color: #9b59b6;
+                border-color: #8e44ad;
+                color: white;
+            }
+            QPushButton:pressed {
+                background-color: #7d3c98;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                border-color: #95a5a6;
+            }
+        """
+    
+    @staticmethod
+    def get_dataset_button_active_style():
+        """Style für Detection-Datensatz-Button wenn aktiv."""
+        return """
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: 2px solid #8e44ad;
+                padding: 8px 20px;
+                border-radius: 4px;
+                font-size: 12px;
+                font-weight: bold;
+                text-align: center;
+                min-height: 35px;
+            }
+            QPushButton:hover {
+                background-color: #a569bd;
+                border-color: #9b59b6;
+            }
+            QPushButton:pressed {
+                background-color: #8e44ad;
+            }
+            QPushButton:disabled {
+                background-color: #7f8c8d;
+                color: #bdc3c7;
+                border-color: #95a5a6;
+            }
+        """
+    
+    @staticmethod
+    def get_dataset_info_style():
+        """Style für Dataset-Info-Label (inaktiv)."""
+        return """
+            color: #bdc3c7;
+            background-color: transparent;
+            font-size: 10px;
+            font-style: italic;
+            padding: 5px;
+            border-radius: 4px;
+        """
+    
+    @staticmethod
+    def get_dataset_info_active_style():
+        """Style für Dataset-Info-Label (aktiv)."""
+        return """
+            color: white;
+            background-color: rgba(155, 89, 182, 0.2);
+            font-size: 10px;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(155, 89, 182, 0.3);
+        """
+    
+    # =============================================================================
+    # LEGACY MODEL & CAMERA BUTTON STYLES (für Fallback)
     # =============================================================================
     
     @staticmethod

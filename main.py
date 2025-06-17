@@ -719,9 +719,7 @@ class DetectionApp(QMainWindow):
         """Industrieller Workflow mit COUNTDOWN in Statusleiste."""
         current_time = time.time()
         
-        settling_time_base = self.settings.get('settling_time', 1.0)
-        decay_multiplier = 1.0 / max(0.001, self.motion_decay_factor)
-        settling_time = settling_time_base * decay_multiplier
+        settling_time = self.settings.get('settling_time', 1.0)
         capture_time = self.settings.get('capture_time', 3.0)
         blow_off_time = self.settings.get('blow_off_time', 5.0)
         

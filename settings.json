@@ -1,11 +1,11 @@
 {
   "confidence_threshold": 0.5,
-  "last_model": "",
-  "last_source": null,
-  "last_mode_was_video": false,
+  "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
+  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
+  "last_mode_was_video": true,
   "camera_config_path": "",
   "motion_threshold": 110,
-  "settling_time": 0.7000000000000001,
+  "settling_time": 0.7,
   "capture_time": 3.0,
   "blow_off_time": 5.0,
   "class_assignments": {

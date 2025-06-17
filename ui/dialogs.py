@@ -195,7 +195,7 @@ class SettingsDialog(QDialog):
         self.motion_threshold_spin = QSpinBox()
         self.motion_threshold_spin.setRange(1, 255)
         layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
-        self._add_spacer(layout)
+        self._add_cycle_arrow(layout)
         
         # Ausschwingzeit - MIT INFO
         settling_info = self._create_info_label(
@@ -208,7 +208,7 @@ class SettingsDialog(QDialog):
         self.settling_time_spin.setRange(0.1, 10.0)
         self.settling_time_spin.setSingleStep(0.1)
         layout.addRow("Ausschwingzeit (Sekunden):", self.settling_time_spin)
-        self._add_spacer(layout)
+        self._add_cycle_arrow(layout)
 
         # Aufnahmezeit - MIT INFO
         capture_info = self._create_info_label(
@@ -221,19 +221,35 @@ class SettingsDialog(QDialog):
         self.capture_time_spin.setRange(0.5, 10.0)
         self.capture_time_spin.setSingleStep(0.1)
         layout.addRow("Aufnahmezeit (Sekunden):", self.capture_time_spin)
-        self._add_spacer(layout)
+        self._add_cycle_arrow(layout)
         
-        # Abblas-Wartezeit - MIT INFO
+        # Ausschuss-Signal Dauer - MIT INFO
+        reject_duration_info = self._create_info_label(
+            "Dauer des Ausschuss-Signals in Sekunden. Muss lang genug sein, "
+            "damit das nachgelagerte System (Druckluft, Aussortierung) reagieren kann."
+        )
+        layout.addRow(reject_duration_info)
+
+        self.reject_coil_duration_spin = QDoubleSpinBox()
+        self.reject_coil_duration_spin.setRange(0.1, 10.0)
+        self.reject_coil_duration_spin.setSingleStep(0.1)
+        self.reject_coil_duration_spin.setDecimals(1)
+        layout.addRow("Ausschuss-Signal Dauer (Sekunden):", self.reject_coil_duration_spin)
+        self._add_cycle_arrow(layout)
+
+        # Verzögerung nach Abblasen - MIT INFO
         blow_off_info = self._create_info_label(
-            "Wartezeit nach Ausschuss-Signal, bevor der nächste Zyklus beginnt. "
-            "Muss lang genug sein, damit das Abblasen vollständig beendet ist. "
+            "Verzögerung nach dem Ausschuss-Signal, bevor die Bewegungserkennung neu startet."
+            " Soll sicherstellen, dass das Abblasen vollständig abgeschlossen ist."
         )
         layout.addRow(blow_off_info)
-        
-        self.blow_off_time_spin = QDoubleSpinBox()
-        self.blow_off_time_spin.setRange(1.0, 30.0)
-        self.blow_off_time_spin.setSingleStep(0.5)
-        layout.addRow("Abblas-Wartezeit (Sekunden):", self.blow_off_time_spin)
+
+        self.wait_after_blow_off_time_spin = QDoubleSpinBox()
+        self.wait_after_blow_off_time_spin.setRange(0.1, 2.0)
+        self.wait_after_blow_off_time_spin.setSingleStep(0.1)
+        self.wait_after_blow_off_time_spin.setDecimals(1)
+        layout.addRow("Wartezeit nach Abblasen (Sekunden):", self.wait_after_blow_off_time_spin)
+        self._add_cycle_arrow(layout, loop=True)
         self._add_spacer(layout)
         
         # Allgemeine Konfidenz
@@ -611,20 +627,7 @@ class SettingsDialog(QDialog):
             }
         """)
         layout.addRow("Modbus-TCP Port:", self.modbus_port_spin)
-        
-        # Ausschuss-Signal Dauer - MIT INFO
-        reject_duration_info = self._create_info_label(
-            "Dauer des Ausschuss-Signals in Sekunden. Muss lang genug sein, "
-            "damit das nachgelagerte System (Druckluft, Aussortierung) reagieren kann."
-        )
-        layout.addRow(reject_duration_info)
-        
-        self.reject_coil_duration_spin = QDoubleSpinBox()
-        self.reject_coil_duration_spin.setRange(0.1, 10.0)
-        self.reject_coil_duration_spin.setSingleStep(0.1)
-        self.reject_coil_duration_spin.setDecimals(1)
-        layout.addRow("Ausschuss-Signal Dauer (Sekunden):", self.reject_coil_duration_spin)
-        
+            
         self._add_spacer(layout)
         
         # Modbus-Aktionen
@@ -828,6 +831,13 @@ class SettingsDialog(QDialog):
         spacer.setFrameShadow(QFrame.Shadow.Sunken)
         spacer.setStyleSheet("color: #bdc3c7; margin: 10px 0;")
         layout.addRow(spacer)
+
+    def _add_cycle_arrow(self, layout, loop=False):
+        """Pfeil zur Visualisierung des Arbeitszyklus hinzufügen."""
+        arrow = QLabel("↓" if not loop else "↻")
+        arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        arrow.setStyleSheet("color: #7f8c8d; font-size: 16px; margin: 0;")
+        layout.addRow(arrow)
     
     def _create_button_section(self, layout):
         """Button-Sektion erstellen."""
@@ -1158,7 +1168,8 @@ class SettingsDialog(QDialog):
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
         self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
-        self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
+        self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
+        self.wait_after_blow_off_time_spin.setValue(self.settings.get('wait_after_blow_off_time', 0.5))
         self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
         
         # Erweiterte Klassenzuteilungen laden
@@ -1174,10 +1185,9 @@ class SettingsDialog(QDialog):
         else:
             self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
         
-        # MODBUS: Nur IP und Dauer laden
+        # MODBUS: Nur IP laden
         self.modbus_ip_input.setText(self.settings.get('modbus_ip', '192.168.1.100'))
         self.modbus_port_spin.setValue(self.settings.get('modbus_port', 502))
-        self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
         
         # Modbus-Buttons je nach Admin-Status aktivieren/deaktivieren
         if hasattr(self.parent_app, 'app'):
@@ -1246,7 +1256,8 @@ class SettingsDialog(QDialog):
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
         self.settings.set('settling_time', self.settling_time_spin.value())
         self.settings.set('capture_time', self.capture_time_spin.value())
-        self.settings.set('blow_off_time', self.blow_off_time_spin.value())
+        self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
+        self.settings.set('wait_after_blow_off_time', self.wait_after_blow_off_time_spin.value())
         self.settings.set('confidence_threshold', self.confidence_spin.value())
         
         # Erweiterte Klassenzuteilungen speichern
@@ -1262,9 +1273,8 @@ class SettingsDialog(QDialog):
         else:
             self.settings.set('camera_config_path', camera_config_text)
         
-        # MODBUS: Nur IP und Dauer speichern
+        # MODBUS: Nur IP speichern
         self.settings.set('modbus_ip', self.modbus_ip_input.text())
-        self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         
         # Speicherung & Überwachung
         self.settings.set('save_bad_images', self.save_bad_images_check.isChecked())
@@ -1272,7 +1282,7 @@ class SettingsDialog(QDialog):
         self.settings.set('bad_images_directory', self.bad_images_dir_input.text())
         self.settings.set('good_images_directory', self.good_images_dir_input.text())
         self.settings.set('max_image_files', self.max_images_spin.value())
-        
+        # Helligkeitsüberwachung
         self.settings.set('brightness_low_threshold', self.brightness_low_spin.value())
         self.settings.set('brightness_high_threshold', self.brightness_high_spin.value())
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())

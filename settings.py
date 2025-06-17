@@ -94,7 +94,7 @@ class Settings:
             'motion_threshold': 110,      # Schwellwert für Bewegungserkennung
             'settling_time': 1.0,         # Ausschwingzeit nach Bewegung (Sekunden)
             'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)
-            'blow_off_time': 5.0,         # Wartezeit nach Abblasen (Sekunden)
+            'wait_after_blow_off_time': 0.5,  # Verzögerung nach Abblasen (Sekunden)
             
             # ERWEITERTE Klassen-Konfiguration - NEUE STRUKTUR
             'class_assignments': {

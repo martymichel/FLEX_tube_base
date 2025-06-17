@@ -532,7 +532,7 @@ class DetectionApp(QMainWindow):
                     }
                 """)
                 
-                self.ui.show_status("Detection läuft", "success")
+                self.ui.show_status("START - Warte auf Bandtakt...", "success")
                 self.ui.update_workflow_status("BEREIT")
                 
                 # Log Detection Started
@@ -721,7 +721,7 @@ class DetectionApp(QMainWindow):
         
         settling_time = self.settings.get('settling_time', 1.0)
         capture_time = self.settings.get('capture_time', 3.0)
-        blow_off_time = self.settings.get('blow_off_time', 5.0)
+        wait_after_blow_off_time = self.settings.get('wait_after_blow_off_time', 0.5)
         
         # 1. Bewegungserkennung
         if not self.motion_detected and not self.blow_off_active:
@@ -793,7 +793,10 @@ class DetectionApp(QMainWindow):
                     if self.modbus_manager.connected:
                         self.modbus_manager.set_reject_coil()
                         self.ui.update_coil_status(reject_active=True, detection_active=True)
-                    
+                        coil_duration = self.settings.get('reject_coil_duration_seconds', 1.0)
+                        QTimer.singleShot(int(coil_duration * 1000),
+                                          lambda: self.ui.update_coil_status(reject_active=False, detection_active=True))
+                                                          
                     self.ui.show_status("Schlechte Teile - Abblasen aktiv", "error")
                     self.ui.update_workflow_status("ABBLASEN")
                     logging.info("Schlechte Teile erkannt")
@@ -803,14 +806,11 @@ class DetectionApp(QMainWindow):
                     self.ui.update_workflow_status("BEREIT")
                     logging.info("Keine schlechten Teile")
         
-        # 4. Abblas-Wartezeit
+        # 4. Verzögerung nach Abblasen
         if self.blow_off_active:
-            if current_time - self.blow_off_start_time >= blow_off_time:
+            if current_time - self.blow_off_start_time >= wait_after_blow_off_time:
                 self.blow_off_active = False
-                
-                if self.modbus_manager.connected:
-                    self.ui.update_coil_status(reject_active=False, detection_active=True)
-                
+
                 self.reset_workflow()
                 self.ui.show_status("Abblasen beendet", "ready")
                 self.ui.update_workflow_status("BEREIT")

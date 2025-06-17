@@ -4,10 +4,11 @@
   "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
   "last_mode_was_video": true,
   "camera_config_path": "",
-  "motion_threshold": 110,
-  "settling_time": 0.7,
-  "capture_time": 3.0,
-  "blow_off_time": 5.0,
+  "motion_threshold": 60,
+  "settling_time": 0.5,
+  "capture_time": 2.4,
+  "reject_coil_duration_seconds": 0.1,
+  "wait_after_blow_off_time": 2.0,
   "class_assignments": {
     "1": {
       "assignment": "bad",
@@ -20,6 +21,12 @@
       "expected_count": -1,
       "min_confidence": 0.5,
       "color": "#00FF00"
+    },
+    "2": {
+      "assignment": "ignore",
+      "expected_count": -1,
+      "min_confidence": 0.5,
+      "color": "#808080"
     }
   },
   "bad_part_classes": [
@@ -40,7 +47,6 @@
   "watchdog_interval_seconds": 2,
   "reject_coil_address": 0,
   "detection_active_coil_address": 1,
-  "reject_coil_duration_seconds": 1.0,
   "save_bad_images": false,
   "save_good_images": false,
   "bad_images_directory": "bad_images",

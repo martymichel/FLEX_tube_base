@@ -196,30 +196,6 @@ class SettingsDialog(QDialog):
         self.motion_threshold_spin.setRange(1, 255)
         layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
         self._add_spacer(layout)
-
-        # Roter Rahmen Schwellwert - MIT INFO
-        red_info = self._create_info_label(
-            "Mindestanzahl von schlechten Teilen, ab der der rote Rahmen angezeigt wird. "
-            "Bestimmt, wann ein Ausschuss-Signal ausgelöst wird."
-        )
-        layout.addRow(red_info)
-        
-        self.red_threshold_spin = QSpinBox()
-        self.red_threshold_spin.setRange(1, 20)
-        layout.addRow("Roter Rahmen Schwellwert:", self.red_threshold_spin)
-        self._add_spacer(layout)
-        
-        # Grüner Rahmen Schwellwert - MIT INFO
-        green_info = self._create_info_label(
-            "Mindestanzahl von guten Teilen, ab der der grüne Rahmen angezeigt wird. "
-            "Bestätigt, dass ausreichend gute Teile erkannt wurden."
-        )
-        layout.addRow(green_info)
-        
-        self.green_threshold_spin = QSpinBox()
-        self.green_threshold_spin.setRange(1, 20)
-        layout.addRow("Grüner Rahmen Schwellwert:", self.green_threshold_spin)
-        self._add_spacer(layout)
         
         # Ausschwingzeit - MIT INFO
         settling_info = self._create_info_label(
@@ -1180,8 +1156,6 @@ class SettingsDialog(QDialog):
         """Aktuelle Einstellungen laden."""
         # Allgemein
         self.motion_threshold_spin.setValue(self.settings.get('motion_threshold', 110))
-        self.red_threshold_spin.setValue(self.settings.get('red_threshold', 1))
-        self.green_threshold_spin.setValue(self.settings.get('green_threshold', 4))
         self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
         self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
@@ -1270,8 +1244,6 @@ class SettingsDialog(QDialog):
         """Einstellungen speichern."""
         # Allgemein
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
-        self.settings.set('red_threshold', self.red_threshold_spin.value())
-        self.settings.set('green_threshold', self.green_threshold_spin.value())
         self.settings.set('settling_time', self.settling_time_spin.value())
         self.settings.set('capture_time', self.capture_time_spin.value())
         self.settings.set('blow_off_time', self.blow_off_time_spin.value())

@@ -108,10 +108,6 @@ class Settings:
                 # }
             },
             
-            # Rahmen-Schwellenwerte (bestehend)
-            'red_threshold': 1,           # Mindestanzahl für roten Rahmen (schlechte Teile)
-            'green_threshold': 4,         # Mindestanzahl für grünen Rahmen (gute Teile)
-            
             # DEPRECATED - Wird durch class_assignments ersetzt, aber für Kompatibilität beibehalten
             'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
             'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile

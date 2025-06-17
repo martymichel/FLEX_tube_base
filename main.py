@@ -904,11 +904,15 @@ class DetectionApp(QMainWindow):
             stats['avg_confidence'] = sum(confidences) / len(confidences)
 
     def evaluate_detection_results(self):
-        """KORRIGIERT: Erkennungsergebnisse auswerten mit durchschnittlicher Anzahl pro Bild."""
+        """Erkennungsergebnisse auswerten mit durchschnittlicher Anzahl pro Bild."""
         class_assignments = self.settings.get('class_assignments', {})
+        if not class_assignments:
+            # Alte Einstellungen bei Bedarf migrieren
+            self.settings.migrate_legacy_settings()
+            class_assignments = self.settings.get('class_assignments', {})        
         bad_parts_found = False
         
-        # NEUE STRUKTUR verwenden wenn verfügbar
+        # Nur neue Struktur verwenden
         if class_assignments:
             for class_name, stats in self.last_cycle_detections.items():
                 class_id = stats.get('class_id', 0)
@@ -937,22 +941,6 @@ class DetectionApp(QMainWindow):
                     if avg_count != expected_count and max_conf >= min_confidence:
                         logging.info(f"Gut-Teil Anzahl-Fehler: {class_name} - erwartet: {expected_count}, gefunden: {avg_count}")
                         bad_parts_found = True
-        else:
-            # FALLBACK auf alte Struktur
-            bad_part_classes = self.settings.get('bad_part_classes', [])
-            red_threshold = self.settings.get('red_threshold', 1)
-            min_confidence = self.settings.get('bad_part_min_confidence', 0.5)
-            
-            for class_name, stats in self.last_cycle_detections.items():
-                class_id = stats.get('class_id', 0)
-                max_conf = stats.get('max_confidence', 0.0)
-                total_detections = stats.get('total_detections', 0)
-                
-                if (class_id in bad_part_classes and 
-                    total_detections >= red_threshold and 
-                    max_conf >= min_confidence):
-                    logging.info(f"Schlechtes Teil (alte Struktur): {class_name}")
-                    bad_parts_found = True
         
         # Log Detection Cycle Result
         self.detection_logger.log_detection_cycle(

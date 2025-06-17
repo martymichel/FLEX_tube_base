@@ -22,8 +22,6 @@
       "color": "#00FF00"
     }
   },
-  "red_threshold": 1,
-  "green_threshold": 4,
   "bad_part_classes": [
     1
   ],

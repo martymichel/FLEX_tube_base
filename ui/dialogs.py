@@ -197,21 +197,6 @@ class SettingsDialog(QDialog):
         layout.addRow("Bandtakt Grenzwert (1-255):", self.motion_threshold_spin)
         self._add_spacer(layout)
 
-        # Motion Decay - NEU: MIT INFO
-        motion_decay_info = self._create_info_label(
-            "Abklingfaktor für die Motion-Anzeige. Bestimmt, wie schnell der angezeigte Motion-Wert "
-            "nach dem Ende einer Bewegung abfällt. Höhere Werte = langsameres Abklingen (träger), "
-            "niedrigere Werte = schnelleres Abklingen (reaktiver)."
-        )
-        layout.addRow(motion_decay_info)
-        
-        self.motion_decay_spin = QDoubleSpinBox()
-        self.motion_decay_spin.setRange(0.001, 0.999)
-        self.motion_decay_spin.setSingleStep(0.001)
-        self.motion_decay_spin.setDecimals(3)
-        layout.addRow("Motion Abklingfaktor (0.001-0.999):", self.motion_decay_spin)
-        self._add_spacer(layout)
-
         # Roter Rahmen Schwellwert - MIT INFO
         red_info = self._create_info_label(
             "Mindestanzahl von schlechten Teilen, ab der der rote Rahmen angezeigt wird. "
@@ -1200,7 +1185,6 @@ class SettingsDialog(QDialog):
         self.settling_time_spin.setValue(self.settings.get('settling_time', 1.0))
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
         self.blow_off_time_spin.setValue(self.settings.get('blow_off_time', 5.0))
-        self.motion_decay_spin.setValue(self.settings.get('motion_decay_factor', 0.1))
         self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
         
         # Erweiterte Klassenzuteilungen laden
@@ -1286,7 +1270,6 @@ class SettingsDialog(QDialog):
         """Einstellungen speichern."""
         # Allgemein
         self.settings.set('motion_threshold', self.motion_threshold_spin.value())
-        self.settings.set('motion_decay_factor', self.motion_decay_spin.value())
         self.settings.set('red_threshold', self.red_threshold_spin.value())
         self.settings.set('green_threshold', self.green_threshold_spin.value())
         self.settings.set('settling_time', self.settling_time_spin.value())

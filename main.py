@@ -108,7 +108,6 @@ class DetectionApp(QMainWindow):
         self.no_motion_stable_count = 0
         self.motion_values = []
         self.current_motion_value = 0.0
-        self.motion_decay_factor = self.settings.get('motion_decay_factor', 0.1)        
 
         # Helligkeitsüberwachung
         self.brightness_values = []
@@ -444,14 +443,7 @@ class DetectionApp(QMainWindow):
                             self.apply_class_settings_to_engine()
                             logging.info("Klassen-Einstellungen nach Änderung aktualisiert")
 
-                    # Motion Decay Factor bei Änderung aktualisieren
-                    old_decay = old_settings.get('motion_decay_factor', 0.1)
-                    new_decay = self.settings.get('motion_decay_factor', 0.1)
-                    if old_decay != new_decay:
-                        self.motion_decay_factor = new_decay
-                        logging.info(f"Motion Decay Factor aktualisiert: {new_decay}")
-
-                    # NEUE: Referenzlinien-Update
+                    # Referenzlinien-Update
                     old_reference_lines = old_settings.get('reference_lines', [])
                     new_reference_lines = self.settings.get('reference_lines', [])
                     if old_reference_lines != new_reference_lines:
@@ -677,8 +669,8 @@ class DetectionApp(QMainWindow):
                 return
             
             # Motion-Wert berechnen
-            self.update_motion_display_with_decay(frame)
-            
+            self.update_motion_display(frame)
+
             # Workflow verarbeiten
             self.process_industrial_workflow(frame)
             
@@ -701,8 +693,8 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
 
-    def update_motion_display_with_decay(self, frame):
-        """Motion-Wert berechnen mit drastischem Abfall nach Stillstand."""
+    def update_motion_display(self, frame):
+        """Motion-Wert berechnen."""
         if self.bg_subtractor is None:
             return
 
@@ -718,17 +710,7 @@ class DetectionApp(QMainWindow):
         motion_pixels = cv2.countNonZero(fg_mask) * 16  # Kompensiert 4x4 Downsampling
         current_motion = min(255, motion_pixels / 100)
         
-        # ELEGANTE DECAY-MATHEMATIK: Ein-Schritt Division
-        if current_motion < self.current_motion_value:
-            decay_power = 1.0 / max(0.001, self.motion_decay_factor)
-            self.current_motion_value = max(self.current_motion_value, current_motion) / decay_power
-            
-            # Intelligenter Threshold für sofortigen Reset
-            if self.current_motion_value < 1.0:
-                self.current_motion_value = 0.0
-        else:
-            # Sofortige Aktualisierung bei steigenden Werten
-            self.current_motion_value = current_motion
+        self.current_motion_value = current_motion
         
         # UI aktualisieren
         self.ui.update_motion(self.current_motion_value)
@@ -737,7 +719,9 @@ class DetectionApp(QMainWindow):
         """Industrieller Workflow mit COUNTDOWN in Statusleiste."""
         current_time = time.time()
         
-        settling_time = self.settings.get('settling_time', 1.0)
+        settling_time_base = self.settings.get('settling_time', 1.0)
+        decay_multiplier = 1.0 / max(0.001, self.motion_decay_factor)
+        settling_time = settling_time_base * decay_multiplier
         capture_time = self.settings.get('capture_time', 3.0)
         blow_off_time = self.settings.get('blow_off_time', 5.0)
         

@@ -234,7 +234,7 @@ class SettingsDialog(QDialog):
         self.reject_coil_duration_spin.setRange(0.1, 10.0)
         self.reject_coil_duration_spin.setSingleStep(0.1)
         self.reject_coil_duration_spin.setDecimals(1)
-        layout.addRow("Ausschuss-Signal Dauer (Sekunden):", self.reject_coil_duration_spin)
+        layout.addRow("Ausschuss-Signal PULS-Dauer 8(s):", self.reject_coil_duration_spin)
         self._add_cycle_arrow(layout)
 
         # Verzögerung nach Abblasen - MIT INFO
@@ -249,7 +249,7 @@ class SettingsDialog(QDialog):
         self.wait_after_blow_off_time_spin.setSingleStep(0.1)
         self.wait_after_blow_off_time_spin.setDecimals(1)
         layout.addRow("Wartezeit nach Abblasen (Sekunden):", self.wait_after_blow_off_time_spin)
-        self._add_cycle_arrow(layout, loop=True)
+        self._add_cycle_arrow(layout, loop=True) # Symbol für Schleife
         self._add_spacer(layout)
         
         self.tab_widget.addTab(scroll, "⚙️ Allgemein")
@@ -571,20 +571,15 @@ class SettingsDialog(QDialog):
         # MODBUS-Einstellungen
         self._add_section_header(layout, "🔌 WAGO Modbus-Schnittstelle")
         
-        # INFO: Modbus ist immer aktiviert
-        modbus_info = QLabel("Modbus ist für den Betrieb immer aktiviert.")
-        modbus_info.setStyleSheet("color: #2c3e50; font-weight: bold; background-color: #ecf0f1; padding: 8px; border-radius: 4px;")
-        layout.addRow(modbus_info)
-        
         # IP-Adresse (nur Anzeige)
-        self.modbus_ip_input = QLabel("192.168.1.100")
+        self.modbus_ip_input = QLabel()
         self.modbus_ip_input.setStyleSheet(
             "background-color: #f0f0f0; padding: 5px; border-radius: 3px; color: #2c3e50;"
         )
-        layout.addRow(modbus_info, self.modbus_ip_input)
+
         # Modbus IP-Adresse editierbar
         self.modbus_ip_input = QLineEdit()
-        self.modbus_ip_input.setPlaceholderText("192.168.1.100")
+        self.modbus_ip_input.setPlaceholderText("xxx.xxx.xxx.xxx")
         self.modbus_ip_input.setStyleSheet("""
             QLineEdit {
                 padding: 8px 12px;

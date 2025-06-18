@@ -133,7 +133,7 @@ class ModbusManager:
                     # Warten 1 Sekunde fuer den Reset
                     time.sleep(1)
                     # Pruefen, ob der Befehl erfolgreich war
-                    success = not result.isError()
+                    success = result is None or not result.isError()
                     if success:
                         logging.info("Controller-Reset-Befehl gesendet (0x2040 = 0xAA55)")
                     else:

@@ -1058,20 +1058,27 @@ class SettingsDialog(QDialog):
     
     def update_modbus_connection_status(self, connected):
         """Modbus-Verbindungsstatus in den Buttons aktualisieren."""
-        # Buttons nur aktivieren wenn Admin und verbunden
+        # Buttons nur aktivieren wenn Admin, verbunden und Detection nicht läuft
         is_admin = hasattr(self.parent_app, 'app') and self.parent_app.app.user_manager.is_admin()
-        
-        self.modbus_reset_btn.setEnabled(is_admin)
-        self.modbus_reconnect_btn.setEnabled(is_admin)
-        
+        detection_running = hasattr(self.parent_app, 'app') and self.parent_app.app.running
+        enabled = is_admin and not detection_running
+
+        self.modbus_reset_btn.setEnabled(enabled)
+        self.modbus_reconnect_btn.setEnabled(enabled)
+
         # Tooltips entsprechend aktualisieren
-        if connected:
-            self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen (Admin)")
-            self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden (Admin)")
+        if detection_running:
+            hint = " (gesperrt während Detection)"
         else:
-            self.modbus_reset_btn.setToolTip("WAGO Controller zurücksetzen (Admin) - GETRENNT")
-            self.modbus_reconnect_btn.setToolTip("Modbus neu verbinden (Admin) - GETRENNT")
-    
+            hint = ""
+
+        if connected:
+            self.modbus_reset_btn.setToolTip(f"WAGO Controller zurücksetzen (Admin){hint}")
+            self.modbus_reconnect_btn.setToolTip(f"Modbus neu verbinden (Admin){hint}")
+        else:
+            self.modbus_reset_btn.setToolTip(f"WAGO Controller zurücksetzen (Admin) - GETRENNT{hint}")
+            self.modbus_reconnect_btn.setToolTip(f"Modbus neu verbinden (Admin) - GETRENNT{hint}")
+
     # =============================================================================
     # EVENT HANDLER-METHODEN
     # =============================================================================
@@ -1148,11 +1155,6 @@ class SettingsDialog(QDialog):
             else:
                 self.brightness_low_spin.setValue(high_value - 1)
     
-    def update_modbus_connection_status(self, connected):
-        """Update Modbus connection status for dialog buttons."""
-        # Implementierung falls notwendig für zukünftige Erweiterungen
-        pass
-    
     def load_settings(self):
         """Aktuelle Einstellungen laden."""
         # Allgemein
@@ -1188,15 +1190,10 @@ class SettingsDialog(QDialog):
         self.modbus_port_spin.setValue(self.settings.get('modbus_port', 502))
         self.modbus_port_spin.setEnabled(not detection_running)
         
-        # Modbus-Buttons je nach Admin-Status aktivieren/deaktivieren
+        # Modbus-Buttons je nach Admin- und Detection-Status aktualisieren
         if hasattr(self.parent_app, 'app'):
             is_connected = self.parent_app.app.modbus_manager.is_connected()
             self.update_modbus_connection_status(is_connected)
-            
-            # Button-Status je nach Admin-Rechten
-            is_admin = self.parent_app.app.user_manager.is_admin()
-            self.modbus_reset_btn.setEnabled(is_admin)
-            self.modbus_reconnect_btn.setEnabled(is_admin)
         
         # Speicherung & Überwachung
         self.save_bad_images_check.setChecked(self.settings.get('save_bad_images', False))

@@ -753,9 +753,9 @@ class SettingsDialog(QDialog):
         layout.addRow(max_files_info)
         
         self.max_images_spin = QSpinBox()
-        self.max_images_spin.setRange(1000, 500000)
+        self.max_images_spin.setRange(1, 100000)
         self.max_images_spin.setSingleStep(1000)
-        self.max_images_spin.setValue(100000)
+        self.max_images_spin.setValue(10000)
         layout.addRow("Max. Dateien pro Verzeichnis:", self.max_images_spin)
         
         self._add_spacer(layout)
@@ -1284,13 +1284,15 @@ class SettingsDialog(QDialog):
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
         
         self.settings.save()
-        # Apply changes immediately to running engine
+        # Apply changes immediately to running engine and image saver
         if self.parent_app and hasattr(self.parent_app, "app"):
             app = self.parent_app.app
+            if hasattr(app, "image_saver"):
+                app.image_saver.update_settings(self.settings.data)            
             if hasattr(app, "detection_engine") and app.detection_engine.model_loaded:
                 app.apply_class_settings_to_engine()
                 threshold = self.settings.get('confidence_threshold', 0.5)
-                app.detection_engine.set_confidence_threshold(threshold)        
+                app.detection_engine.set_confidence_threshold(threshold)
         self.accept()
     
     def _save_class_assignments(self):

@@ -132,6 +132,8 @@ class ImageSaver:
         """Einstellungen aktualisieren."""
         old_bad_dir = self.bad_images_dir
         old_good_dir = self.good_images_dir
+        old_save_bad = self.save_bad_images
+        old_save_good = self.save_good_images
         
         # Neue Einstellungen laden
         self.bad_images_dir = new_settings.get('bad_images_directory', self.bad_images_dir)
@@ -139,9 +141,14 @@ class ImageSaver:
         self.save_bad_images = new_settings.get('save_bad_images', self.save_bad_images)
         self.save_good_images = new_settings.get('save_good_images', self.save_good_images)
         self.max_images_per_dir = new_settings.get('max_image_files', self.max_images_per_dir)
-        
-        # Verzeichnisse neu erstellen wenn geaendert
-        if (old_bad_dir != self.bad_images_dir or old_good_dir != self.good_images_dir):
+
+        # Verzeichnisse neu erstellen wenn geaendert oder Speicherung aktiviert
+        if (
+            old_bad_dir != self.bad_images_dir
+            or old_good_dir != self.good_images_dir
+            or (self.save_bad_images and not old_save_bad)
+            or (self.save_good_images and not old_save_good)
+        ):
             self._ensure_directories()
             logging.info("Bild-Verzeichnisse aktualisiert")
     

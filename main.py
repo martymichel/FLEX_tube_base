@@ -1032,6 +1032,10 @@ class DetectionApp(QMainWindow):
         self.ui.hide_brightness_warning()
         self.ui.update_brightness(avg_brightness)
 
+        # Kameratemperatur anzeigen, falls verfügbar
+        temperature = self.camera_manager.get_camera_temperature()
+        self.ui.update_temperature(temperature)        
+
     def load_model(self):
         """Modell laden."""
         if not self.user_manager.can_change_model():

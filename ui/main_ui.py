@@ -165,16 +165,19 @@ class MainUI(QWidget):
         
         # Kompakte Hilfsfunktion für Status-Zeilen
         def _add_compact_status_row(label_text, value_widget, tooltip_text=""):
-            row_layout = QHBoxLayout()
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 0, 0, 0)
             row_layout.setSpacing(5)
-            
+
             label = QLabel(label_text)
             label.setStyleSheet(UIStyles.get_compact_status_label_style())
             if tooltip_text:
                 label.setToolTip(tooltip_text)
             row_layout.addWidget(label, 1)
             row_layout.addWidget(value_widget, 2)
-            status_layout.addLayout(row_layout)
+            status_layout.addWidget(row_widget)
+            return row_widget
         
         # Workflow-Status
         self.workflow_info = QLabel("BEREIT")
@@ -192,7 +195,15 @@ class MainUI(QWidget):
         self.brightness_info = QLabel("--")
         self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
+
         _add_compact_status_row("Helligkeit:", self.brightness_info)
+
+        # Temperatur (anfangs verborgen)
+        self.temperature_info = QLabel("--")
+        self.temperature_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.temperature_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
+        self.temperature_row = _add_compact_status_row("Temp.:", self.temperature_info)
+        self.temperature_row.setVisible(False)
         
         # Helligkeitswarnung
         self.brightness_warning = QLabel("Beleuchtung prüfen!")
@@ -676,6 +687,13 @@ class MainUI(QWidget):
         # Farbe bleibt konstant
         self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
     
+    def update_temperature(self, temperature):
+        """Temperaturanzeige aktualisieren."""
+        if temperature is None:
+            self.temperature_info.setText("--")
+        else:
+            self.temperature_info.setText(f"{temperature:.1f}°C")
+
     def show_brightness_warning(self, message):
         """Helligkeitswarnung anzeigen."""
         self.brightness_warning.setText(message)
@@ -787,7 +805,7 @@ class MainUI(QWidget):
                 display_text = f"IDS Kamera: {source_info}"
             else:
                 display_text = f"Quelle: {source_info}"
-                
+
             self.camera_btn.setText(display_text)
             self.camera_btn.setStyleSheet(UIStyles.get_camera_button_active_style())
             self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu aendern")
@@ -795,6 +813,12 @@ class MainUI(QWidget):
             self.camera_btn.setText("Modus waehlen")
             self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
             self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
+
+        # Temperatur-Anzeige je nach Kameratyp umschalten
+        if source_type == 'ids' and source_info is not None:
+            self.temperature_row.setVisible(True)
+        else:
+            self.temperature_row.setVisible(False)
     
     # =============================================================================
     # DIALOG-HANDLER

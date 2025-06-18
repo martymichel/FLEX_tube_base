@@ -280,9 +280,10 @@ class DetectionApp(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No  # Standard: Nein
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
-            self.quit_application()
+            self._shutdown_confirmed = True
+            self.close()
 
     def quit_application(self):
         """Anwendung schnell beenden."""
@@ -412,7 +413,7 @@ class DetectionApp(QMainWindow):
         self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
         self.ui.login_status_btn.clicked.connect(self.toggle_login)
         self.ui.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
-        # GEÄNDERT: quit_btn mit Bestätigung
+        # quit_btn wird hier verbunden
         self.ui.quit_btn.clicked.connect(self.confirm_quit_application)
 
     def check_settings_changes(self):
@@ -1107,6 +1108,12 @@ class DetectionApp(QMainWindow):
 
     def closeEvent(self, event):
         """Sauberes Herunterfahren mit Bestätigungsabfrage."""
+        if self._shutdown_confirmed:
+            # Bestätigung wurde bereits gegeben
+            self.quit_application()
+            event.accept()
+            return
+
         reply = QMessageBox.question(
             self,
             "Anwendung beenden",
@@ -1114,8 +1121,9 @@ class DetectionApp(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No  # Standard: Nein
         )
-        
+
         if reply == QMessageBox.StandardButton.Yes:
+            self._shutdown_confirmed = True
             self.quit_application()
             event.accept()
         else:

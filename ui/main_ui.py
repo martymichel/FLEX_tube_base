@@ -250,8 +250,6 @@ class MainUI(QWidget):
         self.quit_btn = QPushButton("SOFTWARE BEENDEN")
         self.quit_btn.setStyleSheet(UIStyles.get_quit_button_style())
         self.quit_btn.setToolTip("Anwendung beenden (ESC druecken)")
-        # GEÄNDERT: Bestätigungsabfrage hinzugefügt
-        self.quit_btn.clicked.connect(self._confirm_quit)
         layout.addWidget(self.quit_btn)
 
         # ESC-Hinweis

@@ -365,6 +365,13 @@ class MainUI(QWidget):
         """Video-Label wurde resized - Overlay anpassen."""
         # Overlay exakt über Video-Label positionieren
         self.reference_overlay.setGeometry(self.video_label.geometry())
+        # Standard: gesamter Bereich entspricht Label
+        self.reference_overlay.set_display_area(
+            self.video_label.width(),
+            self.video_label.height(),
+            0,
+            0,
+        )
         
         # Original resizeEvent aufrufen
         QLabel.resizeEvent(self.video_label, event)
@@ -738,11 +745,18 @@ class MainUI(QWidget):
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
-            
+
             self.video_label.setPixmap(scaled_pixmap)
-            
+
+            # Bereich des angezeigten Frames bestimmen
+            scaled_w = scaled_pixmap.width()
+            scaled_h = scaled_pixmap.height()
+            off_x = int((self.video_label.width() - scaled_w) / 2)
+            off_y = int((self.video_label.height() - scaled_h) / 2)
+
             # Overlay an Video-Label-Größe anpassen
             self.reference_overlay.setGeometry(self.video_label.geometry())
+            self.reference_overlay.set_display_area(scaled_w, scaled_h, off_x, off_y)
             
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")

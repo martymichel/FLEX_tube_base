@@ -13,26 +13,19 @@
     "1": {
       "assignment": "bad",
       "expected_count": -1,
-      "min_confidence": 0.5,
+      "min_confidence": 0.99,
       "color": "#FF0000"
     },
     "0": {
-      "assignment": "good",
-      "expected_count": -1,
-      "min_confidence": 0.5,
-      "color": "#00FF00"
-    },
-    "2": {
       "assignment": "ignore",
       "expected_count": -1,
-      "min_confidence": 0.5,
-      "color": "#808080"
+      "min_confidence": 1.0,
+      "color": "#00FF00"
     }
   },
   "bad_part_classes": [
     1
   ],
-  "bad_part_min_confidence": 0.5,
   "good_part_classes": [
     0
   ],
@@ -57,32 +50,36 @@
   "parquet_log_max_files": 1000000,
   "reference_lines": [
     {
-      "enabled": false,
+      "enabled": true,
       "type": "horizontal",
-      "position": 50,
+      "position": 60.0,
       "color": "red",
-      "thickness": 2
+      "thickness": 0.7,
+      "alpha": 10
     },
     {
-      "enabled": false,
+      "enabled": true,
       "type": "vertical",
-      "position": 50,
+      "position": 88.0,
       "color": "green",
-      "thickness": 2
+      "thickness": 1.1,
+      "alpha": 10
     },
     {
       "enabled": false,
       "type": "horizontal",
-      "position": 25,
+      "position": 25.0,
       "color": "blue",
-      "thickness": 2
+      "thickness": 2.0,
+      "alpha": 200
     },
     {
       "enabled": false,
       "type": "horizontal",
-      "position": 75,
+      "position": 75.0,
       "color": "yellow",
-      "thickness": 2
+      "thickness": 2.0,
+      "alpha": 200
     }
   ],
   "sidebar_width": 350,

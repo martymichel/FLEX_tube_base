@@ -252,19 +252,6 @@ class SettingsDialog(QDialog):
         self._add_cycle_arrow(layout, loop=True)
         self._add_spacer(layout)
         
-        # Allgemeine Konfidenz
-        general_conf_info = self._create_info_label(
-            "Grundschwellwert für alle KI-Erkennungen. Nur Erkennungen über diesem Wert werden berücksichtigt. "
-            "Höhere Werte = weniger falsche Erkennungen, aber eventuell werden echte Objekte übersehen."
-        )
-        layout.addRow(general_conf_info)
-        
-        self.confidence_spin = QDoubleSpinBox()
-        self.confidence_spin.setRange(0.1, 1.0)
-        self.confidence_spin.setSingleStep(0.1)
-        self.confidence_spin.setDecimals(2)
-        layout.addRow("Allgemeine Konfidenz-Schwelle:", self.confidence_spin)
-        
         self.tab_widget.addTab(scroll, "⚙️ Allgemein")
     
     def _create_class_assignments_tab(self):
@@ -507,8 +494,10 @@ class SettingsDialog(QDialog):
         layout.addRow("Richtung:", widgets['type'])
         
         # Position
-        widgets['position'] = QSpinBox()
+        widgets['position'] = QDoubleSpinBox()
         widgets['position'].setRange(0, 100)
+        widgets['position'].setDecimals(1)
+        widgets['position'].setSingleStep(0.1)        
         widgets['position'].setSuffix(" %")
         layout.addRow("Position (0-100%):", widgets['position'])
         
@@ -518,10 +507,17 @@ class SettingsDialog(QDialog):
         layout.addRow("Farbe:", widgets['color'])
         
         # Dicke
-        widgets['thickness'] = QSpinBox()
-        widgets['thickness'].setRange(1, 10)
+        widgets['thickness'] = QDoubleSpinBox()
+        widgets['thickness'].setRange(0.5, 10.0)
+        widgets['thickness'].setDecimals(1)
+        widgets['thickness'].setSingleStep(0.1)
         widgets['thickness'].setSuffix(" px")
         layout.addRow("Dicke:", widgets['thickness'])
+
+        # Transparenz
+        widgets['alpha'] = QSpinBox()
+        widgets['alpha'].setRange(0, 255)
+        layout.addRow("Transparenz (0-255):", widgets['alpha'])        
         
         self.reference_line_widgets.append(widgets)
         return frame
@@ -602,11 +598,11 @@ class SettingsDialog(QDialog):
                 border-color: #d5dbdb;
             }
         """)
-        layout.addRow("WAGO IP-Adresse:", self.modbus_ip_input)
+        layout.addRow("Modbus IP: (nach Neustart übernommen)", self.modbus_ip_input)
         
         # NEU: Port editierbar (nur wenn getrennt)
         modbus_port_info = self._create_info_label(
-            "Modbus-TCP Port des WAGO Controllers (Standard: 502). Aenderungen sind nur moeglich, wenn die Modbus-Verbindung getrennt ist."
+            "Modbus-TCP Port des WAGO Controllers (Standard: 502). Aenderungen sind nur moeglich, wenn die Modbus-Verbindung getrennt ist.\nEine Aenderung der IP-Adresse oder des Ports erfordert einen Neustart der Anwendung, um wirksam zu werden."
         )
         layout.addRow(modbus_port_info)
         
@@ -1170,7 +1166,6 @@ class SettingsDialog(QDialog):
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
         self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
         self.wait_after_blow_off_time_spin.setValue(self.settings.get('wait_after_blow_off_time', 0.5))
-        self.confidence_spin.setValue(self.settings.get('confidence_threshold', 0.5))
         
         # Erweiterte Klassenzuteilungen laden
         self._load_class_assignments()
@@ -1185,9 +1180,18 @@ class SettingsDialog(QDialog):
         else:
             self.camera_config_path_label.setText("Keine Konfiguration ausgewählt")
         
-        # MODBUS: Nur IP laden
-        self.modbus_ip_input.setText(self.settings.get('modbus_ip', '192.168.1.100'))
+        # MODBUS: IP aus aktuellem Modbus-Manager lesen
+        ip_value = self.settings.get('modbus_ip', '192.168.1.100')
+        detection_running = False
+        if hasattr(self.parent_app, 'app'):
+            ip_value = self.parent_app.app.modbus_manager.ip_address
+            detection_running = self.parent_app.app.running
+
+        self.modbus_ip_input.setText(ip_value)
+        self.modbus_ip_input.setEnabled(not detection_running)
+
         self.modbus_port_spin.setValue(self.settings.get('modbus_port', 502))
+        self.modbus_port_spin.setEnabled(not detection_running)
         
         # Modbus-Buttons je nach Admin-Status aktivieren/deaktivieren
         if hasattr(self.parent_app, 'app'):
@@ -1246,9 +1250,10 @@ class SettingsDialog(QDialog):
                 
                 widgets['enabled'].setChecked(line_config.get('enabled', False))
                 widgets['type'].setCurrentText(line_config.get('type', 'horizontal'))
-                widgets['position'].setValue(line_config.get('position', 50))
+                widgets['position'].setValue(line_config.get('position', 50.0))
                 widgets['color'].setCurrentText(line_config.get('color', 'red'))
-                widgets['thickness'].setValue(line_config.get('thickness', 2))
+                widgets['thickness'].setValue(line_config.get('thickness', 2.0))
+                widgets['alpha'].setValue(line_config.get('alpha', 200))
     
     def save_settings(self):
         """Einstellungen speichern."""
@@ -1258,7 +1263,6 @@ class SettingsDialog(QDialog):
         self.settings.set('capture_time', self.capture_time_spin.value())
         self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         self.settings.set('wait_after_blow_off_time', self.wait_after_blow_off_time_spin.value())
-        self.settings.set('confidence_threshold', self.confidence_spin.value())
         
         # Erweiterte Klassenzuteilungen speichern
         self._save_class_assignments()
@@ -1288,6 +1292,13 @@ class SettingsDialog(QDialog):
         self.settings.set('brightness_duration_threshold', self.brightness_duration_spin.value())
         
         self.settings.save()
+        # Apply changes immediately to running engine
+        if self.parent_app and hasattr(self.parent_app, "app"):
+            app = self.parent_app.app
+            if hasattr(app, "detection_engine") and app.detection_engine.model_loaded:
+                app.apply_class_settings_to_engine()
+                threshold = self.settings.get('confidence_threshold', 0.5)
+                app.detection_engine.set_confidence_threshold(threshold)        
         self.accept()
     
     def _save_class_assignments(self):
@@ -1347,7 +1358,8 @@ class SettingsDialog(QDialog):
                 'type': widgets['type'].currentText(),
                 'position': widgets['position'].value(),
                 'color': widgets['color'].currentText(),
-                'thickness': widgets['thickness'].value()
+                'thickness': widgets['thickness'].value(),
+                'alpha': widgets['alpha'].value()
             }
             reference_lines.append(line_config)
         

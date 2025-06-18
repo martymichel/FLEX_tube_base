@@ -20,26 +20,41 @@ class ReferenceLineOverlay(QWidget):
         
         # Referenzlinien-Daten
         self.reference_lines = []
-        
-        # Standard-Laser-Farben
+
+        # Bereich des angezeigten Video-Streams innerhalb des Widgets
+        self.display_width = 0
+        self.display_height = 0
+        self.display_offset_x = 0
+        self.display_offset_y = 0
+
+        # Standard-Laser-Farben (ohne Alpha)
         self.laser_colors = {
-            'red': QColor(255, 0, 0, 200),
-            'green': QColor(0, 255, 0, 200), 
-            'blue': QColor(0, 100, 255, 200),
-            'yellow': QColor(255, 255, 0, 200),
-            'cyan': QColor(0, 255, 255, 200),
-            'magenta': QColor(255, 0, 255, 200),
-            'white': QColor(255, 255, 255, 200),
-            'orange': QColor(255, 165, 0, 200)
+            'red': QColor(255, 0, 0),
+            'green': QColor(0, 255, 0),
+            'blue': QColor(0, 100, 255),
+            'yellow': QColor(255, 255, 0),
+            'cyan': QColor(0, 255, 255),
+            'magenta': QColor(255, 0, 255),
+            'white': QColor(255, 255, 255),
+            'orange': QColor(255, 165, 0)
         }
+
+    def set_display_area(self, width, height, offset_x=0, offset_y=0):
+        """Sichtbaren Video-Bereich aktualisieren."""
+        self.display_width = width
+        self.display_height = height
+        self.display_offset_x = offset_x
+        self.display_offset_y = offset_y
+        self.update()
     
     def update_reference_lines(self, lines_config):
         """Referenzlinien-Konfiguration aktualisieren.
-        
+
         Args:
             lines_config (list): Liste von Linien-Dictionaries
-                Format: [{'enabled': bool, 'type': 'horizontal'/'vertical', 
-                         'position': int (0-100%), 'color': str, 'thickness': int}]
+                Format: [{'enabled': bool, 'type': 'horizontal'/'vertical',
+                         'position': float (0-100%), 'color': str,
+                         'thickness': float, 'alpha': int}]
         """
         self.reference_lines = lines_config or []
         self.update()  # Widget neu zeichnen
@@ -55,7 +70,7 @@ class ReferenceLineOverlay(QWidget):
         # Widget-Dimensionen
         width = self.width()
         height = self.height()
-        
+
         if width <= 0 or height <= 0:
             return
         
@@ -66,32 +81,55 @@ class ReferenceLineOverlay(QWidget):
             try:
                 # Linien-Parameter extrahieren
                 line_type = line_config.get('type', 'horizontal')
-                position_percent = line_config.get('position', 50)  # 0-100%
+                position_percent = line_config.get('position', 50.0)  # 0-100
                 color_name = line_config.get('color', 'red')
-                thickness = line_config.get('thickness', 2)
-                
+                thickness = line_config.get('thickness', 2.0)
+                alpha = line_config.get('alpha', 200)
+
                 # Farbe bestimmen
-                color = self.laser_colors.get(color_name, self.laser_colors['red'])
-                
+                base_color = self.laser_colors.get(color_name, self.laser_colors['red'])
+                color = QColor(base_color)
+                color.setAlpha(max(0, min(255, alpha)))
+
                 # Laser-Effekt: Hauptlinie + Glow
-                self._draw_laser_line(painter, line_type, position_percent, 
-                                    color, thickness, width, height)
+                self._draw_laser_line(
+                    painter,
+                    line_type,
+                    position_percent,
+                    color,
+                    thickness,
+                    self.display_width or width,
+                    self.display_height or height,
+                    self.display_offset_x,
+                    self.display_offset_y,
+                )
                 
             except Exception as e:
                 logging.error(f"Fehler beim Zeichnen der Referenzlinie: {e}")
     
-    def _draw_laser_line(self, painter, line_type, position_percent, color, thickness, width, height):
+    def _draw_laser_line(
+        self,
+        painter,
+        line_type,
+        position_percent,
+        color,
+        thickness,
+        width,
+        height,
+        offset_x=0,
+        offset_y=0,
+    ):
         """Zeichne eine einzelne Laser-Linie mit Glow-Effekt."""
-        
-        # Position berechnen
+
+        # Position berechnen basierend auf dem sichtbaren Bereich
         if line_type == 'horizontal':
-            y = int((position_percent / 100.0) * height)
-            start_point = (0, y)
-            end_point = (width, y)
+            y = offset_y + int((position_percent / 100.0) * height)
+            start_point = (offset_x, y)
+            end_point = (offset_x + width, y)
         else:  # vertical
-            x = int((position_percent / 100.0) * width)
-            start_point = (x, 0)
-            end_point = (x, height)
+            x = offset_x + int((position_percent / 100.0) * width)
+            start_point = (x, offset_y)
+            end_point = (x, offset_y + height)
         
         # Glow-Effekt (mehrere Linien mit abnehmender Transparenz)
         glow_steps = 3
@@ -118,7 +156,7 @@ class ReferenceLineOverlay(QWidget):
         # Zentrale helle Linie für Laser-Effekt
         if thickness > 1:
             center_color = QColor(255, 255, 255, 180)
-            center_pen = QPen(center_color, max(1, thickness // 2))
+            center_pen = QPen(center_color, max(1.0, thickness / 2))
             center_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             painter.setPen(center_pen)
             

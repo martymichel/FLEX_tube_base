@@ -110,7 +110,6 @@ class Settings:
             
             # DEPRECATED - Wird durch class_assignments ersetzt, aber für Kompatibilität beibehalten
             'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
-            'bad_part_min_confidence': 0.5, # Mindest-Konfidenz für Schlecht-Teile
             'good_part_classes': [0],     # Klassen-IDs die als "gut" gelten
             'class_colors': {},           # Wird durch class_assignments.color ersetzt
             
@@ -148,28 +147,32 @@ class Settings:
                     'type': 'horizontal',     # 'horizontal' oder 'vertical'
                     'position': 50,           # Position in % (0-100)
                     'color': 'red',           # Farbe: red, green, blue, yellow, cyan, magenta, white, orange
-                    'thickness': 2            # Dicke in Pixeln
+                    'thickness': 2,            # Dicke in Pixeln
+                    'alpha': 200                # Transparenz (0-255)
                 },
                 {
                     'enabled': False,
                     'type': 'vertical',
                     'position': 50,
                     'color': 'green',
-                    'thickness': 2
+                    'thickness': 2,
+                    'alpha': 200
                 },
                 {
                     'enabled': False,
                     'type': 'horizontal',
                     'position': 25,
                     'color': 'blue',
-                    'thickness': 2
+                    'thickness': 2,
+                    'alpha': 200
                 },
                 {
                     'enabled': False,
                     'type': 'horizontal',
                     'position': 75,
                     'color': 'yellow',
-                    'thickness': 2
+                    'thickness': 2,
+                    'alpha': 200
                 }
             ],
             
@@ -209,6 +212,7 @@ class Settings:
         
         # Migriere bad_part_classes
         bad_classes = self.data.get('bad_part_classes', [])
+        # Alte globale Konfidenzschwelle (falls noch vorhanden)
         bad_confidence = self.data.get('bad_part_min_confidence', 0.5)
         
         for class_id in bad_classes:

@@ -678,6 +678,9 @@ class DetectionApp(QMainWindow):
             detections = []
             if self.detection_running and self.running:
                 detections = self.detection_engine.detect(frame)
+                allowed = set(int(cid) for cid in self.settings.get('class_assignments', {}).keys())
+                if allowed:
+                    detections = [d for d in detections if d[5] in allowed]                
                 self.current_frame_detections = detections
                 self.update_cycle_statistics_extended(detections)
                 self.cycle_image_count += 1

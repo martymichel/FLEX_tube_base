@@ -50,8 +50,8 @@ class MotionManager:
         # Rauschen unterdruecken
         _, fg_mask = cv2.threshold(fg_mask, 150, 255, cv2.THRESH_BINARY)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel, iterations=2)
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel, iterations=1)  # iterations bedeuten die Anzahl der Morphologie-Operationen
+        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
 
         motion_pixels = cv2.countNonZero(fg_mask)
 
@@ -59,7 +59,7 @@ class MotionManager:
         if len(self.motion_values) > 3:
             self.motion_values.pop(0)
 
-        avg_motion = np.median(self.motion_values)
+        avg_motion = np.mean(self.motion_values)
         self.smoothed_motion_pixels = avg_motion
 
         current_motion = min(255, avg_motion / 100)
@@ -75,7 +75,7 @@ class MotionManager:
         has_motion = avg_motion > motion_threshold
 
         self.motion_history.append(has_motion)
-        if len(self.motion_history) > 5:
+        if len(self.motion_history) > 3:
             self.motion_history.pop(0)
 
         stable_motion = sum(self.motion_history) >= 3

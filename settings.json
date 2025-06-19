@@ -4,7 +4,7 @@
   "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
   "last_mode_was_video": true,
   "camera_config_path": "",
-  "motion_threshold": 60,
+  "motion_threshold": 50,
   "settling_time": 0.5,
   "capture_time": 2.4,
   "reject_coil_duration_seconds": 0.1,

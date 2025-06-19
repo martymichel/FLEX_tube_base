@@ -4,14 +4,14 @@
   "last_source": "C:/Users/Michel/Videos/video_20250619_141029.mp4",
   "last_mode_was_video": true,
   "camera_config_path": "",
-  "motion_threshold": 100,
+  "motion_threshold": 120,
   "motion_learning_seconds": 60.0,
-  "motion_noise_baseline": 1.5100687742233276,
-  "motion_scaling_factor": 62.87466049194336,
+  "motion_noise_baseline": 1.4425349235534668,
+  "motion_scaling_factor": 58.86857986450195,
   "motion_calibrated": true,
   "settling_time": 0.8,
   "capture_time": 3.0,
-  "wait_after_blow_off_time": 0.5,
+  "wait_after_blow_off_time": 0.9999999999999999,
   "class_assignments": {
     "1": {
       "assignment": "bad",

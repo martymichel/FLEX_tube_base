@@ -181,7 +181,7 @@ class MainUI(QWidget):
             row_layout.addWidget(label, 1)
             row_layout.addWidget(value_widget, 2)
             if extra_widget is not None:
-                row_layout.addWidget(extra_widget, 1)            
+                row_layout.addWidget(extra_widget, 1)
             status_layout.addWidget(row_widget)
             return row_widget
         
@@ -189,12 +189,7 @@ class MainUI(QWidget):
         self.workflow_info = QLabel("BEREIT")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workflow_info.setStyleSheet(UIStyles.get_workflow_status_style("#34495e"))
-
-        self.motion_status = QLabel("Unkalibriert")
-        self.motion_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.motion_status.setStyleSheet(UIStyles.get_motion_status_style("#e67e22"))
-
-        _add_compact_status_row("Bewegung:", self.motion_info, extra_widget=self.motion_status)
+        _add_compact_status_row("Workflow:", self.workflow_info)
         
         # Motion-Wert + Kalibrierungsstatus
         self.motion_info.setParent(None)
@@ -206,7 +201,7 @@ class MainUI(QWidget):
         self.motion_status.setStyleSheet(UIStyles.get_motion_status_style("#e67e22"))
 
         _add_compact_status_row("Bewegung:", self.motion_info, extra_widget=self.motion_status)
-        
+
         # Helligkeit
         self.brightness_info = QLabel("--")
         self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -700,7 +695,7 @@ class MainUI(QWidget):
         }
         color = colors.get(status, '#7f8c8d')
         self.motion_status.setStyleSheet(UIStyles.get_motion_status_style(color))
-        
+
     def update_brightness(self, brightness):
         """Helligkeitsanzeige aktualisieren."""
         self.brightness_info.setText(f"{brightness:.0f}")

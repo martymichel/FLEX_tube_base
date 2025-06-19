@@ -517,6 +517,8 @@ class UIStyles:
             border-radius: 4px;
             font-weight: bold;
             font-size: 11px;
+            min-width: 50px;
+            max-width: 50px;
         """
 
     @staticmethod

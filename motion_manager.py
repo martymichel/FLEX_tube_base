@@ -30,16 +30,14 @@ class MotionManager:
             learning_seconds=learning_seconds,
             noise_baseline=baseline,
             scaling_factor=scaling,
-            start_learning=not calibrated,
+            start_learning=False,
         )
-        self.use_new_method = calibrated and not self.detector.is_learning_phase()
+        self.use_new_method = calibrated
 
         # Status-Callback initial aktualisieren
         if self.status_callback:
-            if calibrated and not self.detector.is_learning_phase():
+            if calibrated:
                 self.status_callback("Kalibriert OK")
-            elif self.detector.is_learning_phase():
-                self.status_callback("Lernt...")
             else:
                 self.status_callback("Unkalibriert")
 
@@ -58,6 +56,8 @@ class MotionManager:
         # Detector-Zustand zurücksetzen (ohne Lernphase neu zu starten)
         self.detector.prev_frame_small = None
         self.detector.motion_history.clear()
+        self.detector.roi_slice = None
+        self.detector.frame_size = None
 
     def update(self, frame):
         """Aktualisiert Motion-Wert und prueft auf stabile Bewegung.

@@ -265,7 +265,7 @@ class SettingsDialog(QDialog):
 
         self.motion_calibration_btn = QPushButton("🎬 Kalibrierung starten")
         self.motion_calibration_btn.clicked.connect(self.start_motion_calibration)
-        layout.addRow(self.motion_calibration_btn)     
+        layout.addRow(self.motion_calibration_btn)
         self._add_spacer(layout)
         
         self.tab_widget.addTab(scroll, "⚙️ Allgemein")

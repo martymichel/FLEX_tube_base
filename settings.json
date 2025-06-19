@@ -1,10 +1,10 @@
 {
   "confidence_threshold": 0.5,
-  "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
-  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
+  "last_model": "G:/OneDrive - Flex/3_ARBEIT ARBEIT ARBEIT/12_INSPECTUBE/KI Modell Backup/Model 01179.041 M Outer Tube C.pt",
+  "last_source": "C:/Users/Michel/Videos/video_20250619_141029.mp4",
   "last_mode_was_video": true,
   "camera_config_path": "",
-  "motion_threshold": 50,
+  "motion_threshold": 40,
   "settling_time": 0.5,
   "capture_time": 2.4,
   "reject_coil_duration_seconds": 0.1,
@@ -50,7 +50,7 @@
   "parquet_log_max_files": 1000000,
   "reference_lines": [
     {
-      "enabled": true,
+      "enabled": false,
       "type": "horizontal",
       "position": 60.0,
       "color": "red",
@@ -58,7 +58,7 @@
       "alpha": 10
     },
     {
-      "enabled": true,
+      "enabled": false,
       "type": "vertical",
       "position": 88.0,
       "color": "green",

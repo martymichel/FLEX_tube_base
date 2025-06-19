@@ -92,6 +92,10 @@ class Settings:
             
             # Workflow - Zeiteinstellungen
             'motion_threshold': 110,      # Schwellwert für Bewegungserkennung
+            'motion_learning_seconds': 60.0,  # Dauer der Motion-Kalibrierung
+            'motion_noise_baseline': 2.0,     # Gelerntes Grundrauschen
+            'motion_scaling_factor': 8.0,     # Gelerntes Skalierungsfaktor
+            'motion_calibrated': False,       # Wurde bereits kalibriert?            
             'settling_time': 1.0,         # Ausschwingzeit nach Bewegung (Sekunden)
             'capture_time': 3.0,          # Aufnahme-/Erkennungszeit (Sekunden)
             'wait_after_blow_off_time': 0.5,  # Verzögerung nach Abblasen (Sekunden)

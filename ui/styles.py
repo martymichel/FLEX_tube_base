@@ -517,9 +517,20 @@ class UIStyles:
             border-radius: 4px;
             font-weight: bold;
             font-size: 11px;
-            min-width: 50px;
         """
-    
+
+    @staticmethod
+    def get_motion_status_style(color):
+        """Style für Motion-Kalibrierungsstatus."""
+        return f"""
+            background-color: {color};
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 10px;
+        """
+        
     @staticmethod
     def get_brightness_warning_style():
         """Style für Brightness Warning."""

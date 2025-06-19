@@ -511,18 +511,3 @@ class CameraManager:
                 pass
 
         return info
-
-    def get_camera_temperature(self):
-        """Aktuelle Kameratemperatur ermitteln (nur IDS)."""
-        if self.source_type != 'ids' or not self.remote_device_nodemap:
-            return None
-
-        for node_name in ["DeviceTemperature", "SensorTemperature"]:
-            try:
-                node = self.remote_device_nodemap.FindNode(node_name)
-                if node and node.IsValid():
-                    return node.Value()
-            except Exception:
-                continue
-
-        return None

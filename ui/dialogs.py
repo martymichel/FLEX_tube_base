@@ -250,6 +250,22 @@ class SettingsDialog(QDialog):
         self.wait_after_blow_off_time_spin.setDecimals(1)
         layout.addRow("Wartezeit nach Abblasen (Sekunden):", self.wait_after_blow_off_time_spin)
         self._add_cycle_arrow(layout, loop=True) # Symbol für Schleife
+
+        # Motion-Kalibrierung
+        calib_info = self._create_info_label(
+            "Führt eine kurze Lernphase durch, um die Bewegungserkennung zu kalibrieren.\n"
+            "Während des Lernens wird weiterhin die Standard-Methode verwendet."
+        )
+        layout.addRow(calib_info)
+
+        self.motion_learning_spin = QDoubleSpinBox()
+        self.motion_learning_spin.setRange(5.0, 300.0)
+        self.motion_learning_spin.setSingleStep(5.0)
+        layout.addRow("Kalibrierungsdauer (Sekunden):", self.motion_learning_spin)
+
+        self.motion_calibration_btn = QPushButton("🎬 Kalibrierung starten")
+        self.motion_calibration_btn.clicked.connect(self.start_motion_calibration)
+        layout.addRow(self.motion_calibration_btn)     
         self._add_spacer(layout)
         
         self.tab_widget.addTab(scroll, "⚙️ Allgemein")
@@ -1079,6 +1095,17 @@ class SettingsDialog(QDialog):
             self.modbus_reset_btn.setToolTip(f"WAGO Controller zurücksetzen (Admin) - GETRENNT{hint}")
             self.modbus_reconnect_btn.setToolTip(f"Modbus neu verbinden (Admin) - GETRENNT{hint}")
 
+    def start_motion_calibration(self):
+        """Kalibrierung der Bewegungserkennung starten."""
+        duration = self.motion_learning_spin.value()
+        if hasattr(self.parent_app, 'app'):
+            self.parent_app.app.motion_manager.start_calibration(duration)
+        QMessageBox.information(
+            self,
+            "Kalibrierung gestartet",
+            f"Die Kalibrierung läuft nun für {duration:.0f} Sekunden."
+        )
+
     # =============================================================================
     # EVENT HANDLER-METHODEN
     # =============================================================================
@@ -1163,6 +1190,7 @@ class SettingsDialog(QDialog):
         self.capture_time_spin.setValue(self.settings.get('capture_time', 3.0))
         self.reject_coil_duration_spin.setValue(self.settings.get('reject_coil_duration_seconds', 1.0))
         self.wait_after_blow_off_time_spin.setValue(self.settings.get('wait_after_blow_off_time', 0.5))
+        self.motion_learning_spin.setValue(self.settings.get('motion_learning_seconds', 60.0))
         
         # Erweiterte Klassenzuteilungen laden
         self._load_class_assignments()
@@ -1255,6 +1283,7 @@ class SettingsDialog(QDialog):
         self.settings.set('capture_time', self.capture_time_spin.value())
         self.settings.set('reject_coil_duration_seconds', self.reject_coil_duration_spin.value())
         self.settings.set('wait_after_blow_off_time', self.wait_after_blow_off_time_spin.value())
+        self.settings.set('motion_learning_seconds', self.motion_learning_spin.value())
         
         # Erweiterte Klassenzuteilungen speichern
         self._save_class_assignments()

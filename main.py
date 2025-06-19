@@ -103,8 +103,11 @@ class DetectionApp(QMainWindow):
         self.update_timer.timeout.connect(self.process_frame)
 
         # Motion Detection
-        self.motion_manager = MotionManager(self.settings,
-                                            self.ui.update_motion)           
+        self.motion_manager = MotionManager(
+            self.settings,
+            self.ui.update_motion,
+            self.ui.update_motion_status,
+        ) 
         self.no_motion_stable_count = 0
 
 
@@ -390,6 +393,15 @@ class DetectionApp(QMainWindow):
                 elif not last_mode_was_video and isinstance(last_source, int):
                     if self.camera_manager.set_source(last_source):
                         self.ui.update_camera_status(last_source, 'webcam')
+                elif (
+                    not last_mode_was_video
+                    and isinstance(last_source, (list, tuple))
+                    and len(last_source) == 2
+                    and last_source[0] == 'ids'
+                ):
+                    ids_source = ('ids', int(last_source[1]))
+                    if self.camera_manager.set_source(ids_source):
+                        self.ui.update_camera_status(ids_source[1], 'ids')                        
             
             # Status setzen basierend auf Modbus-Verbindung
             if self.detection_engine.model_loaded and self.camera_manager.camera_ready:
@@ -974,11 +986,7 @@ class DetectionApp(QMainWindow):
             self.high_brightness_start = None
         
         self.ui.hide_brightness_warning()
-        self.ui.update_brightness(avg_brightness)
-
-        # Kameratemperatur anzeigen, falls verfügbar
-        temperature = self.camera_manager.get_camera_temperature()
-        self.ui.update_temperature(temperature)        
+        self.ui.update_brightness(avg_brightness)   
 
     def load_model(self):
         """Modell laden."""

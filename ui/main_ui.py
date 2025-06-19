@@ -40,6 +40,10 @@ class MainUI(QWidget):
         self.flash_timer.timeout.connect(self._flash_step)
         self.flash_count = 0
         self.is_flashing = False
+
+        # Platzhalter fuer spaeter erzeugte Widgets
+        self.motion_info = QLabel("--")
+        self.motion_status = QLabel("Unkalibriert")
         
         self.setup_ui()
         
@@ -164,7 +168,7 @@ class MainUI(QWidget):
         status_layout.setSpacing(8)
         
         # Kompakte Hilfsfunktion für Status-Zeilen
-        def _add_compact_status_row(label_text, value_widget, tooltip_text=""):
+        def _add_compact_status_row(label_text, value_widget, tooltip_text="", extra_widget=None):
             row_widget = QWidget()
             row_layout = QHBoxLayout(row_widget)
             row_layout.setContentsMargins(0, 0, 0, 0)
@@ -176,6 +180,8 @@ class MainUI(QWidget):
                 label.setToolTip(tooltip_text)
             row_layout.addWidget(label, 1)
             row_layout.addWidget(value_widget, 2)
+            if extra_widget is not None:
+                row_layout.addWidget(extra_widget, 1)            
             status_layout.addWidget(row_widget)
             return row_widget
         
@@ -183,13 +189,23 @@ class MainUI(QWidget):
         self.workflow_info = QLabel("BEREIT")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.workflow_info.setStyleSheet(UIStyles.get_workflow_status_style("#34495e"))
-        _add_compact_status_row("Workflow:", self.workflow_info)
+
+        self.motion_status = QLabel("Unkalibriert")
+        self.motion_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_status.setStyleSheet(UIStyles.get_motion_status_style("#e67e22"))
+
+        _add_compact_status_row("Bewegung:", self.motion_info, extra_widget=self.motion_status)
         
-        # Motion-Wert
-        self.motion_info = QLabel("--")
+        # Motion-Wert + Kalibrierungsstatus
+        self.motion_info.setParent(None)
+        self.motion_status.setParent(None)
         self.motion_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.motion_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
-        _add_compact_status_row("Bewegung:", self.motion_info)
+
+        self.motion_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_status.setStyleSheet(UIStyles.get_motion_status_style("#e67e22"))
+
+        _add_compact_status_row("Bewegung:", self.motion_info, extra_widget=self.motion_status)
         
         # Helligkeit
         self.brightness_info = QLabel("--")
@@ -198,13 +214,6 @@ class MainUI(QWidget):
 
         _add_compact_status_row("Helligkeit:", self.brightness_info)
 
-        # Temperatur (anfangs verborgen)
-        self.temperature_info = QLabel("--")
-        self.temperature_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.temperature_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
-        self.temperature_row = _add_compact_status_row("Temp.:", self.temperature_info)
-        self.temperature_row.setVisible(False)
-        
         # Helligkeitswarnung
         self.brightness_warning = QLabel("Beleuchtung prüfen!")
         self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -680,19 +689,23 @@ class MainUI(QWidget):
         self.motion_info.setText(f"{motion_value:.0f}")
         # Farbe bleibt konstant
         self.motion_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
-    
+
+    def update_motion_status(self, status):
+        """Kalibrierungsstatus anzeigen."""
+        self.motion_status.setText(status)
+        colors = {
+            'Unkalibriert': '#e67e22',
+            'Lernt...': '#f39c12',
+            'Kalibriert OK': '#27ae60',
+        }
+        color = colors.get(status, '#7f8c8d')
+        self.motion_status.setStyleSheet(UIStyles.get_motion_status_style(color))
+        
     def update_brightness(self, brightness):
         """Helligkeitsanzeige aktualisieren."""
         self.brightness_info.setText(f"{brightness:.0f}")
         # Farbe bleibt konstant
         self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
-    
-    def update_temperature(self, temperature):
-        """Temperaturanzeige aktualisieren."""
-        if temperature is None:
-            self.temperature_info.setText("--")
-        else:
-            self.temperature_info.setText(f"{temperature:.1f}°C")
 
     def show_brightness_warning(self, message):
         """Helligkeitswarnung anzeigen."""
@@ -818,12 +831,6 @@ class MainUI(QWidget):
             self.camera_btn.setText("Modus waehlen")
             self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
             self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
-
-        # Temperatur-Anzeige je nach Kameratyp umschalten
-        if source_type == 'ids' and source_info is not None:
-            self.temperature_row.setVisible(True)
-        else:
-            self.temperature_row.setVisible(False)
     
     # =============================================================================
     # DIALOG-HANDLER

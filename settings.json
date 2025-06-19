@@ -4,20 +4,23 @@
   "last_source": "C:/Users/Michel/Videos/video_20250619_141029.mp4",
   "last_mode_was_video": true,
   "camera_config_path": "",
-  "motion_threshold": 40,
-  "settling_time": 0.5,
-  "capture_time": 2.4,
-  "reject_coil_duration_seconds": 0.1,
-  "wait_after_blow_off_time": 2.0,
+  "motion_threshold": 100,
+  "motion_learning_seconds": 60.0,
+  "motion_noise_baseline": 1.5100687742233276,
+  "motion_scaling_factor": 62.87466049194336,
+  "motion_calibrated": true,
+  "settling_time": 0.8,
+  "capture_time": 3.0,
+  "wait_after_blow_off_time": 0.5,
   "class_assignments": {
     "1": {
       "assignment": "bad",
       "expected_count": -1,
-      "min_confidence": 0.6,
+      "min_confidence": 0.5,
       "color": "#FF0000"
     },
     "0": {
-      "assignment": "ignore",
+      "assignment": "good",
       "expected_count": -1,
       "min_confidence": 0.5,
       "color": "#00FF00"
@@ -40,6 +43,7 @@
   "watchdog_interval_seconds": 2,
   "reject_coil_address": 0,
   "detection_active_coil_address": 1,
+  "reject_coil_duration_seconds": 1.0,
   "save_bad_images": false,
   "save_good_images": false,
   "bad_images_directory": "bad_images",
@@ -52,18 +56,18 @@
     {
       "enabled": false,
       "type": "horizontal",
-      "position": 60.0,
+      "position": 50.0,
       "color": "red",
-      "thickness": 0.7,
-      "alpha": 10
+      "thickness": 2.0,
+      "alpha": 200
     },
     {
       "enabled": false,
       "type": "vertical",
-      "position": 88.0,
+      "position": 50.0,
       "color": "green",
-      "thickness": 1.1,
-      "alpha": 10
+      "thickness": 2.0,
+      "alpha": 200
     },
     {
       "enabled": false,

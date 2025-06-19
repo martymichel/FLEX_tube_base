@@ -776,6 +776,11 @@ class MainUI(QWidget):
             
         except Exception as e:
             print(f"Fehler beim Video-Update: {e}")
+
+    def clear_video(self):
+        """Video-Anzeige leeren."""
+        self.video_label.clear()
+        self.video_label.setText("Kein Stream verfuegbar")            
     
     # =============================================================================
     # STATUS-BUTTON UPDATE-METHODEN

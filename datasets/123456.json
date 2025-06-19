@@ -1,28 +1,14 @@
 {
   "confidence_threshold": 0.5,
   "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
-  "last_source": 3,
-  "last_mode_was_video": false,
+  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
+  "last_mode_was_video": true,
   "camera_config_path": "",
-  "motion_threshold": 60,
-  "settling_time": 0.5,
-  "capture_time": 2.4,
-  "reject_coil_duration_seconds": 0.1,
-  "wait_after_blow_off_time": 2.0,
-  "class_assignments": {
-    "1": {
-      "assignment": "bad",
-      "expected_count": -1,
-      "min_confidence": 0.99,
-      "color": "#FF0000"
-    },
-    "0": {
-      "assignment": "ignore",
-      "expected_count": -1,
-      "min_confidence": 1.0,
-      "color": "#00FF00"
-    }
-  },
+  "motion_threshold": 110,
+  "settling_time": 1.0,
+  "capture_time": 3.0,
+  "wait_after_blow_off_time": 0.5,
+  "class_assignments": {},
   "bad_part_classes": [
     1
   ],
@@ -40,6 +26,7 @@
   "watchdog_interval_seconds": 2,
   "reject_coil_address": 0,
   "detection_active_coil_address": 1,
+  "reject_coil_duration_seconds": 1.0,
   "save_bad_images": false,
   "save_good_images": false,
   "bad_images_directory": "bad_images",
@@ -50,35 +37,35 @@
   "parquet_log_max_files": 1000000,
   "reference_lines": [
     {
-      "enabled": true,
+      "enabled": false,
       "type": "horizontal",
-      "position": 60.0,
+      "position": 50,
       "color": "red",
-      "thickness": 0.7,
-      "alpha": 10
-    },
-    {
-      "enabled": true,
-      "type": "vertical",
-      "position": 88.0,
-      "color": "green",
-      "thickness": 1.1,
-      "alpha": 10
+      "thickness": 2,
+      "alpha": 200
     },
     {
       "enabled": false,
-      "type": "horizontal",
-      "position": 25.0,
-      "color": "blue",
-      "thickness": 2.0,
+      "type": "vertical",
+      "position": 50,
+      "color": "green",
+      "thickness": 2,
       "alpha": 200
     },
     {
       "enabled": false,
       "type": "horizontal",
-      "position": 75.0,
+      "position": 25,
+      "color": "blue",
+      "thickness": 2,
+      "alpha": 200
+    },
+    {
+      "enabled": false,
+      "type": "horizontal",
+      "position": 75,
       "color": "yellow",
-      "thickness": 2.0,
+      "thickness": 2,
       "alpha": 200
     }
   ],

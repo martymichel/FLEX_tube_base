@@ -585,6 +585,10 @@ class DetectionApp(QMainWindow):
             self.camera_manager.stop()
         except:
             pass
+
+        # Anzeige zurücksetzen (Einfrieren des Bildes verhindern)
+        if hasattr(self.ui, 'clear_video'):
+            self.ui.clear_video()        
         
         # Button zurück zu Starten mit Play-Symbol
         self.ui.start_btn.setText("▶ Live Detection STARTEN")
@@ -697,25 +701,37 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
 
-    def update_motion_display(self, frame):
-        """Motion-Wert berechnen."""
-        if self.bg_subtractor is None:
-            return
-
+    def compute_motion_pixels(self, frame):
+        """Bewegungspixel berechnen und Subtractor aktualisieren."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
         fg_mask = self.bg_subtractor.apply(gray)
 
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
         fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
 
-        # Motion-Berechnung mit Downsampling-Kompensation
-        motion_pixels = cv2.countNonZero(fg_mask) * 16  # Kompensiert 4x4 Downsampling
-        current_motion = min(255, motion_pixels / 100)
-        
+        return cv2.countNonZero(fg_mask)
+
+    def update_motion_display(self, frame):
+        """Motion-Wert berechnen und glätten."""
+        if self.bg_subtractor is None:
+            return
+
+        motion_pixels = self.compute_motion_pixels(frame)
+
+        # Gleitenden Durchschnitt der letzten 10 Frames bilden
+        self.motion_values.append(motion_pixels)
+        if len(self.motion_values) > 10:
+            self.motion_values.pop(0)
+
+        avg_motion_pixels = np.mean(self.motion_values)
+
+        current_motion = min(255, (avg_motion_pixels * 16) / 100)  # Downsampling-Kompensation
+
         self.current_motion_value = current_motion
-        
+
         # UI aktualisieren
         self.ui.update_motion(self.current_motion_value)
 
@@ -853,17 +869,12 @@ class DetectionApp(QMainWindow):
         if self.bg_subtractor is None:
             return False
         
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
-        fg_mask = self.bg_subtractor.apply(gray)
-        
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
-        
-        motion_pixels = cv2.countNonZero(fg_mask)
+        if not self.motion_values:
+            return False
+
+        avg_motion_pixels = np.mean(self.motion_values)
         motion_threshold = self.settings.get('motion_threshold', 110) * 100
-        has_motion = motion_pixels > motion_threshold
+        has_motion = avg_motion_pixels > motion_threshold
         
         self.motion_history.append(has_motion)
         if len(self.motion_history) > 5:

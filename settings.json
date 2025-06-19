@@ -1,8 +1,8 @@
 {
   "confidence_threshold": 0.5,
   "last_model": "P:/PY/FLEX_tube_base/template_ai_modell.pt",
-  "last_source": 3,
-  "last_mode_was_video": false,
+  "last_source": "C:/Users/Michel/Videos/Bad Samples Long-1.mp4",
+  "last_mode_was_video": true,
   "camera_config_path": "",
   "motion_threshold": 60,
   "settling_time": 0.5,
@@ -13,13 +13,13 @@
     "1": {
       "assignment": "bad",
       "expected_count": -1,
-      "min_confidence": 0.99,
+      "min_confidence": 0.6,
       "color": "#FF0000"
     },
     "0": {
       "assignment": "ignore",
       "expected_count": -1,
-      "min_confidence": 1.0,
+      "min_confidence": 0.5,
       "color": "#00FF00"
     }
   },

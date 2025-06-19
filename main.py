@@ -14,6 +14,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 # Eigene Module
 from detection_engine import DetectionEngine
 from camera_manager import CameraManager
+from motion_manager import MotionManager
 
 from camera_config_manager import CameraConfigManager
 from settings import Settings
@@ -100,14 +101,12 @@ class DetectionApp(QMainWindow):
         # Timer für Frame-Updates
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.process_frame)
-        
+
         # Motion Detection
-        self.bg_subtractor = None
-        self.motion_history = []
-        self.motion_stable_count = 0
+        self.motion_manager = MotionManager(self.settings,
+                                            self.ui.update_motion)           
         self.no_motion_stable_count = 0
-        self.motion_values = []
-        self.current_motion_value = 0.0
+
 
         # Helligkeitsüberwachung
         self.brightness_values = []
@@ -621,17 +620,8 @@ class DetectionApp(QMainWindow):
 
     def init_robust_motion_detection(self):
         """Motion Detection initialisieren."""
-        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-            detectShadows=False, # Deaktiviert für bessere Performance
-            varThreshold=32, # Varianz-Schwelle für bessere Erkennung
-            history=200 # History für stabilere Bewegungserkennung
-        )
-        
-        self.motion_history = []
-        self.motion_stable_count = 0
+        self.motion_manager.initialize()
         self.no_motion_stable_count = 0
-        self.motion_values = []
-        self.current_motion_value = 0.0
         
         # Erkennungsstatistiken zurücksetzen
         self.last_cycle_detections = {}
@@ -647,6 +637,12 @@ class DetectionApp(QMainWindow):
 
     def reset_workflow(self):
         """Workflow zurücksetzen."""
+        # MotionManager zurücksetzen, damit neue Bewegungen erneut erkannt werden
+        try:
+            self.motion_manager.initialize()
+        except Exception as exc:  # noqa: broad-except
+            logging.error(f"MotionManager reset failed: {exc}")
+
         self.motion_detected = False
         self.motion_cleared = False
         self.detection_running = False
@@ -654,7 +650,6 @@ class DetectionApp(QMainWindow):
         self.motion_clear_time = None
         self.detection_start_time = None
         self.blow_off_start_time = None
-        self.motion_stable_count = 0
         self.no_motion_stable_count = 0
 
     def process_frame(self):
@@ -674,10 +669,10 @@ class DetectionApp(QMainWindow):
                 return
             
             # Motion-Wert berechnen
-            self.update_motion_display(frame)
+            motion_now = self.motion_manager.update(frame)
 
             # Workflow verarbeiten
-            self.process_industrial_workflow(frame)
+            self.process_industrial_workflow(frame, motion_now)
             
             # KI-Erkennung
             detections = []
@@ -701,41 +696,7 @@ class DetectionApp(QMainWindow):
         except Exception as e:
             logging.error(f"Fehler bei Frame-Verarbeitung: {e}")
 
-    def compute_motion_pixels(self, frame):
-        """Bewegungspixel berechnen und Subtractor aktualisieren."""
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (5, 5), 0)
-
-        fg_mask = self.bg_subtractor.apply(gray)
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel)
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_CLOSE, kernel)
-
-        return cv2.countNonZero(fg_mask)
-
-    def update_motion_display(self, frame):
-        """Motion-Wert berechnen und glätten."""
-        if self.bg_subtractor is None:
-            return
-
-        motion_pixels = self.compute_motion_pixels(frame)
-
-        # Gleitenden Durchschnitt der letzten 10 Frames bilden
-        self.motion_values.append(motion_pixels)
-        if len(self.motion_values) > 10:
-            self.motion_values.pop(0)
-
-        avg_motion_pixels = np.mean(self.motion_values)
-
-        current_motion = min(255, (avg_motion_pixels * 16) / 100)  # Downsampling-Kompensation
-
-        self.current_motion_value = current_motion
-
-        # UI aktualisieren
-        self.ui.update_motion(self.current_motion_value)
-
-    def process_industrial_workflow(self, frame):
+    def process_industrial_workflow(self, frame, motion_now):
         """Industrieller Workflow mit COUNTDOWN in Statusleiste."""
         current_time = time.time()
         
@@ -745,8 +706,6 @@ class DetectionApp(QMainWindow):
         
         # 1. Bewegungserkennung
         if not self.motion_detected and not self.blow_off_active:
-            motion_now = self.detect_robust_motion(frame)
-            
             if motion_now and not self.motion_detected:
                 self.motion_detected = True
                 self.motion_cleared = False
@@ -755,18 +714,17 @@ class DetectionApp(QMainWindow):
                 self.ui.show_status("Förderband taktet", "warning")
                 self.ui.update_workflow_status("BEWEGUNG")
                 logging.info("Bewegung erkannt")
-        
+
         # 2. Ausschwingen
         if self.motion_detected and not self.motion_cleared:
-            motion_now = self.detect_robust_motion(frame)
-            
+
             if not motion_now:
                 self.no_motion_stable_count += 1
                 
                 if self.no_motion_stable_count >= 10:
                     if self.motion_clear_time is None:
                         self.motion_clear_time = current_time
-                        self.ui.show_status("Ausschwingzeit läuft...", "warning")
+                        self.ui.show_status("Ausschwingzeit läuft", "warning")
                         self.ui.update_workflow_status("AUSSCHWINGEN")
                         logging.info("Ausschwingzeit startet")
                     
@@ -863,31 +821,6 @@ class DetectionApp(QMainWindow):
             
         except Exception as e:
             logging.error(f"Fehler beim roten Blinken: {e}")
-
-    def detect_robust_motion(self, frame):
-        """Robuste Bewegungserkennung."""
-        if self.bg_subtractor is None:
-            return False
-        
-        if not self.motion_values:
-            return False
-
-        avg_motion_pixels = np.mean(self.motion_values)
-        motion_threshold = self.settings.get('motion_threshold', 110) * 100
-        has_motion = avg_motion_pixels > motion_threshold
-        
-        self.motion_history.append(has_motion)
-        if len(self.motion_history) > 5:
-            self.motion_history.pop(0)
-        
-        stable_motion = sum(self.motion_history) >= 3
-        
-        if stable_motion:
-            self.motion_stable_count += 1
-        else:
-            self.motion_stable_count = 0
-        
-        return self.motion_stable_count >= 3
 
     def update_cycle_statistics_extended(self, detections):
         """Statistiken für aktuellen Zyklus."""

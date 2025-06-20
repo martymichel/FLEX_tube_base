@@ -365,7 +365,7 @@ class CameraManager:
         return None
     
     def stop(self):
-        """Kamera/Video stoppen - VERBESSERT für IDS."""
+        """Kamera/Video stoppen"""
         try:
             if self.source_type in ['webcam', 'video'] and self.camera:
                 self.camera.release()
@@ -381,7 +381,9 @@ class CameraManager:
                         except Exception as e:
                             logging.error(f"Fehler beim Stoppen der IDS Acquisition: {e}")
                         self.ids_datastream = None
-                    
+
+                        logging.info("Kamera-Datastream gestoppt")
+
                     # Acquisition stoppen
                     if self.remote_device_nodemap:
                         try:
@@ -411,8 +413,6 @@ class CameraManager:
             self._cached_height = None
             self.payload_size = None
             self.start_time = None
-            
-            logging.info("Kamera gestoppt")
             
         except Exception as e:
             logging.error(f"Fehler beim Stoppen: {e}")

@@ -140,7 +140,7 @@ class DetectionApp(QMainWindow):
             'modbus_connected': self.modbus_manager.connected
         })
         
-        logging.info("DetectionApp erfolgreich gestartet")
+        logging.info("INSPECTUBE erfolgreich gestartet")
 
     def intelligent_modbus_init(self):
         """INTELLIGENTE Modbus-Initialisierung: Erst direkt versuchen, dann Reset-Fallback."""

@@ -1,9 +1,9 @@
 {
   "confidence_threshold": 0.5,
-  "last_model": "G:/OneDrive - Flex/3_ARBEIT ARBEIT ARBEIT/12_INSPECTUBE/KI Modell Backup/Model 01179.041 M Outer Tube C.pt",
-  "last_source": "C:/Users/Michel/Videos/video_20250619_141029.mp4",
+  "last_model": "G:/OneDrive - Flex/3_ARBEIT ARBEIT ARBEIT/12_INSPECTUBE/KI Modell Backup/Model 05387.041 M Inner Tube B.pt",
+  "last_source": "C:/Users/Michel/Videos/video_20250619_141204.mp4",
   "last_mode_was_video": true,
-  "camera_config_path": "",
+  "camera_config_path": "C:/Users/hag_s052/Documents/IDS Kamera Setup/IDS_setup_11.06.25.cset",
   "motion_threshold": 120,
   "motion_learning_seconds": 60.0,
   "motion_noise_baseline": 1.4425349235534668,
@@ -11,7 +11,7 @@
   "motion_calibrated": true,
   "settling_time": 0.8,
   "capture_time": 3.0,
-  "wait_after_blow_off_time": 0.9999999999999999,
+  "wait_after_blow_off_time": 1.0,
   "class_assignments": {
     "1": {
       "assignment": "bad",
@@ -32,7 +32,6 @@
   "good_part_classes": [
     0
   ],
-  "class_colors": {},
   "brightness_low_threshold": 30,
   "brightness_high_threshold": 220,
   "brightness_duration_threshold": 3.0,
@@ -54,7 +53,7 @@
   "parquet_log_max_files": 1000000,
   "reference_lines": [
     {
-      "enabled": false,
+      "enabled": true,
       "type": "horizontal",
       "position": 50.0,
       "color": "red",
@@ -62,9 +61,9 @@
       "alpha": 200
     },
     {
-      "enabled": false,
+      "enabled": true,
       "type": "vertical",
-      "position": 50.0,
+      "position": 95.0,
       "color": "green",
       "thickness": 2.0,
       "alpha": 200

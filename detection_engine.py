@@ -197,7 +197,7 @@ class DetectionEngine:
             return []
     
     def draw_detections(self, frame, detections):
-        """Erkennungen auf Frame zeichnen mit benutzerdefinierten Farben.
+        """Erkennungen auf Frame zeichnen mit optimierten Labels.
         
         Args:
             frame: Original-Frame
@@ -223,18 +223,40 @@ class DetectionEngine:
             
             # Label erstellen
             class_name = self.class_names.get(class_id, f"Class {class_id}")
-            label = f"{class_name}: {confidence:.2f}"
+            label_text = f"{class_name} {confidence:.2f}"
             
-            # Label-Hintergrund
-            (label_w, label_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
-            cv2.rectangle(annotated, (x1, y1 - label_h - 10), (x1 + label_w, y1), color, -1)
+            # OPTIMIERTE LABEL-DARSTELLUNG
+            # Schriftgröße und -art für bessere Lesbarkeit
+            font = cv2.FONT_HERSHEY_COMPLEX
+            font_scale = 0.8
+            thickness = 2
             
-            # Label-Text
-            cv2.putText(annotated, label, (x1, y1 - 5), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+            # Label-Größe berechnen
+            label_size = cv2.getTextSize(label_text, font, font_scale, thickness)[0]
+            
+            # Label-Position: Rechts mittig, bei Bildrand links
+            label_y = (y1 + y2) // 2
+            
+            # Prüfe ob Label rechts über Bildrand hinausragen würde
+            if x2 + label_size[0] > annotated.shape[1]:
+                # Label links von der Box platzieren
+                label_x = x1 - label_size[0]
+            else:
+                # Label rechts von der Box platzieren
+                label_x = x2
+            
+            # Label-Hintergrund (gefüllt für bessere Lesbarkeit)
+            cv2.rectangle(annotated, 
+                        (label_x, label_y - label_size[1] // 2 - 12), 
+                        (label_x + label_size[0], label_y + label_size[1] // 2 - 2), 
+                        color, -1)
+            
+            # Label-Text mit Anti-Aliasing für scharfe Darstellung
+            cv2.putText(annotated, label_text, (label_x, label_y), 
+                    font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
         
         return annotated
-    
+
     def get_class_names(self):
         """Klassennamen zurueckgeben.
         

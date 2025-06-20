@@ -751,7 +751,7 @@ class DetectionApp(QMainWindow):
                         self.countdown_timer.start(100)  # Alle 100ms aktualisieren
                         
                         self.ui.show_status("Objekterkennung aktiv", "success")
-                        self.ui.update_workflow_status("OBJEKTERKENNUNG")
+                        self.ui.update_workflow_status("PRÜFUNG")
                         logging.info("Objekterkennung startet")
             else:
                 self.motion_clear_time = None

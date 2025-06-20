@@ -247,8 +247,8 @@ class DetectionEngine:
             
             # Label-Hintergrund (gefüllt für bessere Lesbarkeit)
             cv2.rectangle(annotated, 
-                        (label_x, label_y - label_size[1] // 2 - 12), 
-                        (label_x + label_size[0], label_y + label_size[1] // 2 - 2), 
+                        (label_x, label_y - label_size[1] // 2 - 14), 
+                        (label_x + label_size[0], label_y + label_size[1] // 2 - 1), 
                         color, -1)
             
             # Label-Text mit Anti-Aliasing für scharfe Darstellung

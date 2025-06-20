@@ -418,13 +418,13 @@ class DetectionApp(QMainWindow):
     def setup_connections(self):
         """Signale verbinden."""
         self.ui.start_btn.clicked.connect(self.toggle_detection)
-        self.ui.model_btn.clicked.connect(self.load_model)
-        self.ui.camera_btn.clicked.connect(self.select_camera)
+        self.ui.model_btn.clicked.connect(self.load_model)  # Falls noch vorhanden
+        self.ui.camera_btn.clicked.connect(self.select_camera)  # Falls noch vorhanden
         self.ui.settings_btn.clicked.connect(self.open_settings)
-        self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
+        # ENTFERNT: self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
         self.ui.login_status_btn.clicked.connect(self.toggle_login)
         self.ui.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
-        # quit_btn wird hier verbunden
+        # GEÄNDERT: quit_btn mit Bestätigung
         self.ui.quit_btn.clicked.connect(self.confirm_quit_application)
 
     def check_settings_changes(self):

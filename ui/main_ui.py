@@ -20,6 +20,7 @@ import logging
 from .dialogs import CameraSelectionDialog, SettingsDialog
 from .styles import UIStyles
 from .reference_line_overlay import ReferenceLineOverlay
+from .camera_overlay_button import CameraOverlayButton
 
 class MainUI(QWidget):
     """Hauptbenutzeroberflaeche mit externen Stylesheets und Referenzlinien-Overlay."""
@@ -214,9 +215,11 @@ class MainUI(QWidget):
         self.start_btn.setStyleSheet(UIStyles.get_start_button_style())
         actions_layout.addWidget(self.start_btn)
         
-        self.snapshot_btn = QPushButton("Schnappschuss")
-        self.snapshot_btn.setStyleSheet(UIStyles.get_snapshot_button_style())
-        actions_layout.addWidget(self.snapshot_btn)
+        # ENTFERNT: Snapshot-Button
+        # self.snapshot_btn = QPushButton("Schnappschuss")
+        # self.snapshot_btn.setStyleSheet(UIStyles.get_snapshot_button_style())
+        # actions_layout.addWidget(self.snapshot_btn)
+        
         layout.addLayout(actions_layout)
 
     def _create_stats_section(self, layout):
@@ -420,8 +423,8 @@ class MainUI(QWidget):
         return main_area
     
     def _create_video_area(self, layout):
-        """Video-Bereich mit Referenzlinien-Overlay erstellen."""
-        # Container für Video + Overlay
+        """Video-Bereich mit Referenzlinien-Overlay und Kamera-Button erstellen."""
+        # Container für Video + Overlays
         self.video_container = QWidget()
         self.video_container.setMinimumSize(640, 480)
         
@@ -435,27 +438,28 @@ class MainUI(QWidget):
         # Referenzlinien-Overlay
         self.reference_overlay = ReferenceLineOverlay(self.video_container)
         
+        # NEUER KAMERA-OVERLAY-BUTTON
+        self.camera_overlay_btn = CameraOverlayButton(self.video_container)
+        self.camera_overlay_btn.snapshot_requested.connect(self.app.take_snapshot)
+        
         # Layout für Video-Container
         video_layout = QVBoxLayout(self.video_container)
         video_layout.setContentsMargins(0, 0, 0, 0)
         video_layout.addWidget(self.video_label)
         
-        # Overlay über Video legen
+        # Overlays über Video legen
         self.video_label.resizeEvent = self._on_video_resize
         
         layout.addWidget(self.video_container, 1)
     
     def _on_video_resize(self, event):
-        """Video-Label wurde resized - Overlay anpassen."""
+        """Video-Label wurde resized - Overlays anpassen."""
         # Overlay exakt über Video-Label positionieren
         self.reference_overlay.setGeometry(self.video_label.geometry())
-        # Standard: gesamter Bereich entspricht Label
-        self.reference_overlay.set_display_area(
-            self.video_label.width(),
-            self.video_label.height(),
-            0,
-            0,
-        )
+        
+        # Kamera-Button in oberer linker Ecke positionieren (mit 10px Abstand)
+        video_rect = self.video_label.geometry()
+        self.camera_overlay_btn.move(video_rect.x() + 10, video_rect.y() + 10)
         
         # Original resizeEvent aufrufen
         QLabel.resizeEvent(self.video_label, event)

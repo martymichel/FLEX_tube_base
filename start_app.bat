@@ -13,6 +13,6 @@ cd /d "%~dp0"
 :: Anwendung starten und Kommandofenster verstecken
 start /min "" python main.py
 
-:: Batch-Fenster nach 2 Sekunden schließen
+:: Batch-Fenster nach 2 Sekunden schliessen
 timeout /t 2 /nobreak >nul
 exit

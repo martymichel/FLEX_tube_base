@@ -325,7 +325,7 @@ class LightweightWebServer:
         """Schnelle Frame-Konvertierung mit niedriger Qualität"""
         # Kleinere Auflösung für Web-Übertragung
         height, width = frame.shape[:2]
-        if width > 640:  # Nur bei großen Frames verkleinern
+        if width > 640:  # Nur bei grossen Frames verkleinern
             new_width = 640
             new_height = int(height * (new_width / width))
             frame_small = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)

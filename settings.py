@@ -31,7 +31,7 @@ class Settings:
             self.data = self.get_defaults()
 
     def load_quietly(self):
-        """Einstellungen aus Datei laden OHNE Logging (für regelmäßige Checks)."""
+        """Einstellungen aus Datei laden OHNE Logging (für regelmässige Checks)."""
         try:
             if self.filename.exists():
                 with open(self.filename, 'r', encoding='utf-8') as f:

@@ -54,13 +54,13 @@ class DetectionApp(QMainWindow):
         self.camera_manager = CameraManager(self.camera_config_manager)
         self.detection_engine = DetectionEngine()
         
-        # EINFACHER MODBUS-Manager
+        # MODBUS-Manager
         self.modbus_manager = ModbusManager(self.settings)
         
         # Image-Saver
         self.image_saver = ImageSaver(self.settings)
         
-        # NEUER Parquet Detection Logger
+        # Parquet Detection Logger
         self.detection_logger = DetectionLogger(self.settings)
         
         # UI aufbauen
@@ -127,7 +127,7 @@ class DetectionApp(QMainWindow):
         self.modbus_check_timer.timeout.connect(self.check_modbus_status)
         self.modbus_check_timer.start(5000)  # Alle 5 Sekunden
         
-        # INTELLIGENTE MODBUS-Initialisierung mit Reset-Fallback
+        # MODBUS-Initialisierung mit Reset-Fallback
         self.intelligent_modbus_init()
         
         # Auto-Loading beim Start
@@ -140,7 +140,7 @@ class DetectionApp(QMainWindow):
             'modbus_connected': self.modbus_manager.connected
         })
         
-        logging.info("INSPECTUBE erfolgreich gestartet")
+        logging.info("DetectionApp erfolgreich gestartet")
 
     def intelligent_modbus_init(self):
         """INTELLIGENTE Modbus-Initialisierung: Erst direkt versuchen, dann Reset-Fallback."""
@@ -320,7 +320,7 @@ class DetectionApp(QMainWindow):
             # Einstellungen speichern
             self.settings.save()
             
-            # Detection Logger schließen
+            # Detection Logger schliessen
             if hasattr(self, 'detection_logger'):
                 self.detection_logger.close()
             
@@ -609,7 +609,7 @@ class DetectionApp(QMainWindow):
                 font-size: 16px;
                 font-weight: bold;
                 min-height: 45px;
-                padding: 15px 25px;
+                padding: 15px 25px
                 border-radius: 4px;
                 color: white;
             }
@@ -1083,7 +1083,7 @@ class DetectionApp(QMainWindow):
             self.quit_application()
             event.accept()
         else:
-            event.ignore()  # Schließvorgang abbrechen
+            event.ignore()  # Schliessvorgang abbrechen
 
 def main():
     """Hauptfunktion."""

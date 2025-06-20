@@ -399,11 +399,11 @@ class CameraManager:
                     if self.ids_device:
                         self.ids_device = None
                     
-                    # IDS Library schließen
+                    # IDS Library schliessen
                     try:
                         ids_peak.Library.Close()
                     except Exception as e:
-                        logging.error(f"Fehler beim Schließen der IDS Library: {e}")
+                        logging.error(f"Fehler beim Schliessen der IDS Library: {e}")
                         
                 except Exception as e:
                     logging.error(f"Fehler beim IDS-Cleanup: {e}")
@@ -479,7 +479,7 @@ class CameraManager:
                     name = device.DisplayName()
                     cameras.append(('ids', i, f"IDS: {name}"))
                 
-                # IDS Library wieder schließen nach Suche
+                # IDS Library wieder schliessen nach Suche
                 ids_peak.Library.Close()
                     
             except Exception as e:

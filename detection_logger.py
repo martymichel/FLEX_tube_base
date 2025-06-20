@@ -317,7 +317,7 @@ class DetectionLogger:
             logging.error(f"Fehler beim Log-Cleanup: {e}")
 
     def close(self):
-        """Logger schließen und letzte Events schreiben."""
+        """Logger schliessen und letzte Events schreiben."""
         if not self.enabled:
             return
         
@@ -333,4 +333,4 @@ class DetectionLogger:
                 logging.info("DetectionLogger geschlossen")
                 
             except Exception as e:
-                logging.error(f"Fehler beim Schließen des DetectionLoggers: {e}")
+                logging.error(f"Fehler beim Schliessen des DetectionLoggers: {e}")

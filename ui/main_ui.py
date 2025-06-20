@@ -115,11 +115,81 @@ class MainUI(QWidget):
         return self.sidebar
     
     def _create_login_status_section(self, layout):
-        """Login-Status-Button erstellen."""
+        """Logo und Login-Status-Button erstellen."""
+        # Logo hinzufügen
+        self._create_logo_section(layout)
+        
+        # Login-Status-Button
         self.login_status_btn = QPushButton("Benutzerstatus: Operator")
         self.login_status_btn.setStyleSheet(UIStyles.get_login_button_operator_style())
         self.login_status_btn.setToolTip("Klicken für Admin-Login/Logout")
         layout.addWidget(self.login_status_btn)
+
+    def _create_logo_section(self, layout):
+        """Logo-Sektion erstellen."""
+        import os
+        from PyQt6.QtGui import QPixmap
+        from PyQt6.QtCore import Qt
+        
+        # Logo-Container erstellen
+        logo_container = QWidget()
+        logo_layout = QVBoxLayout(logo_container)
+        logo_layout.setContentsMargins(10, 15, 10, 10)
+        logo_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Logo-Label erstellen
+        self.logo_label = QLabel()
+        self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Logo laden
+        logo_path = os.path.join("img", "LOGO.png")
+        if os.path.exists(logo_path):
+            try:
+                pixmap = QPixmap(logo_path)
+                if not pixmap.isNull():
+                    # Logo auf Sidebar-Breite skalieren (max 320px für etwas Padding)
+                    scaled_pixmap = pixmap.scaled(
+                        320, 92,  # Maximale Breite und Höhe
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    self.logo_label.setPixmap(scaled_pixmap)
+                    self.logo_label.setStyleSheet("""
+                        QLabel {
+                            background-color: transparent;
+                            padding: 5px;
+                            border-radius: 8px;
+                        }
+                    """)
+                    logging.info(f"Logo erfolgreich geladen: {logo_path}")
+                else:
+                    self._create_fallback_logo()
+                    logging.warning(f"Logo konnte nicht geladen werden: {logo_path}")
+            except Exception as e:
+                self._create_fallback_logo()
+                logging.error(f"Fehler beim Laden des Logos: {e}")
+        else:
+            self._create_fallback_logo()
+            logging.warning(f"Logo-Datei nicht gefunden: {logo_path}")
+        
+        logo_layout.addWidget(self.logo_label)
+        layout.addWidget(logo_container)
+
+    def _create_fallback_logo(self):
+        """Fallback-Logo erstellen wenn Datei nicht gefunden."""
+        self.logo_label.setText("INSPECTUBE\nKI-OBJEKTERKENNUNG")
+        self.logo_label.setStyleSheet("""
+            QLabel {
+                background-color: rgba(52, 73, 94, 0.8);
+                color: white;
+                font-size: 16px;
+                font-weight: bold;
+                text-align: center;
+                padding: 20px 10px;
+                border-radius: 8px;
+                border: 2px solid rgba(255, 255, 255, 0.1);
+            }
+        """)
 
     def _create_model_status_section(self, layout):
         """KI-Modell Status-Button erstellen."""
@@ -165,98 +235,99 @@ class MainUI(QWidget):
     def _create_united_status_section(self, layout):
         """VEREINT: Status Grenzwerte + WAGO Modbus erstellen."""
         status_layout = QVBoxLayout()
-        status_layout.setSpacing(8)
+        status_layout.setSpacing(6)  # Einheitlicher Abstand zwischen Zeilen
+        status_layout.setContentsMargins(0, 0, 0, 0)  # Keine äusseren Abstände
         
-        # Kompakte Hilfsfunktion für Status-Zeilen
+        # Kompakte Hilfsfunktion für Status-Zeilen mit einheitlicher Breite
         def _add_compact_status_row(label_text, value_widget, tooltip_text="", extra_widget=None):
-            row_widget = QWidget()
-            row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.setSpacing(5)
-
+            row_layout = QHBoxLayout()
+            row_layout.setSpacing(8)
+            row_layout.setContentsMargins(0, 2, 0, 2)  # Einheitliche Abstände
+            
             label = QLabel(label_text)
             label.setStyleSheet(UIStyles.get_compact_status_label_style())
+            label.setFixedWidth(90)  # Breiter für "Ausgänge:" und "Helligkeit:"
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             if tooltip_text:
                 label.setToolTip(tooltip_text)
-            row_layout.addWidget(label, 1)
-            row_layout.addWidget(value_widget, 2)
-            if extra_widget is not None:
-                row_layout.addWidget(extra_widget, 1)
-            status_layout.addWidget(row_widget)
-            return row_widget
-        
+            
+            # Value-Widget einheitliche Eigenschaften geben
+            value_widget.setMinimumWidth(120)  # Etwas breiter für bessere Proportionen
+            value_widget.setMaximumWidth(120)  # Feste Breite
+            value_widget.setFixedHeight(32)    # Feste Höhe
+            
+            row_layout.addWidget(label)
+            row_layout.addWidget(value_widget)
+            
+            # Extra-Widget hinzufügen falls vorhanden
+            if extra_widget:
+                extra_widget.setMinimumWidth(120)
+                extra_widget.setMaximumWidth(120)
+                extra_widget.setFixedHeight(32)
+                row_layout.addWidget(extra_widget)
+            else:
+                # Spacer hinzufügen wenn kein extra_widget, damit Zeilen gleich aussehen
+                row_layout.addStretch()
+            
+            status_layout.addLayout(row_layout)
+
         # Workflow-Status
         self.workflow_info = QLabel("BEREIT")
         self.workflow_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.workflow_info.setStyleSheet(UIStyles.get_workflow_status_style("#34495e"))
+        self.workflow_info.setStyleSheet(UIStyles.get_unified_status_widget_style("#34495e"))
         _add_compact_status_row("Workflow:", self.workflow_info)
         
-        # Motion-Wert + Kalibrierungsstatus
-        self.motion_info.setParent(None)
-        self.motion_status.setParent(None)
+        # Motion-Wert mit Status
+        self.motion_info = QLabel("--")
         self.motion_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.motion_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
+        self.motion_info.setStyleSheet(UIStyles.get_unified_status_widget_style("#878787"))
+        self.motion_info.setToolTip("Aktueller Motion-Wert")
 
+        self.motion_status = QLabel("Kalibriert OK")
         self.motion_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.motion_status.setStyleSheet(UIStyles.get_motion_status_style("#e67e22"))
+        self.motion_status.setStyleSheet(UIStyles.get_unified_status_widget_style("#27ae60"))
+        self.motion_status.setToolTip("Motion-Kalibrierungsstatus")
 
         _add_compact_status_row("Bewegung:", self.motion_info, extra_widget=self.motion_status)
 
-        # Helligkeit
+        # Helligkeit mit Warnung (immer angezeigt, aber Inhalt ändert sich)
         self.brightness_info = QLabel("--")
         self.brightness_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
+        self.brightness_info.setStyleSheet(UIStyles.get_unified_status_widget_style("#878787"))
+        self.brightness_info.setToolTip("Aktuelle Helligkeit")
 
-        _add_compact_status_row("Helligkeit:", self.brightness_info)
-
-        # Helligkeitswarnung
-        self.brightness_warning = QLabel("Beleuchtung prüfen!")
+        self.brightness_warning = QLabel("OK")  # Standardtext statt versteckt
         self.brightness_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.brightness_warning.setStyleSheet(UIStyles.get_brightness_warning_style())
-        self.brightness_warning.setVisible(False)
-        status_layout.addWidget(self.brightness_warning)
+        self.brightness_warning.setStyleSheet(UIStyles.get_unified_status_widget_style("#27ae60"))
+        self.brightness_warning.setToolTip("Helligkeitsstatus")
+
+        _add_compact_status_row("Helligkeit:", self.brightness_info, extra_widget=self.brightness_warning)
         
-        # WAGO Status
+        # WAGO Status mit IP
         self.modbus_status = QLabel("Getrennt")
         self.modbus_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.modbus_status.setStyleSheet(UIStyles.get_modbus_status_disconnected_style())
-        _add_compact_status_row("WAGO:", self.modbus_status)
-        
-        # IP-Adresse
-        self.modbus_ip = QLabel("192.168.1.100")
+        self.modbus_status.setStyleSheet(UIStyles.get_unified_status_widget_style("#e74c3c"))
+        self.modbus_status.setToolTip("WAGO Modbus Status")
+
+        self.modbus_ip = QLabel("Keine Verbindung")
         self.modbus_ip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.modbus_ip.setStyleSheet(UIStyles.get_modbus_ip_style())
-        _add_compact_status_row("IP:", self.modbus_ip)
-        
-        # Coils - KOMPAKTER
-        coils_layout = QHBoxLayout()
-        coils_label = QLabel("Coils:")
-        coils_label.setStyleSheet(UIStyles.get_compact_status_label_style())
-        coils_layout.addWidget(coils_label, 1)
-        
-        coil_container = QWidget()
-        coil_container_layout = QHBoxLayout(coil_container)
-        coil_container_layout.setContentsMargins(0, 0, 0, 0)
-        coil_container_layout.setSpacing(4)
-        
-        # Kleinere Coil-Indikatoren
-        self.reject_coil_indicator = QLabel("A")
+        self.modbus_ip.setStyleSheet(UIStyles.get_unified_status_widget_style("#7f8c8d"))
+        self.modbus_ip.setToolTip("WAGO Modbus IP-Adresse")
+
+        _add_compact_status_row("WAGO:", self.modbus_status, extra_widget=self.modbus_ip)
+                
+        # Ausgänge - WAGO Modbus-Ausgänge
+        self.reject_coil_indicator = QLabel("Ausschuss")
         self.reject_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.reject_coil_indicator.setFixedSize(18, 18)
-        self.reject_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
+        self.reject_coil_indicator.setStyleSheet(UIStyles.get_unified_status_widget_style("#7f8c8d"))
         self.reject_coil_indicator.setToolTip("Ausschuss Modbus Ausgang")
-        coil_container_layout.addWidget(self.reject_coil_indicator)
-        
-        self.detection_coil_indicator = QLabel("P")
+
+        self.detection_coil_indicator = QLabel("SEPRO Ablage")
         self.detection_coil_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.detection_coil_indicator.setFixedSize(18, 18)
-        self.detection_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
-        self.detection_coil_indicator.setToolTip("Detection Active Modbus Ausgang")
-        coil_container_layout.addWidget(self.detection_coil_indicator)
-        
-        coil_container_layout.addStretch()
-        coils_layout.addWidget(coil_container, 2)
-        status_layout.addLayout(coils_layout)
+        self.detection_coil_indicator.setStyleSheet(UIStyles.get_unified_status_widget_style("#7f8c8d"))
+        self.detection_coil_indicator.setToolTip("SEPRO Ablage Modbus Ausgang")
+
+        _add_compact_status_row("Ausgänge:", self.reject_coil_indicator, extra_widget=self.detection_coil_indicator)
         
         layout.addLayout(status_layout)
 
@@ -521,6 +592,22 @@ class MainUI(QWidget):
         # Sidebar komplett rot
         self.sidebar.setStyleSheet(UIStyles.get_sidebar_flash_style())
 
+        # Logo-Hintergrund auch rot machen (falls vorhanden)
+        if hasattr(self, 'logo_label') and self.logo_label.pixmap() is None:
+            # Nur bei Text-Fallback-Logo
+            self.logo_label.setStyleSheet("""
+                QLabel {
+                    background-color: rgba(231, 76, 60, 0.9) !important;
+                    color: white;
+                    font-size: 16px;
+                    font-weight: bold;
+                    text-align: center;
+                    padding: 20px 10px;
+                    border-radius: 8px;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                }
+            """)
+
     def _reset_flash_colors(self):
         """Setze normale Farben zurueck - GLEICHE MARGINS/PADDINGS."""
         # Main Area normal
@@ -531,6 +618,11 @@ class MainUI(QWidget):
         
         # Sidebar normal
         self.sidebar.setStyleSheet(UIStyles.get_sidebar_base_style())
+
+        # Logo-Hintergrund zurücksetzen (falls vorhanden)
+        if hasattr(self, 'logo_label') and self.logo_label.pixmap() is None:
+            # Nur bei Text-Fallback-Logo
+            self._create_fallback_logo()        
 
     # =============================================================================
     # MODBUS UI-UPDATE-METHODEN
@@ -548,20 +640,20 @@ class MainUI(QWidget):
         self.modbus_ip.setText(ip_address)
     
     def update_coil_status(self, reject_active=False, detection_active=False):
-        """Coil-Status-Indikatoren aktualisieren."""
-        # Reject Coil (Ausschuss)
+        """Ausgänge-Status aktualisieren."""
+        # Ausschuss-Ausgang
         if reject_active:
-            self.reject_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_reject_active_style())
+            self.reject_coil_indicator.setStyleSheet(UIStyles.get_unified_status_widget_style("#e74c3c"))
         else:
-            self.reject_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
+            self.reject_coil_indicator.setStyleSheet(UIStyles.get_unified_status_widget_style("#7f8c8d"))
         
-        # Detection Active Coil
+        # SEPRO Ablage-Ausgang  
         if detection_active:
-            self.detection_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_active_style())
+            self.detection_coil_indicator.setStyleSheet(UIStyles.get_unified_status_widget_style("#27ae60"))
         else:
-            self.detection_coil_indicator.setStyleSheet(UIStyles.get_coil_indicator_inactive_style())
-    
-    # =============================================================================
+            self.detection_coil_indicator.setStyleSheet(UIStyles.get_unified_status_widget_style("#7f8c8d"))
+            
+        # =============================================================================
     # COUNTER & STATUS UPDATE-METHODEN
     # =============================================================================
     
@@ -655,14 +747,14 @@ class MainUI(QWidget):
         # Farbe je nach Status
         colors = {
             'BEREIT': "#757575",
-            'BANDTAKT': '#757575',
+            'BANDTAKT': '#757575', 
             'AUSSCHWINGEN': "#757575",
             'DETEKTION': "#23aeff",
             'ABBLASEN': '#e74c3c'
         }
         
         color = colors.get(status, '#34495e')
-        self.workflow_info.setStyleSheet(UIStyles.get_workflow_status_style(color))
+        self.workflow_info.setStyleSheet(UIStyles.get_unified_status_widget_style(color))
     
     def show_status(self, message, status_type="info"):
         """Status im Header anzeigen."""
@@ -700,17 +792,18 @@ class MainUI(QWidget):
         """Helligkeitsanzeige aktualisieren."""
         self.brightness_info.setText(f"{brightness:.0f}")
         # Farbe bleibt konstant
-        self.brightness_info.setStyleSheet(UIStyles.get_motion_brightness_style("#878787"))
+        self.brightness_info.setStyleSheet(UIStyles.get_unified_status_widget_style("#878787"))
 
     def show_brightness_warning(self, message):
         """Helligkeitswarnung anzeigen."""
-        self.brightness_warning.setText(message)
-        self.brightness_warning.setVisible(True)
-    
+        self.brightness_warning.setText("WARNUNG")
+        self.brightness_warning.setStyleSheet(UIStyles.get_unified_status_widget_style("#e74c3c"))
+
     def hide_brightness_warning(self):
         """Helligkeitswarnung ausblenden."""
-        self.brightness_warning.setVisible(False)
-    
+        self.brightness_warning.setText("OK")
+        self.brightness_warning.setStyleSheet(UIStyles.get_unified_status_widget_style("#27ae60"))
+        
     def update_last_cycle_stats(self, last_cycle_stats):
         """Letzte Erkennungen aktualisieren."""
         self.last_cycle_table.setRowCount(len(last_cycle_stats))
@@ -778,7 +871,7 @@ class MainUI(QWidget):
             off_x = int((self.video_label.width() - scaled_w) / 2)
             off_y = int((self.video_label.height() - scaled_h) / 2)
 
-            # Overlay an Video-Label-Größe anpassen
+            # Overlay an Video-Label-Grösse anpassen
             self.reference_overlay.setGeometry(self.video_label.geometry())
             self.reference_overlay.set_display_area(scaled_w, scaled_h, off_x, off_y)
             

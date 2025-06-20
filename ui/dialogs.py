@@ -134,7 +134,7 @@ class SettingsDialog(QDialog):
             "#A52A2A",  # Braun
             "#808080",  # Grau
             "#000000",  # Schwarz
-            "#FFFFFF",  # Weiß
+            "#FFFFFF",  # Weiss
             "#008000",  # Dunkelgrün
             "#000080",  # Dunkelblau
             "#800000",  # Bordeaux
@@ -278,7 +278,7 @@ class SettingsDialog(QDialog):
         
         # Header mit Info
         header_label = QLabel("🎯 Klassenzuteilung")
-        header_label.setFont(QFont("", 16, QFont.Weight.Bold))  # Größere Schrift
+        header_label.setFont(QFont("", 16, QFont.Weight.Bold))  # Grössere Schrift
         layout.addWidget(header_label)
         
         # Info-Text
@@ -295,7 +295,7 @@ class SettingsDialog(QDialog):
             "Klassename", "Zuteilung", "Erwartete Anzahl", "Min. Konfidenz", "Farbe"
         ])
         
-        # DUNKLER TABELLEN-STYLE mit größerer Schrift und touch-freundlichen Elementen
+        # DUNKLER TABELLEN-STYLE mit grösserer Schrift und touch-freundlichen Elementen
         self.class_assignments_table.setStyleSheet("""
             QTableWidget {
                 background: rgba(44, 62, 80, 0.95);
@@ -390,7 +390,7 @@ class SettingsDialog(QDialog):
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)    # Konfidenz
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)    # Farbe
         
-        self.class_assignments_table.setColumnWidth(1, 220)  # Zuteilung (breiter für größere Schrift)
+        self.class_assignments_table.setColumnWidth(1, 220)  # Zuteilung (breiter für grössere Schrift)
         self.class_assignments_table.setColumnWidth(2, 200)  # Anzahl (breiter)
         self.class_assignments_table.setColumnWidth(3, 200)  # Konfidenz (breiter)
         self.class_assignments_table.setColumnWidth(4, 100)  # Farbe (breiter für Color Box)
@@ -413,7 +413,7 @@ class SettingsDialog(QDialog):
         
         layout.addWidget(self.class_assignments_table)
         
-        # Button-Leiste für Tabelle mit größeren, touch-freundlicheren Buttons
+        # Button-Leiste für Tabelle mit grösseren, touch-freundlicheren Buttons
         table_buttons_layout = QHBoxLayout()
         
         self.add_class_btn = QPushButton("➕ Klasse hinzufügen")
@@ -437,7 +437,7 @@ class SettingsDialog(QDialog):
         table_buttons_layout.addStretch()
         layout.addLayout(table_buttons_layout)
         
-        # Legende mit größerer Schrift
+        # Legende mit grösserer Schrift
         legend_label = self._create_info_label(
             "💡 Legende:\n"
             "• Gut: Bei Abweichung von erwarteter Anzahl → Ausschuss\n"
@@ -445,7 +445,7 @@ class SettingsDialog(QDialog):
             "• Ignorieren: Klasse wird nicht bewertet\n"
             "• Erwartete Anzahl: -1 = beliebig, >0 = exakte Anzahl"
         )
-        # Schriftgröße für Legende anpassen falls _create_info_label das nicht bereits macht
+        # Schriftgrösse für Legende anpassen falls _create_info_label das nicht bereits macht
         legend_font = legend_label.font()
         legend_font.setPointSize(13)
         legend_label.setFont(legend_font)
@@ -554,7 +554,7 @@ class SettingsDialog(QDialog):
         # Info-Text
         info_label = QLabel(
             "Wählen Sie eine IDS Peak Kamera-Konfigurationsdatei (.toml), um erweiterte "
-            "Kameraeinstellungen wie Belichtung, Gamma und Weißabgleich zu verwenden."
+            "Kameraeinstellungen wie Belichtung, Gamma und Weissabgleich zu verwenden."
         )
         info_label.setWordWrap(True)
         info_label.setStyleSheet("color: #7f8c8d; font-style: italic; margin-bottom: 10px;")
@@ -957,7 +957,7 @@ class SettingsDialog(QDialog):
             "Braun": "#A52A2A",
             "Grau": "#808080",
             "Schwarz": "#000000",
-            "Weiß": "#FFFFFF"
+            "Weiss": "#FFFFFF"
         }
         
         color_name, ok = QInputDialog.getItem(

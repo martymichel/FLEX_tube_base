@@ -80,6 +80,21 @@ class UIStyles:
             }
         """
     
+    @staticmethod
+    def get_unified_status_widget_style(background_color):
+        """Einheitlicher Style für alle Status-Widgets."""
+        return f"""
+            QLabel {{
+                background-color: {background_color};
+                color: white;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 11px;
+                text-align: center;
+            }}
+        """
+    
     # =============================================================================
     # LOGIN STATUS BUTTON STYLES
     # =============================================================================
@@ -517,8 +532,7 @@ class UIStyles:
             border-radius: 4px;
             font-weight: bold;
             font-size: 11px;
-            min-width: 50px;
-            max-width: 50px;
+            min-width: 90px;
         """
 
     @staticmethod
@@ -527,10 +541,11 @@ class UIStyles:
         return f"""
             background-color: {color};
             color: white;
-            padding: 5px 12px;
+            padding: 6px 12px;
             border-radius: 4px;
             font-weight: bold;
-            font-size: 10px;
+            font-size: 11px;
+            min-width: 90px;
         """
         
     @staticmethod
@@ -539,10 +554,11 @@ class UIStyles:
         return """
             background-color: #e74c3c;
             color: white;
-            padding: 5px 12px;
+            padding: 8px 12px;
             border-radius: 4px;
             font-weight: bold;
-            font-size: 10px;
+            font-size: 11px;
+            text-align: center;
         """
     
     # =============================================================================
@@ -694,7 +710,12 @@ class UIStyles:
     def get_compact_status_label_style():
         """Style für kompakte Status Labels."""
         return """
-            color: white;
-            background: transparent;
-            font-size: 11px;
+            QLabel {
+                color: white;
+                background: transparent;
+                font-size: 11px;
+                font-weight: normal;
+                padding: 0px;
+                margin: 0px;
+            }
         """

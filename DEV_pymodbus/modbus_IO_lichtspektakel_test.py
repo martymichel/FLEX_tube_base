@@ -100,7 +100,7 @@ def initialize_watchdog():
 # -----------------------------
 def watchdog_thread():
     """
-    Läuft parallel und triggert den Watchdog regelmäßig,
+    Läuft parallel und triggert den Watchdog regelmässig,
     indem er einen neuen Wert in Register 4099 schreibt.
     """
     global watchdog_value
@@ -202,10 +202,10 @@ def binär_zähler(speed=0.1):
         time.sleep(speed)
 
 def herzschlag(speed=0.05):
-    """Herzschlag-Effekt - von außen nach innen"""
+    """Herzschlag-Effekt - von aussen nach innen"""
     # Schneller Herzschlag
     for _ in range(2):
-        # Von außen nach innen
+        # Von aussen nach innen
         patterns = [
             [True, False, False, False, False, False, False, True],
             [False, True, False, False, False, False, True, False],
@@ -303,8 +303,8 @@ try:
 except KeyboardInterrupt:
     logging.info("⏹️  Lichtspektakel manuell beendet")
 finally:
-    logging.info("🔌 Schalte alle LEDs aus und schließe Verbindung...")
+    logging.info("🔌 Schalte alle LEDs aus und schliesse Verbindung...")
     all_leds_off()
     with lock:
-        client.close()  # Verbindung bei Programmende schließen
+        client.close()  # Verbindung bei Programmende schliessen
     logging.info("✅ Programm sauber beendet")

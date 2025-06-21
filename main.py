@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Einfache KI-Objekterkennungs-Anwendung - VEREINFACHT MODBUS: Einfache, robuste Lösung ohne komplexe Threading-Probleme FIXED: Modbus-Bedingungen implementiert ERWEITERT: Parquet-basiertes Event-Logging mit Countdown in Statusleiste """
+""" Einfache KI-Objekterkennungs-Anwendung - Kommentar für Claude, gesehen?"""
 
 import sys
 import os

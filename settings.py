@@ -115,7 +115,6 @@ class Settings:
             # DEPRECATED - Wird durch class_assignments ersetzt, aber für Kompatibilität beibehalten
             'bad_part_classes': [1],      # Klassen-IDs die als "schlecht" gelten
             'good_part_classes': [0],     # Klassen-IDs die als "gut" gelten
-            'class_colors': {},           # Wird durch class_assignments.color ersetzt
             
             # Helligkeitsüberwachung
             'brightness_low_threshold': 30,      # Untere Helligkeitsschwelle

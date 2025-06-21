@@ -1317,11 +1317,16 @@ class SettingsDialog(QDialog):
         if self.parent_app and hasattr(self.parent_app, "app"):
             app = self.parent_app.app
             if hasattr(app, "image_saver"):
-                app.image_saver.update_settings(self.settings.data)            
+                app.image_saver.update_settings(self.settings.data)
             if hasattr(app, "detection_engine") and app.detection_engine.model_loaded:
                 app.apply_class_settings_to_engine()
                 threshold = self.settings.get('confidence_threshold', 0.5)
                 app.detection_engine.set_confidence_threshold(threshold)
+            # Speichere geaenderte Einstellungen direkt im aktuellen Datensatz
+            if hasattr(app, "dataset_manager"):
+                current_ds = app.settings.get('last_dataset', '')
+                if current_ds:
+                    app.dataset_manager.save_dataset(current_ds)
         self.accept()
     
     def _save_class_assignments(self):

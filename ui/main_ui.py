@@ -193,18 +193,15 @@ class MainUI(QWidget):
         """)
 
     def _create_model_status_section(self, layout):
-        """KI-Modell Status-Button erstellen."""
-        self.model_btn = QPushButton("Kein Modell geladen")
-        self.model_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
-        self.model_btn.setToolTip("Klicken um Modell zu laden")
-        layout.addWidget(self.model_btn)
+        """Konfigurations-Button erstellen (ersetzt Modell- und Moduswahl)."""
+        self.config_btn = QPushButton("Konfiguration laden")
+        self.config_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
+        self.config_btn.setToolTip("Produktkonfiguration laden oder erstellen")
+        layout.addWidget(self.config_btn)
 
     def _create_camera_status_section(self, layout):
-        """Kamera-Video Status-Button erstellen."""
-        self.camera_btn = QPushButton("Modus wählen")
-        self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
-        self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwählen")
-        layout.addWidget(self.camera_btn)
+        """Platzhalter fuer alte Kamera-Sektion (entfernt)."""
+        pass
 
     def _create_actions_section(self, layout):
         """Aktionen erstellen."""
@@ -739,8 +736,7 @@ class MainUI(QWidget):
         
         # Buttons aktivieren/deaktivieren
         can_admin = self.app.user_manager.is_admin()
-        self.model_btn.setEnabled(can_admin)
-        self.camera_btn.setEnabled(can_admin)
+        self.config_btn.setEnabled(can_admin)
         self.settings_btn.setEnabled(can_admin)
         self.reset_counter_btn.setEnabled(can_admin)
     
@@ -891,38 +887,18 @@ class MainUI(QWidget):
     # STATUS-BUTTON UPDATE-METHODEN
     # =============================================================================
     
-    def update_model_status(self, model_path):
-        """Model-Status-Button aktualisieren."""
-        if model_path and os.path.exists(model_path):
-            model_name = os.path.basename(model_path)
-            self.model_btn.setText(f"Modell: {model_name}")
-            self.model_btn.setStyleSheet(UIStyles.get_model_button_active_style())
-            self.model_btn.setToolTip(f"Modell geladen: {model_name}\nKlicken um zu aendern")
+    def update_dataset_status(self, dataset_name):
+        """Anzeige des geladenen Datensatzes aktualisieren."""
+        if dataset_name:
+            self.config_btn.setText(f"Konfiguration: {dataset_name}")
+            self.config_btn.setStyleSheet(UIStyles.get_model_button_active_style())
         else:
-            self.model_btn.setText("Kein Modell geladen")
-            self.model_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
-            self.model_btn.setToolTip("Klicken um Modell zu laden")
+            self.config_btn.setText("Konfiguration laden")
+            self.config_btn.setStyleSheet(UIStyles.get_model_button_inactive_style())
     
     def update_camera_status(self, source_info, source_type):
-        """Camera-Status-Button aktualisieren."""
-        if source_info is not None:
-            if source_type == 'webcam':
-                display_text = f"Webcam: {source_info}"
-            elif source_type == 'video':
-                video_name = os.path.basename(source_info)
-                display_text = f"Video: {video_name}"
-            elif source_type == 'ids':
-                display_text = f"IDS Kamera: {source_info}"
-            else:
-                display_text = f"Quelle: {source_info}"
-
-            self.camera_btn.setText(display_text)
-            self.camera_btn.setStyleSheet(UIStyles.get_camera_button_active_style())
-            self.camera_btn.setToolTip(f"Quelle konfiguriert: {display_text}\nKlicken um zu aendern")
-        else:
-            self.camera_btn.setText("Modus waehlen")
-            self.camera_btn.setStyleSheet(UIStyles.get_camera_button_inactive_style())
-            self.camera_btn.setToolTip("Klicken um Kamera oder Video auszuwaehlen")
+        """Rueckwaerts-Kompatibilitaet: ignoriert."""
+        pass
     
     # =============================================================================
     # DIALOG-HANDLER
@@ -939,9 +915,6 @@ class MainUI(QWidget):
             "PyTorch Modelle (*.pt);;Alle Dateien (*)"
         )
         
-        if file_path:
-            self.update_model_status(file_path)
-            
         return file_path
     
     def select_camera_source(self):

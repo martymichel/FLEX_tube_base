@@ -24,6 +24,7 @@ class ProductDatasetManager:
             'reject_coil_address',
             'detection_active_coil_address',
             'reject_coil_duration_seconds',
+            'class_colors',
             'last_mode_was_video',
             'last_source',
             'last_dataset',
@@ -137,3 +138,34 @@ class ProductDatasetManager:
         except Exception as exc:  # noqa: broad-except
             logging.error(f"Fehler beim Loeschen des Datensatzes {name}: {exc}")
             return False
+
+    def migrate_from_settings(self):
+        """Bestehende Einstellungen in einen ersten Datensatz ueberfuehren."""
+        last_ds = self.settings.get('last_dataset', 'default') or 'default'
+        path = self._dataset_path(last_ds)
+        if path.exists():
+            return
+        logging.info(f"Migration: speichere aktuelle Einstellungen als Datensatz {last_ds}")
+        self.save_dataset(last_ds)
+
+    def load_dataset_with_backup(self, name: str) -> bool:
+        """Versuche Datensatz zu laden, nutze Backup bei Fehlern."""
+        if self.load_dataset(name):
+            return True
+        # Lade Backup wenn vorhanden
+        backups = sorted(self.datasets_dir.glob(f"{name}_v1_*.json"), reverse=True)
+        for backup in backups:
+            try:
+                with open(backup, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.validate_dataset(data)
+                for k, v in data.items():
+                    if k not in self.global_keys:
+                        self.settings.set(k, v)
+                self.settings.set('last_dataset', name)
+                self.settings.save()
+                logging.warning(f"Backup-Datensatz geladen: {backup}")
+                return True
+            except Exception as exc:  # noqa: broad-except
+                logging.error(f"Backup {backup} ungueltig: {exc}")
+        return False

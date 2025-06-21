@@ -66,6 +66,8 @@ class DetectionApp(QMainWindow):
 
         # Produkt-Konfigurationen
         self.dataset_manager = ProductDatasetManager(self.settings)
+        self.dataset_manager.migrate_from_settings()
+
         
         # UI aufbauen
         self.ui = MainUI(self)
@@ -353,11 +355,7 @@ class DetectionApp(QMainWindow):
             if class_colors:
                 self.detection_engine.set_class_colors_quietly(class_colors)
                 logging.info(f"Klassen-Farben übernommen: {len(class_colors)} Klassen")
-        else:
-            # Fallback auf alte Struktur
-            class_colors = self.settings.get('class_colors', {})
-            if class_colors:
-                self.detection_engine.set_class_colors_quietly(class_colors)
+
 
     def auto_load_on_startup(self):
         """Auto-Loading beim Start."""
@@ -365,7 +363,7 @@ class DetectionApp(QMainWindow):
             # Produktkonfiguration laden
             last_ds = self.settings.get('last_dataset', '')
             if last_ds:
-                self.dataset_manager.load_dataset(last_ds)
+                self.dataset_manager.load_dataset_with_backup(last_ds)
 
             # Letztes Modell laden
             last_model = self.settings.get('last_model', '')

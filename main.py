@@ -531,7 +531,7 @@ class DetectionApp(QMainWindow):
                     QPushButton {
                         background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0,
                                                 stop: 0 #3498db, stop: 1 #2980b9);
-                        font-size: 18px;
+                        font-size: 24px;
                         font-weight: bold;
                         min-height: 45px;
                         padding: 15px 25px;
@@ -606,10 +606,10 @@ class DetectionApp(QMainWindow):
         self.ui.start_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27ae60;
-                font-size: 16px;
+                font-size: 24px;
                 font-weight: bold;
                 min-height: 45px;
-                padding: 15px 25px
+                padding: 15px 25px;
                 border-radius: 4px;
                 color: white;
             }

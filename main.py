@@ -67,6 +67,7 @@ class DetectionApp(QMainWindow):
         # Produkt-Konfigurationen
         self.dataset_manager = ProductDatasetManager(self.settings)
         self.dataset_manager.migrate_from_settings()
+
         
         # UI aufbauen
         self.ui = MainUI(self)

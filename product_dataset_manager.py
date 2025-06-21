@@ -169,4 +169,3 @@ class ProductDatasetManager:
             except Exception as exc:  # noqa: broad-except
                 logging.error(f"Backup {backup} ungueltig: {exc}")
         return False
-

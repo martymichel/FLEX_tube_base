@@ -15,6 +15,7 @@ from PyQt6.QtGui import QFont, QKeySequence, QShortcut
 from detection_engine import DetectionEngine
 from camera_manager import CameraManager
 from motion_manager import MotionManager
+from product_dataset_manager import ProductDatasetManager
 
 from camera_config_manager import CameraConfigManager
 from settings import Settings
@@ -56,12 +57,16 @@ class DetectionApp(QMainWindow):
         
         # MODBUS-Manager
         self.modbus_manager = ModbusManager(self.settings)
-        
+
         # Image-Saver
         self.image_saver = ImageSaver(self.settings)
-        
+
         # Parquet Detection Logger
         self.detection_logger = DetectionLogger(self.settings)
+
+        # Produkt-Konfigurationen
+        self.dataset_manager = ProductDatasetManager(self.settings)
+        self.dataset_manager.migrate_from_settings()
         
         # UI aufbauen
         self.ui = MainUI(self)
@@ -349,15 +354,16 @@ class DetectionApp(QMainWindow):
             if class_colors:
                 self.detection_engine.set_class_colors_quietly(class_colors)
                 logging.info(f"Klassen-Farben übernommen: {len(class_colors)} Klassen")
-        else:
-            # Fallback auf alte Struktur
-            class_colors = self.settings.get('class_colors', {})
-            if class_colors:
-                self.detection_engine.set_class_colors_quietly(class_colors)
+
 
     def auto_load_on_startup(self):
         """Auto-Loading beim Start."""
         try:
+            # Produktkonfiguration laden
+            last_ds = self.settings.get('last_dataset', '')
+            if last_ds:
+                self.dataset_manager.load_dataset_with_backup(last_ds)
+
             # Letztes Modell laden
             last_model = self.settings.get('last_model', '')
             if last_model and os.path.exists(last_model):
@@ -418,8 +424,7 @@ class DetectionApp(QMainWindow):
     def setup_connections(self):
         """Signale verbinden."""
         self.ui.start_btn.clicked.connect(self.toggle_detection)
-        self.ui.model_btn.clicked.connect(self.load_model)  # Falls noch vorhanden
-        self.ui.camera_btn.clicked.connect(self.select_camera)  # Falls noch vorhanden
+        self.ui.config_btn.clicked.connect(self.open_product_config)
         self.ui.settings_btn.clicked.connect(self.open_settings)
         # ENTFERNT: self.ui.snapshot_btn.clicked.connect(self.take_snapshot)
         self.ui.login_status_btn.clicked.connect(self.toggle_login)
@@ -1049,8 +1054,17 @@ class DetectionApp(QMainWindow):
         if not self.user_manager.can_access_settings():
             self.ui.show_status("Admin-Login erforderlich", "error")
             return
-            
+
         self.ui.open_settings_dialog(self.settings)
+
+    def open_product_config(self):
+        """Dialog zur Verwaltung der Produktkonfigurationen."""
+        if not self.user_manager.can_change_model():
+            self.ui.show_status("Admin-Login erforderlich", "error")
+            return
+        from ui.product_config_dialog import ProductConfigDialog
+        dialog = ProductConfigDialog(self.dataset_manager, self.ui)
+        dialog.exec()
 
     def take_snapshot(self):
         """Schnappschuss."""

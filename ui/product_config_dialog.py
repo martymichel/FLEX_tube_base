@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 import logging
+import os
 
 from product_dataset_manager import ProductDatasetManager
 
@@ -73,11 +74,45 @@ class ProductConfigDialog(QDialog):
         name = self.current_dataset_name()
         if not name:
             return
-        if self.dataset_manager.load_dataset(name):
-            QMessageBox.information(self, "Erfolg", f"Datensatz {name} geladen")
-            self.accept()
-        else:
+        if not self.dataset_manager.load_dataset_with_backup(name):
             QMessageBox.critical(self, "Fehler", f"Datensatz {name} konnte nicht geladen werden")
+            return
+
+        # Modell laden
+        model_path = self.dataset_manager.settings.get('last_model', '')
+        if hasattr(self.parent_app, 'detection_engine') and model_path:
+            if not os.path.exists(model_path):
+                QMessageBox.warning(self, "Modell fehlt", "Modelldatei nicht gefunden. Bitte neu wählen")
+                model_path = self.parent_app.select_model_file()
+            if model_path and self.parent_app.detection_engine.load_model(model_path):
+                self.parent_app.apply_class_settings_to_engine()
+                self.parent_app.ui.update_model_status(model_path)
+                self.dataset_manager.settings.set('last_model', model_path)
+            else:
+                QMessageBox.critical(self, "Fehler", "Modell konnte nicht geladen werden")
+
+        # Quelle laden
+        source = self.dataset_manager.settings.get('last_source')
+        if hasattr(self.parent_app, 'camera_manager') and source is not None:
+            if not self.parent_app.camera_manager.set_source(source):
+                QMessageBox.warning(self, "Quelle fehlt", "Kamera/Video nicht gefunden. Bitte neu wählen")
+                source = self.parent_app.select_camera_source()
+                if source is None or not self.parent_app.camera_manager.set_source(source):
+                    QMessageBox.critical(self, "Fehler", "Quelle konnte nicht gesetzt werden")
+                    source = None
+            if source is not None:
+                if isinstance(source, int):
+                    self.parent_app.ui.update_camera_status(source, 'webcam')
+                elif isinstance(source, str):
+                    self.parent_app.ui.update_camera_status(source, 'video')
+                elif isinstance(source, tuple):
+                    self.parent_app.ui.update_camera_status(source[1], 'ids')
+                self.dataset_manager.settings.set('last_source', source)
+                self.dataset_manager.settings.set('last_mode_was_video', isinstance(source, str))
+
+        self.dataset_manager.settings.save()
+        QMessageBox.information(self, "Erfolg", f"Datensatz {name} geladen")
+        self.accept()
 
     def save_dataset(self):
         name, ok = QInputDialog.getText(self, "Speichern", "Name des Datensatzes:")
@@ -115,11 +150,25 @@ class ProductConfigDialog(QDialog):
     def choose_model(self):
         if hasattr(self.parent_app, 'select_model_file'):
             model = self.parent_app.select_model_file()
-            if model:
+            if model and self.parent_app.detection_engine.load_model(model):
+                self.parent_app.apply_class_settings_to_engine()
+                self.parent_app.ui.update_model_status(model)
+                self.dataset_manager.settings.set('last_model', model)
+                self.dataset_manager.settings.save()
                 logging.info(f"Neues Modell gewählt: {model}")
 
     def choose_mode(self):
         if hasattr(self.parent_app, 'select_camera_source'):
             source = self.parent_app.select_camera_source()
-            if source is not None:
+            if source is not None and self.parent_app.camera_manager.set_source(source):
+                if isinstance(source, int):
+                    self.parent_app.ui.update_camera_status(source, 'webcam')
+                elif isinstance(source, str):
+                    self.parent_app.ui.update_camera_status(source, 'video')
+                elif isinstance(source, tuple):
+                    self.parent_app.ui.update_camera_status(source[1], 'ids')
+                self.dataset_manager.settings.set('last_source', source)
+                self.dataset_manager.settings.set('last_mode_was_video', isinstance(source, str))
+                self.dataset_manager.settings.save()
                 logging.info(f"Neue Quelle gewählt: {source}")
+

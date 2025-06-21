@@ -66,6 +66,7 @@ class DetectionApp(QMainWindow):
 
         # Produkt-Konfigurationen
         self.dataset_manager = ProductDatasetManager(self.settings)
+        self.dataset_manager.migrate_from_settings()
         
         # UI aufbauen
         self.ui = MainUI(self)
@@ -365,7 +366,7 @@ class DetectionApp(QMainWindow):
             # Produktkonfiguration laden
             last_ds = self.settings.get('last_dataset', '')
             if last_ds:
-                self.dataset_manager.load_dataset(last_ds)
+                self.dataset_manager.load_dataset_with_backup(last_ds)
 
             # Letztes Modell laden
             last_model = self.settings.get('last_model', '')

@@ -6,7 +6,6 @@ from PyQt6.QtCore import Qt
 import logging
 import os
 
-
 from product_dataset_manager import ProductDatasetManager
 
 class ProductConfigDialog(QDialog):
@@ -84,7 +83,7 @@ class ProductConfigDialog(QDialog):
         if hasattr(self.parent_app, 'detection_engine') and model_path:
             if not os.path.exists(model_path):
                 QMessageBox.warning(self, "Modell fehlt", "Modelldatei nicht gefunden. Bitte neu wählen")
-                model_path = self.parent_app.select_model_file()
+                model_path = self.parent_app.ui.select_model_file()
             if model_path and self.parent_app.detection_engine.load_model(model_path):
                 self.parent_app.apply_class_settings_to_engine()
                 self.parent_app.ui.update_model_status(model_path)
@@ -97,7 +96,7 @@ class ProductConfigDialog(QDialog):
         if hasattr(self.parent_app, 'camera_manager') and source is not None:
             if not self.parent_app.camera_manager.set_source(source):
                 QMessageBox.warning(self, "Quelle fehlt", "Kamera/Video nicht gefunden. Bitte neu wählen")
-                source = self.parent_app.select_camera_source()
+                source = self.parent_app.ui.select_camera_source()
                 if source is None or not self.parent_app.camera_manager.set_source(source):
                     QMessageBox.critical(self, "Fehler", "Quelle konnte nicht gesetzt werden")
                     source = None
@@ -149,8 +148,8 @@ class ProductConfigDialog(QDialog):
 
     # Model/Mode --------------------------------------------------------
     def choose_model(self):
-        if hasattr(self.parent_app, 'select_model_file'):
-            model = self.parent_app.select_model_file()
+        if hasattr(self.parent_app, 'ui'):
+            model = self.parent_app.ui.select_model_file()
             if model and self.parent_app.detection_engine.load_model(model):
                 self.parent_app.apply_class_settings_to_engine()
                 self.parent_app.ui.update_model_status(model)
@@ -159,8 +158,8 @@ class ProductConfigDialog(QDialog):
                 logging.info(f"Neues Modell gewählt: {model}")
 
     def choose_mode(self):
-        if hasattr(self.parent_app, 'select_camera_source'):
-            source = self.parent_app.select_camera_source()
+        if hasattr(self.parent_app, 'ui'):
+            source = self.parent_app.ui.select_camera_source()
             if source is not None and self.parent_app.camera_manager.set_source(source):
                 if isinstance(source, int):
                     self.parent_app.ui.update_camera_status(source, 'webcam')

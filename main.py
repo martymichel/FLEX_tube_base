@@ -67,7 +67,6 @@ class DetectionApp(QMainWindow):
         # Produkt-Konfigurationen
         self.dataset_manager = ProductDatasetManager(self.settings)
         self.dataset_manager.migrate_from_settings()
-
         
         # UI aufbauen
         self.ui = MainUI(self)
@@ -1064,7 +1063,7 @@ class DetectionApp(QMainWindow):
             self.ui.show_status("Admin-Login erforderlich", "error")
             return
         from ui.product_config_dialog import ProductConfigDialog
-        dialog = ProductConfigDialog(self.dataset_manager, self.ui)
+        dialog = ProductConfigDialog(self.dataset_manager, self)
         dialog.exec()
 
     def take_snapshot(self):

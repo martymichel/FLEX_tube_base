@@ -37,7 +37,12 @@ class ProductDatasetManager:
         return self.datasets_dir / f"{name}.json"
 
     def list_datasets(self) -> List[str]:
-        return [p.stem for p in self.datasets_dir.glob("*.json")]
+        datasets = []
+        for p in self.datasets_dir.glob("*.json"):
+            if "_v1_" in p.stem:
+                continue
+            datasets.append(p.stem)
+        return datasets
 
     # ------------------------------------------------------------------
     # Validation
@@ -147,6 +152,7 @@ class ProductDatasetManager:
             return
         logging.info(f"Migration: speichere aktuelle Einstellungen als Datensatz {last_ds}")
         self.save_dataset(last_ds)
+
 
     def load_dataset_with_backup(self, name: str) -> bool:
         """Versuche Datensatz zu laden, nutze Backup bei Fehlern."""

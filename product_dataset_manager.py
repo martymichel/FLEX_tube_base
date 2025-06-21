@@ -25,8 +25,6 @@ class ProductDatasetManager:
             'detection_active_coil_address',
             'reject_coil_duration_seconds',
             'class_colors',
-            'last_mode_was_video',
-            'last_source',
             'last_dataset',
         }
 
@@ -152,7 +150,6 @@ class ProductDatasetManager:
             return
         logging.info(f"Migration: speichere aktuelle Einstellungen als Datensatz {last_ds}")
         self.save_dataset(last_ds)
-
 
     def load_dataset_with_backup(self, name: str) -> bool:
         """Versuche Datensatz zu laden, nutze Backup bei Fehlern."""

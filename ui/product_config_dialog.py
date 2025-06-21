@@ -7,6 +7,7 @@ import logging
 import os
 
 from product_dataset_manager import ProductDatasetManager
+from motion_manager import MotionManager
 
 class ProductConfigDialog(QDialog):
     """Dialog zur Verwaltung von Produktkonfigurationen."""
@@ -109,6 +110,17 @@ class ProductConfigDialog(QDialog):
                     self.parent_app.ui.update_camera_status(source[1], 'ids')
                 self.dataset_manager.settings.set('last_source', source)
                 self.dataset_manager.settings.set('last_mode_was_video', isinstance(source, str))
+        # Motion-Manager neu erstellen, damit Kalibrierungsdaten wirksam werden
+        if hasattr(self.parent_app, 'motion_manager'):
+            self.parent_app.motion_manager = MotionManager(
+                self.dataset_manager.settings,
+                self.parent_app.ui.update_motion,
+                self.parent_app.ui.update_motion_status,
+            )
+
+        # Referenzlinien sofort aktualisieren
+        if hasattr(self.parent_app, 'ui'):
+            self.parent_app.ui.update_reference_lines()
 
         self.dataset_manager.settings.save()
         QMessageBox.information(self, "Erfolg", f"Datensatz {name} geladen")

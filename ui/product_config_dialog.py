@@ -189,4 +189,3 @@ class ProductConfigDialog(QDialog):
                 self.dataset_manager.settings.set('last_mode_was_video', isinstance(source, str))
                 self.dataset_manager.settings.save()
                 logging.info(f"Neue Quelle gewählt: {source}")
-

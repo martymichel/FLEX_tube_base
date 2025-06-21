@@ -355,7 +355,6 @@ class DetectionApp(QMainWindow):
                 self.detection_engine.set_class_colors_quietly(class_colors)
                 logging.info(f"Klassen-Farben übernommen: {len(class_colors)} Klassen")
 
-
     def auto_load_on_startup(self):
         """Auto-Loading beim Start."""
         try:
@@ -397,8 +396,6 @@ class DetectionApp(QMainWindow):
                         if self.camera_manager.set_source(last_source):
                             self.ui.update_camera_status(last_source, 'video')
                 elif not last_mode_was_video and isinstance(last_source, int):
-                    if self.camera_manager.set_source(last_source):
-                        self.ui.update_camera_status(last_source, 'webcam')
                 elif (
                     not last_mode_was_video
                     and isinstance(last_source, (list, tuple))

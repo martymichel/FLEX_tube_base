@@ -887,11 +887,10 @@ class MainUI(QWidget):
     # STATUS-BUTTON UPDATE-METHODEN
     # =============================================================================
     
-    def update_model_status(self, model_path):
-        """Rueckwaerts-Kompatibilitaet: aktualisiert Config-Button."""
-        if model_path and os.path.exists(model_path):
-            model_name = os.path.basename(model_path)
-            self.config_btn.setText(f"Konfiguration: {model_name}")
+    def update_dataset_status(self, dataset_name):
+        """Anzeige des geladenen Datensatzes aktualisieren."""
+        if dataset_name:
+            self.config_btn.setText(f"Konfiguration: {dataset_name}")
             self.config_btn.setStyleSheet(UIStyles.get_model_button_active_style())
         else:
             self.config_btn.setText("Konfiguration laden")
@@ -916,9 +915,6 @@ class MainUI(QWidget):
             "PyTorch Modelle (*.pt);;Alle Dateien (*)"
         )
         
-        if file_path:
-            self.update_model_status(file_path)
-            
         return file_path
     
     def select_camera_source(self):

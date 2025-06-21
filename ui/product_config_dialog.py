@@ -60,6 +60,10 @@ class ProductConfigDialog(QDialog):
         self.model_btn.clicked.connect(self.choose_model)
         self.mode_btn.clicked.connect(self.choose_mode)
 
+        # Laden nur erlauben, wenn Erkennung gestoppt
+        if getattr(self.parent_app, 'running', False):
+            self.load_btn.setEnabled(False)
+
     # ------------------------------------------------------------------
     def load_datasets(self):
         self.dataset_list.clear()
@@ -75,6 +79,9 @@ class ProductConfigDialog(QDialog):
         name = self.current_dataset_name()
         if not name:
             return
+        if getattr(self.parent_app, 'running', False):
+            QMessageBox.warning(self, "Detektion aktiv", "Bitte stoppen Sie zuerst die Detektion")
+            return
         if not self.dataset_manager.load_dataset_with_backup(name):
             QMessageBox.critical(self, "Fehler", f"Datensatz {name} konnte nicht geladen werden")
             return
@@ -87,7 +94,6 @@ class ProductConfigDialog(QDialog):
                 model_path = self.parent_app.ui.select_model_file()
             if model_path and self.parent_app.detection_engine.load_model(model_path):
                 self.parent_app.apply_class_settings_to_engine()
-                self.parent_app.ui.update_model_status(model_path)
                 self.dataset_manager.settings.set('last_model', model_path)
             else:
                 QMessageBox.critical(self, "Fehler", "Modell konnte nicht geladen werden")
@@ -121,6 +127,7 @@ class ProductConfigDialog(QDialog):
         # Referenzlinien sofort aktualisieren
         if hasattr(self.parent_app, 'ui'):
             self.parent_app.ui.update_reference_lines()
+            self.parent_app.ui.update_dataset_status(name)
 
         self.dataset_manager.settings.save()
         QMessageBox.information(self, "Erfolg", f"Datensatz {name} geladen")
@@ -164,7 +171,6 @@ class ProductConfigDialog(QDialog):
             model = self.parent_app.ui.select_model_file()
             if model and self.parent_app.detection_engine.load_model(model):
                 self.parent_app.apply_class_settings_to_engine()
-                self.parent_app.ui.update_model_status(model)
                 self.dataset_manager.settings.set('last_model', model)
                 self.dataset_manager.settings.save()
                 logging.info(f"Neues Modell gewählt: {model}")

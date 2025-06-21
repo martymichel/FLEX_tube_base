@@ -355,14 +355,14 @@ class DetectionApp(QMainWindow):
                 self.detection_engine.set_class_colors_quietly(class_colors)
                 logging.info(f"Klassen-Farben übernommen: {len(class_colors)} Klassen")
 
-
     def auto_load_on_startup(self):
         """Auto-Loading beim Start."""
         try:
             # Produktkonfiguration laden
             last_ds = self.settings.get('last_dataset', '')
             if last_ds:
-                self.dataset_manager.load_dataset_with_backup(last_ds)
+                if self.dataset_manager.load_dataset_with_backup(last_ds):
+                    self.ui.update_dataset_status(last_ds)
 
             # Letztes Modell laden
             last_model = self.settings.get('last_model', '')
@@ -371,7 +371,6 @@ class DetectionApp(QMainWindow):
                     # NEUE STRUKTUR: class_assignments verwenden
                     self.apply_class_settings_to_engine()
                     
-                    self.ui.update_model_status(last_model)
                     
                     # Log Model Auto-Loading
                     self.detection_logger.log_system_event('MODEL_AUTO_LOADED', 'SUCCESS', 
@@ -397,8 +396,6 @@ class DetectionApp(QMainWindow):
                         if self.camera_manager.set_source(last_source):
                             self.ui.update_camera_status(last_source, 'video')
                 elif not last_mode_was_video and isinstance(last_source, int):
-                    if self.camera_manager.set_source(last_source):
-                        self.ui.update_camera_status(last_source, 'webcam')
                 elif (
                     not last_mode_was_video
                     and isinstance(last_source, (list, tuple))
@@ -1006,7 +1003,6 @@ class DetectionApp(QMainWindow):
                 self.apply_class_settings_to_engine()
                 
                 self.ui.show_status(f"Modell geladen", "success")
-                self.ui.update_model_status(model_path)
                 self.settings.set('last_model', model_path)
                 self.settings.save()
                 

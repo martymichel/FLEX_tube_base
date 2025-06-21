@@ -153,6 +153,7 @@ class ProductDatasetManager:
         logging.info(f"Migration: speichere aktuelle Einstellungen als Datensatz {last_ds}")
         self.save_dataset(last_ds)
 
+
     def load_dataset_with_backup(self, name: str) -> bool:
         """Versuche Datensatz zu laden, nutze Backup bei Fehlern."""
         if self.load_dataset(name):
@@ -174,4 +175,3 @@ class ProductDatasetManager:
             except Exception as exc:  # noqa: broad-except
                 logging.error(f"Backup {backup} ungueltig: {exc}")
         return False
-

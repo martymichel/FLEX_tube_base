@@ -25,8 +25,6 @@ class ProductDatasetManager:
             'detection_active_coil_address',
             'reject_coil_duration_seconds',
             'class_colors',
-            # Quelle und Modus sind produktspezifisch und werden daher
-            # nicht mehr als globale Einstellungen behandelt
             'last_dataset',
         }
 
@@ -174,4 +172,3 @@ class ProductDatasetManager:
             except Exception as exc:  # noqa: broad-except
                 logging.error(f"Backup {backup} ungueltig: {exc}")
         return False
-
